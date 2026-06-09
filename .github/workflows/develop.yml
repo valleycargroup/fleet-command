@@ -68,22 +68,22 @@ jobs:
                   cat > .env <<\"ENV\"
                   NODE_ENV=development
 
-                  DB_USER=${{ secrets.FLEET_DEV_DB_USER }}
-                  DB_PASSWORD=${{ secrets.FLEET_DEV_DB_PASSWORD }}
-                  DB_NAME=${{ secrets.FLEET_DEV_DB_NAME }}
-                  DB_HOST=${{ secrets.FLEET_DEV_DB_HOST }}
+                  DB_USER="${{ secrets.FLEET_DEV_DB_USER }}"
+                  DB_PASSWORD="${{ secrets.FLEET_DEV_DB_PASSWORD }}"
+                  DB_NAME="${{ secrets.FLEET_DEV_DB_NAME }}"
+                  DB_HOST="${{ secrets.FLEET_DEV_DB_HOST }}"
                   DB_PORT=5432
-                  DATABASE_URL=postgresql://${{ secrets.FLEET_DEV_DB_USER }}:${{ secrets.FLEET_DEV_DB_PASSWORD }}@${{ secrets.FLEET_DEV_DB_HOST }}:5432/${{ secrets.FLEET_DEV_DB_NAME }}
+                  DATABASE_URL="postgresql://${{ secrets.FLEET_DEV_DB_USER }}:${{ secrets.FLEET_DEV_DB_PASSWORD }}@${{ secrets.FLEET_DEV_DB_HOST }}:5432/${{ secrets.FLEET_DEV_DB_NAME }}"
 
                   SERVER_PORT=5001
                   CLIENT_PORT=8080
-                  APP_URL=${{ secrets.FLEET_DEV_APP_URL }}
+                  APP_URL="${{ secrets.FLEET_DEV_APP_URL }}"
 
-                  VITE_API_BASE_URL=${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}
-                  VITE_APP_URL=${{ secrets.FLEET_DEV_APP_URL }}
+                  VITE_API_BASE_URL="${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}"
+                  VITE_APP_URL="${{ secrets.FLEET_DEV_APP_URL }}"
 
-                  RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-                  FROM_EMAIL=${{ secrets.FLEET_FROM_EMAIL }}
+                  RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"
+                  FROM_EMAIL="${{ secrets.FLEET_FROM_EMAIL }}"
 
                   ENV
                   '"
