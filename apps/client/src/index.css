@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 13%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 217 91% 50%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 13%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 13%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 91%;
+    --input: 0 0% 91%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+    --sidebar: 225 20% 12%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 225 30% 18%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 225 20% 20%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  /* Fleet Command dark theme — matches the existing index.html palette */
+  .dark, :root {
+    --background: 240 18% 8%;
+    --foreground: 220 14% 80%;
+    --card: 240 18% 11%;
+    --card-foreground: 220 14% 90%;
+    --popover: 240 18% 11%;
+    --popover-foreground: 220 14% 90%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 15% 18%;
+    --secondary-foreground: 220 14% 80%;
+    --muted: 240 15% 18%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 240 15% 18%;
+    --accent-foreground: 220 14% 90%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 12% 18%;
+    --input: 240 12% 18%;
+    --ring: 217 91% 60%;
+    --sidebar: 240 18% 9%;
+    --sidebar-foreground: 220 14% 80%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 15% 14%;
+    --sidebar-accent-foreground: 220 14% 80%;
+    --sidebar-border: 240 12% 18%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0D0D1A; color: #C9CDD3; font-family: 'DM Sans', system-ui, sans-serif; }
+}

@@ -1,0 +1,24 @@
+import { Router } from 'express';
+import authRouter from './auth';
+import usersRouter from './users';
+import vehiclesRouter from './vehicles';
+import vendorsRouter from './vendors';
+import auctionsRouter from './auctions';
+import partsRouter from './parts';
+import emailLogRouter from './email-log';
+import reportsRouter from './reports';
+import uploadsRouter from './uploads';
+
+const router = Router();
+
+router.use('/auth', authRouter);
+router.use('/users', usersRouter);
+router.use('/vehicles', vehiclesRouter);
+router.use('/vendors', vendorsRouter);
+router.use('/auctions', auctionsRouter);
+router.use('/parts', partsRouter);
+router.use('/email-log', emailLogRouter);
+router.use('/reports', reportsRouter);
+router.use('/uploads', uploadsRouter);
+
+export default router;

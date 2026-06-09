@@ -1,0 +1,2725 @@
+import { useState, useMemo, useRef, useEffect } from 'react';
+import React from 'react';
+
+const WORKER = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const LOCATIONS = ["PHX", "Dallas"];
+const BROKERS = ["Mike R.", "Sarah T.", "James W.", "Carlos M.", "Dana P.", "Tony L."];
+const SOURCES = ["Manheim Phoenix", "ADESA Dallas", "Copart", "IAAI", "OVE", "ACV Auctions", "Private Seller", "Trade-In"];
+const ARB_SOURCES = ["Manheim","ACV","Openlane","Copart","ADESA","OVE","IAAI"];
+const COLORS = ["White", "Black", "Silver", "Gray", "Red", "Blue", "Green", "Brown", "Gold", "Orange", "Beige"];
+const DEALERS = ["AutoMax Dealers", "Premier Motors", "Lone Star Auto Group", "Desert Sun Cars", "Valley Auto Sales", "Southwest Wholesale", "Prestige Motors LLC", "Fast Lane Auto", "Cactus Auto Group", "DFW Motor Co"];
+const VCAT = [
+{ key: "detail", label: "Detail", icon: "🧽" }, { key: "touchup", label: "Touch Up", icon: "🖌️" },
+{ key: "bodyshop", label: "Body Shop", icon: "🔧" }, { key: "pdr", label: "PDR", icon: "🔨" },
+{ key: "tires", label: "Tires", icon: "🛞" }, { key: "wheels", label: "Wheels", icon: "⚙️" },
+{ key: "interior", label: "Interior", icon: "💺" }, { key: "mechanical", label: "Mechanical", icon: "🏎️" },
+{ key: "windshield", label: "Windshield", icon: "🪟" }, { key: "electronics", label: "Radio/Screens/Moonroofs", icon: "📻" }, { key: "oemdealer", label: "OEM Dealer", icon: "🏭" }, { key: "blackwidow", label: "Black Widow Pics", icon: "📸" }, { key: "cr", label: "Condition Report", icon: "📋" }, { key: "auction", label: "Send to Auction", icon: "🔨" }, { key: "parts", label: "Parts", icon: "📦" },
+];
+const VENDORS = {};
+
+VCAT.forEach((c, i) => { VENDORS[c.key] = c.key==="electronics"?[
+{ id: `va${i}`, name: "AZ Auto Electronics PHX", email: "info@azautoelec.com", phone: "602-555-0190" },
+{ id: `vb${i}`, name: "DFW Car Audio & Tech", email: "info@dfwcaraudio.com", phone: "214-555-0190" },
+]:c.key==="cr"?[
+{ id: `va${i}`, name: "CR Writer PHX", email: "cr@vcg.com", phone: "602-555-0230" },
+{ id: `vb${i}`, name: "CR Writer DFW", email: "crdfw@vcg.com", phone: "214-555-0230" },
+]:c.key==="blackwidow"?[
+{ id: `va${i}`, name: "Black Widow Photo PHX", email: "photos@blackwidow.com", phone: "602-555-0210" },
+{ id: `vb${i}`, name: "Black Widow Photo DFW", email: "dfw@blackwidow.com", phone: "214-555-0210" },
+]:c.key==="auction"?[
+{ id: `va${i}`, name: "Auction Dept", email: "auction@vcg.com", phone: "602-555-0220" },
+]:c.key==="oemdealer"?[
+{ id: `va${i}`, name: "Larry H Miller Toyota PHX", email: "service@lhmtoyota.com", phone: "602-555-0200" },
+{ id: `vb${i}`, name: "AutoNation Ford Dallas", email: "service@anford.com", phone: "214-555-0200" },
+{ id: `vc${i}`, name: "Earnhardt Honda PHX", email: "service@earnhonda.com", phone: "480-555-0200" },
+]:[
+{ id: `va${i}`, name: `${c.label} Pro PHX`, email: `phx@${c.key}.com`, phone: "602-555-01" + String(i).padStart(2, "0") },
+{ id: `vb${i}`, name: `${c.label} Pro DFW`, email: `dfw@${c.key}.com`, phone: "214-555-01" + String(i).padStart(2, "0") },
+]; });
+const MAKES = [
+{ make: "Toyota", model: "Camry", trims: ["LE", "SE", "XLE"] }, { make: "Honda", model: "Accord", trims: ["LX", "Sport", "EX-L"] },
+{ make: "Ford", model: "F-150", trims: ["XL", "XLT", "Lariat", "Platinum"] }, { make: "Chevrolet", model: "Silverado", trims: ["WT", "LT", "High Country"] },
+{ make: "Hyundai", model: "Tucson", trims: ["SE", "SEL", "Limited"] }, ];
+const genVIN = () => "ABCDEFGHJKLMNPRSTUVWXYZ0123456789".split("").sort(() => Math.random() - 0.5).slice(0, 8).join("");
+const fmtDate = (d) => d ? d.slice(5,7)+"/"+d.slice(8,10)+"/"+d.slice(2,4) : "—";
+const smartDate = (val) => {
+  if(!val) return "";
+  const clean = val.replace(/[^0-9/]/g,"");
+  const parts = clean.split("/");
+  if(parts.length === 2) {
+    const m = parseInt(parts[0]), d = parseInt(parts[1]);
+    if(m>=1&&m<=12&&d>=1&&d<=31) {
+      const now = new Date();
+      let y = now.getFullYear();
+      const candidate = new Date(y, m-1, d);
+      if(candidate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) y++;
+      return y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+    }
+  }
+  return val;
+};
+function genVehicles() {
+const v = [];
+const now="2026-03-20";
+const rt0={};VCAT.forEach(cat=>{rt0[cat.key]={needed:false,status:"na"};});
+const mkRt=()=>JSON.parse(JSON.stringify(rt0));
+
+// V0: SOLD not shipped - top priority
+const rt1=mkRt();
+rt1.detail={needed:true,status:"complete",dateCompleted:"2026-03-14",dateAssigned:"2026-03-10",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:350,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt1.touchup={needed:true,status:"complete",dateCompleted:"2026-03-16",dateAssigned:"2026-03-11",vendors:[{id:"va1",name:"Touch Up Pro PHX",selected:true,estimate:450,bidLocked:true,lineItems:[{id:"wt2",desc:"Front Bumper",price:250,accepted:true,costType:"ws"},{id:"wt3",desc:"Rear Quarter",price:200,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
+v.push({id:"v0",vin8:genVIN(),purchaseDate:"2026-03-05",buyingBroker:"Darren",sellingBroker:"Mike",source:"Auction",year:2024,make:"Toyota",model:"Camry",trim:"SE",miles:12500,color:"White",location:"PHX",status:"sold",soldDate:"2026-03-18",soldTo:"Premier Motors",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-08",cost:650,delivered:true,dateDelivered:"2026-03-09",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:true,destination:"Premier Motors",eta:"2026-03-22",readyDate:"2026-03-19",cost:800,company:"National Auto Shipping",phone:"800-555-9999",email:"ship@national.com"}},reconTasks:rt1,deliveredDate:null,kickedHistory:[]});
+
+// V1: SOLD retail delivery - shipped
+const rt2=mkRt();
+rt2.detail={needed:true,status:"complete",dateCompleted:"2026-03-12",dateAssigned:"2026-03-08",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:300,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:300,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
+v.push({id:"v1",vin8:genVIN(),purchaseDate:"2026-03-02",buyingBroker:"Darren",sellingBroker:"Darren",source:"Fleet/Lease",year:2023,make:"Honda",model:"Accord",trim:"Sport",miles:28400,color:"Black",location:"PHX",status:"sold",soldDate:"2026-03-15",soldTo:"John Smith (Retail)",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-05",cost:500,delivered:true,dateDelivered:"2026-03-06",company:"AZ Auto Transport",phone:"602-555-2222",email:"az@auto.com"},outbound:{set:true,isRetail:true,shippingFrom:"PHX",destination:"John Smith",customerName:"John Smith",customerPhone:"480-555-8888",customerEmail:"john@email.com",deliveryAddress:"1234 Main St, Scottsdale AZ 85251",cost:600,customerCharge:900,eta:"2026-03-23",readyDate:"2026-03-18",shipped:true,shippedDate:"2026-03-19",pickedUp:true,datePickedUp:"2026-03-19",company:"Express Auto Ship",phone:"800-555-7777",email:"express@ship.com"}},reconTasks:rt2,deliveredDate:null,kickedHistory:[]});
+
+// V2: Ready to ship - all recon done
+const rt3=mkRt();
+rt3.bodyshop={needed:true,status:"complete",dateCompleted:"2026-03-17",dateAssigned:"2026-03-10",dateStarted:"2026-03-12",vendors:[{id:"va2",name:"Body Shop Pro PHX",selected:true,estimate:1200,bidLocked:true,lineItems:[{id:"wt1",desc:"Front Bumper Replace",price:800,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-11",partOrdered:true,partOrderedDate:"2026-03-11",partArrived:true,partArrivedDate:"2026-03-14",partInstalled:true,partInstalledDate:"2026-03-16"},{id:"wt2",desc:"Blend Paint",price:400,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt3.tires={needed:true,status:"complete",dateCompleted:"2026-03-15",dateAssigned:"2026-03-10",vendors:[{id:"va4",name:"Tires Pro PHX",selected:true,estimate:600,bidLocked:true,lineItems:[{id:"wt1",desc:"4 New Tires",price:600,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+v.push({id:"v2",vin8:genVIN(),purchaseDate:"2026-03-03",buyingBroker:"Mike",sellingBroker:"",source:"Rental",year:2024,make:"Ford",model:"F-150",trim:"XLT",miles:8900,color:"Silver",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-06",cost:450,delivered:true,dateDelivered:"2026-03-07",company:"Southwest Haul",phone:"602-555-3333",email:"sw@haul.com"},outbound:{set:false}},reconTasks:rt3,deliveredDate:null,kickedHistory:[],buyerApprovedShip:true,buyerApprovedDate:"2026-03-18"});
+
+// V3: Recon in progress - vendor working
+const rt4=mkRt();
+rt4.detail={needed:true,status:"started",dateAssigned:"2026-03-12",dateStarted:"2026-03-14",dateApproved:"2026-03-13",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:400,bidLocked:true,etaDone:"2026-03-21",lineItems:[{id:"wt1",desc:"Full Detail",price:250,accepted:true,costType:"ws"},{id:"wt2",desc:"Engine Bay",price:150,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt4.touchup={needed:true,status:"started",dateAssigned:"2026-03-12",dateStarted:"2026-03-15",dateApproved:"2026-03-14",vendors:[{id:"va1",name:"Touch Up Pro PHX",selected:true,estimate:500,bidLocked:true,lineItems:[{id:"wt1",desc:"Hood Respray",price:300,accepted:true,costType:"ws"},{id:"wt2",desc:"Door Ding",price:200,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
+rt4.windshield={needed:true,status:"complete",dateCompleted:"2026-03-13",dateAssigned:"2026-03-10",vendors:[{id:"va8",name:"Windshield Pro PHX",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Replace Windshield",price:350,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+v.push({id:"v3",vin8:genVIN(),purchaseDate:"2026-03-06",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2022,make:"Chevrolet",model:"Silverado",trim:"LT",miles:45200,color:"Red",location:"Dallas",status:"in_recon",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-09",cost:700,delivered:true,dateDelivered:"2026-03-10",company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"},outbound:{set:false}},reconTasks:rt4,deliveredDate:null,kickedHistory:[]});
+
+// V4: Recon not started - bid accepted waiting
+const rt5=mkRt();
+rt5.bodyshop={needed:true,status:"approved",dateAssigned:"2026-03-15",dateApproved:"2026-03-17",vendors:[{id:"va2",name:"Body Shop Pro PHX",selected:true,estimate:900,bidLocked:true,lineItems:[{id:"wt1",desc:"Rear Bumper",price:500,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-17",partOrdered:true,partOrderedDate:"2026-03-17"},{id:"wt2",desc:"Paint Match",price:400,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt5.interior={needed:true,status:"approved",dateAssigned:"2026-03-15",dateApproved:"2026-03-17",vendors:[{id:"va6",name:"Interior Pro PHX",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Seat Repair",price:200,accepted:true,costType:"ws"},{id:"wt2",desc:"Carpet Dye",price:150,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
+v.push({id:"v4",vin8:genVIN(),purchaseDate:"2026-03-08",buyingBroker:"Mike",sellingBroker:"",source:"Dealer",year:2023,make:"BMW",model:"3 Series",trim:"330i",miles:19800,color:"Gray",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-11",cost:550,delivered:true,dateDelivered:"2026-03-12",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:false}},reconTasks:rt5,deliveredDate:null,kickedHistory:[]});
+
+// V5: Assigned waiting on bid
+const rt6=mkRt();
+rt6.mechanical={needed:true,status:"assigned",dateAssigned:"2026-03-18",vendors:[{id:"va7",name:"Mechanical Pro PHX",estimate:null,bidLocked:false,lineItems:[],vendorPhotos:[]}],workTasks:[{id:"wt1",desc:"Full Inspection",isPart:false}]};
+rt6.pdr={needed:true,status:"assigned",dateAssigned:"2026-03-18",vendors:[{id:"va3",name:"PDR Pro PHX",estimate:null,bidLocked:false,lineItems:[],vendorPhotos:[]}],workTasks:[{id:"wt1",desc:"Door Dings x5",isPart:false}]};
+v.push({id:"v5",vin8:genVIN(),purchaseDate:"2026-03-10",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2024,make:"Jeep",model:"Grand Cherokee",trim:"Limited",miles:5600,color:"Blue",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-13",cost:400,delivered:true,dateDelivered:"2026-03-14",company:"AZ Auto Transport",phone:"602-555-2222",email:"az@auto.com"},outbound:{set:false}},reconTasks:rt6,deliveredDate:null,kickedHistory:[]});
+
+// V6: In transport inbound
+v.push({id:"v6",vin8:genVIN(),purchaseDate:"2026-03-15",buyingBroker:"Mike",sellingBroker:"",source:"Rental",year:2023,make:"RAM",model:"1500",trim:"Big Horn",miles:32100,color:"White",location:"Dallas",status:"in_recon",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-22",cost:900,company:"National Auto Shipping",phone:"800-555-9999",email:"ship@national.com"},outbound:{set:false}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
+
+// V7: No recon needed - sold
+v.push({id:"v7",vin8:genVIN(),purchaseDate:"2026-03-12",buyingBroker:"Darren",sellingBroker:"Mike",source:"Fleet/Lease",year:2022,make:"Toyota",model:"Camry",trim:"XLE",miles:41000,color:"Black",location:"PHX",status:"sold",soldDate:"2026-03-17",soldTo:"AutoNation Dallas",noReconNeeded:true,noReconSetBy:"Darren",noReconSetDate:"2026-03-13",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-14",cost:350,delivered:true,dateDelivered:"2026-03-14",company:"Southwest Haul",phone:"602-555-3333",email:"sw@haul.com"},outbound:{set:true,destination:"AutoNation Dallas",eta:"2026-03-24",readyDate:"2026-03-18",cost:750,company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
+
+// V8: Kicked and re-sold with parts
+const rt8=mkRt();
+rt8.mechanical={needed:true,status:"started",dateAssigned:"2026-03-16",dateStarted:"2026-03-17",dateApproved:"2026-03-16",vendors:[{id:"va7",name:"Mechanical Pro PHX",selected:true,estimate:800,bidLocked:true,lineItems:[{id:"wt1",desc:"AC Compressor",price:500,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-16",partOrdered:true,partOrderedDate:"2026-03-16",partArrived:true,partArrivedDate:"2026-03-19"},{id:"wt2",desc:"Labor",price:300,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+v.push({id:"v8",vin8:genVIN(),purchaseDate:"2026-03-01",buyingBroker:"Mike",sellingBroker:"Darren",source:"Auction",year:2024,make:"Ford",model:"F-150",trim:"Lariat",miles:3200,color:"Silver",location:"PHX",status:"sold",soldDate:"2026-03-19",soldTo:"Carvana PHX",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-04",cost:500,delivered:true,dateDelivered:"2026-03-05",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:false}},reconTasks:rt8,deliveredDate:null,kickedHistory:[{dealer:"Larry H Miller",soldDate:"2026-03-10",kickedDate:"2026-03-14",sellingBroker:"Darren",reason:"Failed inspection - AC not working"}]});
+
+// V9: Driveway buy in transit
+v.push({id:"v9",vin8:genVIN(),purchaseDate:"2026-03-16",buyingBroker:"Darren",sellingBroker:"",source:"Driveway",year:2023,make:"Honda",model:"Accord",trim:"EX-L",miles:22700,color:"Gold",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",drivewayDest:"PHX",driverwayClearDate:"2026-03-17",drivewayEta:"2026-03-19",drivewayPickedUp:true,drivewayPickedUpDate:"2026-03-19",dwCompany:"DW Transport Co",dwPhone:"480-555-1111",dwEmail:"dw@transport.com",delivered:false},outbound:{set:false}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
+
+// V10: Parts in multiple stages
+const rt10=mkRt();
+rt10.bodyshop={needed:true,status:"started",dateAssigned:"2026-03-10",dateStarted:"2026-03-13",dateApproved:"2026-03-12",vendors:[{id:"va2",name:"Body Shop Pro PHX",selected:true,estimate:2200,bidLocked:true,lineItems:[{id:"wt1",desc:"Hood",price:600,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-12",partOrdered:true,partOrderedDate:"2026-03-12",partArrived:true,partArrivedDate:"2026-03-16",partInstalled:true,partInstalledDate:"2026-03-18"},{id:"wt2",desc:"Front Bumper",price:800,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-12",partOrdered:true,partOrderedDate:"2026-03-12",partArrived:true,partArrivedDate:"2026-03-18"},{id:"wt3",desc:"Tail Gate",price:500,accepted:true,costType:"retail",isPart:true,partApproved:true,partApprovedDate:"2026-03-12",partOrdered:true,partOrderedDate:"2026-03-13"},{id:"wt4",desc:"Paint All",price:300,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt10.electronics={needed:true,status:"assigned",dateAssigned:"2026-03-18",vendors:[{id:"va9",name:"AZ Auto Electronics PHX",estimate:null,bidLocked:false,lineItems:[],vendorPhotos:[]}],workTasks:[{id:"wt1",desc:"Replace Radio Unit",isPart:true},{id:"wt2",desc:"Fix Moonroof Motor",isPart:true}]};
+v.push({id:"v10",vin8:genVIN(),purchaseDate:"2026-03-04",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2022,make:"Chevrolet",model:"Silverado",trim:"High Country",miles:51300,color:"White",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-07",cost:600,delivered:true,dateDelivered:"2026-03-08",company:"AZ Auto Transport",phone:"602-555-2222",email:"az@auto.com"},outbound:{set:false}},reconTasks:rt10,deliveredDate:null,kickedHistory:[]});
+
+// V11: Delivered complete
+const rt11=mkRt();
+rt11.detail={needed:true,status:"complete",dateCompleted:"2026-03-08",dateAssigned:"2026-03-03",vendors:[{id:"vb0",name:"Detail Pro DFW",selected:true,estimate:300,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:300,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+v.push({id:"v11",vin8:genVIN(),purchaseDate:"2026-02-25",buyingBroker:"Mike",sellingBroker:"Darren",source:"Rental",year:2024,make:"BMW",model:"3 Series",trim:"M340i",miles:7400,color:"Black",location:"Dallas",status:"delivered",soldDate:"2026-03-10",soldTo:"Park Place Dallas",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-01",cost:400,delivered:true,dateDelivered:"2026-03-02",company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"},outbound:{set:true,destination:"Park Place Dallas",eta:"2026-03-14",readyDate:"2026-03-11",pickedUp:true,datePickedUp:"2026-03-12",delivered:true,dateDelivered:"2026-03-14",cost:350,company:"DFW Auto Move",phone:"214-555-5555",email:"dfw@move.com"}},reconTasks:rt11,deliveredDate:"2026-03-14",kickedHistory:[]});
+
+// V12: Dallas - multiple recon in various stages
+const rt12=mkRt();
+rt12.detail={needed:true,status:"complete",dateCompleted:"2026-03-16",dateAssigned:"2026-03-12",vendors:[{id:"vb0",name:"Detail Pro DFW",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:350,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt12.wheels={needed:true,status:"started",dateAssigned:"2026-03-14",dateStarted:"2026-03-16",dateApproved:"2026-03-15",vendors:[{id:"vb5",name:"Wheels Pro DFW",selected:true,estimate:450,bidLocked:true,lineItems:[{id:"wt1",desc:"Refinish 4 Wheels",price:450,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+rt12.tires={needed:true,status:"approved",dateAssigned:"2026-03-14",dateApproved:"2026-03-16",vendors:[{id:"vb4",name:"Tires Pro DFW",selected:true,estimate:700,bidLocked:true,lineItems:[{id:"wt1",desc:"4 New Tires",price:700,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
+v.push({id:"v12",vin8:genVIN(),purchaseDate:"2026-03-07",buyingBroker:"Mike",sellingBroker:"",source:"Dealer",year:2023,make:"Jeep",model:"Grand Cherokee",trim:"Laredo",miles:29600,color:"Green",location:"Dallas",status:"in_recon",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-10",cost:300,delivered:true,dateDelivered:"2026-03-11",company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"},outbound:{set:false}},reconTasks:rt12,deliveredDate:null,kickedHistory:[]});
+
+// V13: Fresh buy in transport
+v.push({id:"v13",vin8:genVIN(),purchaseDate:"2026-03-19",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2024,make:"RAM",model:"1500",trim:"Laramie",miles:4100,color:"Gray",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-24",cost:550,company:"National Auto Shipping",phone:"800-555-9999",email:"ship@national.com"},outbound:{set:false}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
+
+// V14: Retail sold with driveway delivery
+const rt14=mkRt();
+rt14.detail={needed:true,status:"complete",dateCompleted:"2026-03-14",dateAssigned:"2026-03-10",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:400,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:400,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
+rt14.touchup={needed:true,status:"complete",dateCompleted:"2026-03-15",dateAssigned:"2026-03-10",vendors:[{id:"va1",name:"Touch Up Pro PHX",selected:true,estimate:300,bidLocked:true,lineItems:[{id:"wt1",desc:"Bumper Touch Up",price:300,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
+v.push({id:"v14",vin8:genVIN(),purchaseDate:"2026-03-03",buyingBroker:"Darren",sellingBroker:"Darren",source:"Driveway",year:2023,make:"Toyota",model:"Camry",trim:"LE",miles:35800,color:"Blue",location:"PHX",status:"sold",soldDate:"2026-03-17",soldTo:"Sarah Johnson (Retail)",transport:{inbound:{set:true,destination:"PHX",drivewayDest:"PHX",driverwayClearDate:"2026-03-04",drivewayEta:"2026-03-05",drivewayPickedUp:true,drivewayPickedUpDate:"2026-03-05",dwCompany:"Quick Tow",dwPhone:"480-555-3333",dwEmail:"quick@tow.com",delivered:true,dateDelivered:"2026-03-06"},outbound:{set:true,isRetail:true,shippingFrom:"PHX",destination:"Sarah Johnson",customerName:"Sarah Johnson",customerPhone:"602-555-6666",customerEmail:"sarah@email.com",deliveryAddress:"5678 Elm St, Tempe AZ 85281",cost:400,customerCharge:650,readyDate:"2026-03-18",eta:"2026-03-21"}},reconTasks:rt14,deliveredDate:null,kickedHistory:[]});
+
+
+// V15-V24: Blank vehicles for testing
+const blanks=[
+{y:2024,mk:"Toyota",md:"RAV4",tr:"XLE",mi:8500,cl:"White"},
+{y:2023,mk:"Ford",md:"Explorer",tr:"XLT",mi:22000,cl:"Black"},
+{y:2024,mk:"Honda",md:"CR-V",tr:"EX-L",mi:5200,cl:"Silver"},
+{y:2022,mk:"Chevrolet",md:"Tahoe",tr:"LT",mi:38000,cl:"Gray"},
+{y:2023,mk:"BMW",md:"X5",tr:"xDrive40i",mi:18500,cl:"Blue"},
+{y:2024,mk:"Jeep",md:"Wrangler",tr:"Sahara",mi:3800,cl:"Red"},
+{y:2023,mk:"RAM",md:"2500",tr:"Tradesman",mi:27000,cl:"White"},
+{y:2024,mk:"Toyota",md:"Tacoma",tr:"TRD Sport",mi:6100,cl:"Black"},
+{y:2022,mk:"Honda",md:"Pilot",tr:"Touring",mi:42000,cl:"Green"},
+{y:2024,mk:"Ford",md:"Bronco",tr:"Big Bend",mi:4500,cl:"Orange"},
+{y:2023,mk:"Nissan",md:"Pathfinder",tr:"SL",mi:19200,cl:"Gray"},
+{y:2024,mk:"Toyota",md:"Tundra",tr:"SR5",mi:3100,cl:"White"},
+{y:2022,mk:"Chevrolet",md:"Traverse",tr:"RS",mi:34500,cl:"Black"},
+{y:2023,mk:"Ford",md:"Maverick",tr:"XLT",mi:15800,cl:"Blue"},
+{y:2024,mk:"Honda",md:"Civic",tr:"Sport",mi:4200,cl:"Red"},
+{y:2023,mk:"Hyundai",md:"Tucson",tr:"SEL",mi:21000,cl:"Silver"},
+{y:2022,mk:"Kia",md:"Telluride",tr:"SX",mi:29400,cl:"White"},
+{y:2024,mk:"Toyota",md:"4Runner",tr:"TRD Off-Road",mi:2800,cl:"Green"},
+{y:2023,mk:"GMC",md:"Sierra 1500",tr:"SLT",mi:16700,cl:"Black"},
+{y:2024,mk:"Chevrolet",md:"Equinox",tr:"LT",mi:5900,cl:"Gray"},
+{y:2022,mk:"Ford",md:"Mustang",tr:"GT",mi:18200,cl:"Red"},
+{y:2023,mk:"Tesla",md:"Model Y",tr:"Long Range",mi:12400,cl:"White"},
+{y:2024,mk:"RAM",md:"1500",tr:"Rebel",mi:3600,cl:"Orange"},
+{y:2023,mk:"Jeep",md:"Grand Cherokee L",tr:"Limited",mi:14800,cl:"Blue"},
+{y:2022,mk:"Toyota",md:"Highlander",tr:"XLE",mi:31200,cl:"Silver"},
+{y:2024,mk:"Honda",md:"HR-V",tr:"Sport",mi:6800,cl:"Black"},
+{y:2023,mk:"Ford",md:"Edge",tr:"SEL",mi:24100,cl:"Gray"},
+{y:2024,mk:"Chevrolet",md:"Colorado",tr:"Z71",mi:4400,cl:"White"},
+{y:2022,mk:"BMW",md:"X3",tr:"xDrive30i",mi:27600,cl:"Blue"},
+{y:2023,mk:"Nissan",md:"Frontier",tr:"PRO-4X",mi:11300,cl:"Red"},
+{y:2024,mk:"Lexus",md:"RX",tr:"350",mi:8900,cl:"White"},
+{y:2023,mk:"Audi",md:"Q5",tr:"Premium",mi:14200,cl:"Black"},
+{y:2022,mk:"Mercedes",md:"GLC",tr:"300",mi:22400,cl:"Silver"},
+{y:2024,mk:"Subaru",md:"Outback",tr:"Limited",mi:5100,cl:"Blue"},
+{y:2023,mk:"Mazda",md:"CX-5",tr:"Turbo",mi:11800,cl:"Red"},
+{y:2024,mk:"VW",md:"Atlas",tr:"SE",mi:3200,cl:"Gray"},
+{y:2022,mk:"Acura",md:"MDX",tr:"Type S",mi:19600,cl:"White"},
+{y:2023,mk:"Lincoln",md:"Aviator",tr:"Reserve",mi:16300,cl:"Black"},
+{y:2024,mk:"Genesis",md:"GV70",tr:"3.5T",mi:4700,cl:"Green"},
+{y:2022,mk:"Cadillac",md:"Escalade",tr:"Premium",mi:28500,cl:"Black"},
+{y:2024,mk:"Rivian",md:"R1S",tr:"Adventure",mi:6200,cl:"Blue"},
+{y:2023,mk:"Porsche",md:"Cayenne",tr:"Base",mi:13400,cl:"White"},
+{y:2022,mk:"Land Rover",md:"Defender",tr:"110 SE",mi:24800,cl:"Gray"},
+{y:2024,mk:"Volvo",md:"XC90",tr:"Ultimate",mi:3900,cl:"Silver"},
+{y:2023,mk:"Infiniti",md:"QX60",tr:"Luxe",mi:17200,cl:"Red"},
+{y:2024,mk:"Buick",md:"Enclave",tr:"Avenir",mi:5600,cl:"White"},
+{y:2022,mk:"Dodge",md:"Durango",tr:"RT",mi:21300,cl:"Orange"},
+{y:2023,mk:"Chrysler",md:"Pacifica",tr:"Touring",mi:15800,cl:"Blue"},
+{y:2024,mk:"Mitsubishi",md:"Outlander",tr:"SEL",mi:4100,cl:"Black"},
+{y:2022,mk:"Jaguar",md:"F-PACE",tr:"P250",mi:26700,cl:"Gray"}
+];
+for(let i=0;i<blanks.length;i++){const c=blanks[i];const rt99=mkRt();
+v.push({id:"v"+(15+i),vin8:genVIN(),purchaseDate:i<16?"2026-03-"+String(15+i).padStart(2,"0"):"2026-04-"+String(i-15).padStart(2,"0"),buyingBroker:["Darren","Mike"][i%2],sellingBroker:"",source:SOURCES[i%SOURCES.length],year:c.y,make:c.mk,model:c.md,trim:c.tr,miles:c.mi,color:c.cl,location:LOCATIONS[i%2],status:"in_recon",transport:{inbound:{set:false},outbound:{set:false}},reconTasks:rt99,deliveredDate:null,kickedHistory:[]});}
+// 15 PRE-GROUNDED vehicles for testing
+const groundedCars=[
+{y:2024,mk:"Toyota",md:"Supra",tr:"3.0",mi:2100,cl:"Yellow",dealer:"Southwest Auto Group"},
+{y:2023,mk:"Ford",md:"Raptor",tr:"37",mi:8700,cl:"Blue",dealer:"Camelback Ford"},
+{y:2024,mk:"Chevrolet",md:"Corvette",tr:"Stingray",mi:1200,cl:"Red",dealer:"Courtesy Chevrolet"},
+{y:2022,mk:"BMW",md:"M4",tr:"Competition",mi:15800,cl:"Black",dealer:"BMW North Scottsdale"},
+{y:2023,mk:"RAM",md:"TRX",tr:"6.2L",mi:9400,cl:"White",dealer:"Larry H Miller RAM"},
+{y:2024,mk:"Jeep",md:"Wagoneer",tr:"Series III",mi:3200,cl:"Gray",dealer:"AutoNation Dallas"},
+{y:2023,mk:"Tesla",md:"Model 3",tr:"Performance",mi:11600,cl:"White",dealer:"Premier Motors"},
+{y:2024,mk:"Honda",md:"Type R",tr:"FL5",mi:1800,cl:"Blue",dealer:"Bell Honda"},
+{y:2022,mk:"Audi",md:"RS6",tr:"Avant",mi:19200,cl:"Gray",dealer:"Audi Scottsdale"},
+{y:2023,mk:"Mercedes",md:"AMG GT",tr:"53",mi:7500,cl:"Silver",dealer:"Park Place Dallas"},
+{y:2024,mk:"Lexus",md:"LC",tr:"500",mi:2900,cl:"White",dealer:"Earnhardt Lexus"},
+{y:2023,mk:"Porsche",md:"911",tr:"Carrera S",mi:6100,cl:"Black",dealer:"Porsche Chandler"},
+{y:2024,mk:"Ford",md:"Lightning",tr:"Lariat",mi:4200,cl:"Blue",dealer:"Sanderson Ford"},
+{y:2022,mk:"Chevrolet",md:"Camaro",tr:"ZL1",mi:13400,cl:"Orange",dealer:"Van Chevrolet"},
+{y:2023,mk:"Dodge",md:"Charger",tr:"Scat Pack",mi:8800,cl:"Red",dealer:"Carvana PHX"},
+{y:2024,mk:"Toyota",md:"GR86",tr:"Premium",mi:1800,cl:"Blue",dealer:"Peoria Toyota"},
+{y:2023,mk:"Ford",md:"Bronco Sport",tr:"Badlands",mi:9200,cl:"Green",dealer:"Bill Luke Ford"},
+{y:2022,mk:"Chevrolet",md:"Tahoe",tr:"Z71",mi:22100,cl:"Black",dealer:"Courtesy Chevy"},
+{y:2024,mk:"Honda",md:"Accord",tr:"Sport",mi:3400,cl:"White",dealer:"Tempe Honda"},
+{y:2023,mk:"Hyundai",md:"Palisade",tr:"Calligraphy",mi:11500,cl:"Gray",dealer:"Chapman Hyundai"},
+{y:2024,mk:"Kia",md:"EV6",tr:"GT-Line",mi:4800,cl:"Red",dealer:"Mark Kia"},
+{y:2022,mk:"GMC",md:"Yukon",tr:"Denali",mi:19800,cl:"White",dealer:"Larry H Miller GMC"},
+{y:2023,mk:"Nissan",md:"Z",tr:"Performance",mi:7600,cl:"Yellow",dealer:"Pinnacle Nissan"},
+{y:2024,mk:"Subaru",md:"WRX",tr:"Limited",mi:2900,cl:"Blue",dealer:"Subaru Scottsdale"},
+{y:2022,mk:"Lexus",md:"GX",tr:"460",mi:24300,cl:"Silver",dealer:"Earnhardt Lexus"},
+{y:2023,mk:"Acura",md:"Integra",tr:"A-Spec",mi:10200,cl:"Red",dealer:"Acura North Scottsdale"},
+{y:2024,mk:"Mazda",md:"MX-5",tr:"Grand Touring",mi:1500,cl:"White",dealer:"Chapman Mazda"},
+{y:2022,mk:"Volvo",md:"XC60",tr:"T6",mi:21800,cl:"Black",dealer:"Volvo Scottsdale"},
+{y:2023,mk:"Lincoln",md:"Nautilus",tr:"Reserve",mi:13600,cl:"Gray",dealer:"Chapman Lincoln"},
+{y:2024,mk:"Genesis",md:"G70",tr:"3.3T",mi:5100,cl:"Blue",dealer:"Genesis Scottsdale"}
+];
+for(let g=0;g<groundedCars.length;g++){const gc=groundedCars[g];const grt=mkRt();const gid="vg"+g;const now="2026-04-08";
+v.push({id:gid,vin8:genVIN(),purchaseDate:"2026-04-0"+((g%9)+1),buyingBroker:["Darren","Mike","Darren"][g%3],sellingBroker:"",source:SOURCES[g%SOURCES.length],year:gc.y,make:gc.mk,model:gc.md,trim:gc.tr,miles:gc.mi,color:gc.cl,location:g%2===0?"PHX":"Dallas",status:"sold",soldDate:now,soldTo:gc.dealer,transport:{inbound:{set:true,destination:g%2===0?"PHX":"Dallas",eta:"2026-04-06",cost:450+g*50,delivered:true,dateDelivered:"2026-04-07",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:false}},reconTasks:grt,deliveredDate:null,kickedHistory:[]});}
+// 15 FRESH grounded vehicles - no recon assigned
+const freshCars=[
+{y:2024,mk:"Toyota",md:"Camry",tr:"XSE",mi:1200,cl:"Pearl White",dealer:"Big Two Toyota"},
+{y:2023,mk:"Ford",md:"Explorer",tr:"ST",mi:14500,cl:"Rapid Red",dealer:"Larry H Miller Ford"},
+{y:2024,mk:"Chevrolet",md:"Suburban",tr:"RST",mi:3800,cl:"Black",dealer:"Earnhardt Chevy"},
+{y:2022,mk:"Honda",md:"Odyssey",tr:"Elite",mi:22100,cl:"Silver",dealer:"Autonation Honda"},
+{y:2023,mk:"RAM",md:"2500",tr:"Laramie",mi:11200,cl:"White",dealer:"Rodeo RAM"},
+{y:2024,mk:"BMW",md:"X5",tr:"xDrive40i",mi:2400,cl:"Mineral White",dealer:"BMW Chandler"},
+{y:2023,mk:"Tesla",md:"Model X",tr:"Plaid",mi:8900,cl:"Red",dealer:"Tesla Direct"},
+{y:2024,mk:"Jeep",md:"Gladiator",tr:"Rubicon",mi:1600,cl:"Sarge Green",dealer:"Airpark Jeep"},
+{y:2022,mk:"Audi",md:"Q7",tr:"Premium Plus",mi:19800,cl:"Navarra Blue",dealer:"Audi Phoenix"},
+{y:2023,mk:"GMC",md:"Canyon",tr:"AT4X",mi:7200,cl:"Summit White",dealer:"Earnhardt Buick GMC"},
+{y:2024,mk:"Hyundai",md:"Santa Cruz",tr:"Limited",mi:2100,cl:"Sage Gray",dealer:"Chapman Hyundai"},
+{y:2023,mk:"Lexus",md:"TX",tr:"500h",mi:5400,cl:"Eminent White",dealer:"Lexus of Chandler"},
+{y:2024,mk:"Ford",md:"Ranger",tr:"Raptor",mi:900,cl:"Code Orange",dealer:"Sanderson Ford"},
+{y:2022,mk:"Mercedes",md:"GLE",tr:"450",mi:18700,cl:"Obsidian Black",dealer:"Mercedes Scottsdale"},
+{y:2023,mk:"Rivian",md:"R1T",tr:"Adventure",mi:6300,cl:"Limestone",dealer:"Rivian Direct"}
+];
+for(let f=0;f<freshCars.length;f++){const fc=freshCars[f];const frt=mkRt();const fid="vf"+f;
+v.push({id:fid,vin8:genVIN(),purchaseDate:"2026-04-"+String(10+f).padStart(2,"0"),buyingBroker:["Darren","Mike"][f%2],sellingBroker:"",source:SOURCES[f%SOURCES.length],year:fc.y,make:fc.mk,model:fc.md,trim:fc.tr,miles:fc.mi,color:fc.cl,location:f%2===0?"PHX":"Dallas",status:"sold",soldDate:"2026-04-12",soldTo:fc.dealer,transport:{inbound:{set:true,destination:f%2===0?"PHX":"Dallas",eta:"2026-04-10",cost:500+f*25,delivered:true,dateDelivered:"2026-04-11",company:"Southwest Auto Haul",phone:"602-555-8888",email:"sw@autohaul.com"},outbound:{set:false}},reconTasks:frt,deliveredDate:null,kickedHistory:[]});}
+return v;
+}
+const stColor=(s)=>({complete:{bg:"#0D3B1E",text:"#34D399",bd:"#166534"},started:{bg:"#3B2F10",text:"#FBBF24",bd:"#78590A"},approved:{bg:"#1A2940",text:"#60A5FA",bd:"#1E3A5F"},estimated:{bg:"#3B2F10",text:"#FBBF24",bd:"#78590A"},assigned:{bg:"#3B3510",text:"#EAB308",bd:"#6B5F0A"},unassigned:{bg:"#3B1515",text:"#F87171",bd:"#7F1D1D"},declined:{bg:"#3B1515",text:"#FCA5A5",bd:"#7F1D1D"},na:{bg:"#1A1A2E",text:"#555",bd:"#2A2A3E"}}[s]||{bg:"#1A1A2E",text:"#888",bd:"#333"});
+const stLabel=(s)=>({complete:"DONE",started:"IN PROGRESS",approved:"APPROVED",bid_submitted:"BID SUBMITTED",estimated:"ESTIMATE IN",assigned:"ASSIGNED",unassigned:"NEEDS ASSIGN",declined:"VENDOR DECLINED",na:"N/A"}[s]||"—");
+const vData=(veh)=>{const c=(x)=>{if(!x)return"";const s=String(x).trim();return s.toLowerCase()==="null"||s.toLowerCase()==="undefined"?"":s;};return {id:veh.id,vin8:veh.vin8,year:veh.year,make:veh.make,model:veh.model,trim:veh.trim,miles:veh.miles,color:veh.color,location:veh.location,soldTo:c(veh.soldTo),soldDate:c(veh.soldDate),buyingBroker:c(veh.buyingBroker),sellingBroker:c(veh.sellingBroker)};};
+
+// ============ LANDING PAGE COMPONENT ============
+function LandingPage({onLogin}){
+const [showLogin,setShowLogin]=useState(false);
+const [showForgot,setShowForgot]=useState(false);
+const [showChangePw,setShowChangePw]=useState(false);
+const [showReset,setShowReset]=useState(false);
+const [resetToken,setResetToken]=useState("");
+const [resetPw,setResetPw]=useState("");const [resetConfirm,setResetConfirm]=useState("");const [resetErr,setResetErr]=useState("");const [resetDone,setResetDone]=useState(false);
+const [showLoginPw,setShowLoginPw]=useState(false);
+const [showNewPw,setShowNewPw]=useState(false);const [showConfirmPw,setShowConfirmPw]=useState(false);
+const [showResetPw,setShowResetPw]=useState(false);const [showResetConfirm,setShowResetConfirm]=useState(false);
+const [email,setEmail]=useState("");const [pw,setPw]=useState("");const [loginErr,setLoginErr]=useState("");
+const [newPw,setNewPw]=useState("");const [confirmPw,setConfirmPw]=useState("");const [pwErr,setPwErr]=useState("");
+const [forgotEmail,setForgotEmail]=useState("");const [forgotSent,setForgotSent]=useState(false);
+const [pendingToken,setPendingToken]=useState(null);const [pendingUser,setPendingUser]=useState(null);
+const [loading,setLoading]=useState(false);
+
+// Detect ?reset=TOKEN URL param on mount → show reset password form
+useEffect(()=>{
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const tk=params.get("reset");
+    if(tk){setResetToken(tk);setShowReset(true);}
+  }catch(e){}
+},[]);
+
+const doResetPw=async()=>{
+  if(resetPw.length<8){setResetErr("Password must be at least 8 characters");return;}
+  if(!/[A-Z]/.test(resetPw)){setResetErr("Needs an uppercase letter");return;}
+  if(!/[0-9]/.test(resetPw)){setResetErr("Needs a number");return;}
+  if(resetPw!==resetConfirm){setResetErr("Passwords don't match");return;}
+  setLoading(true);setResetErr("");
+  try{
+    const r=await fetch(WORKER+"/api/auth/reset-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:resetToken,new_password:resetPw})});
+    const d=await r.json();
+    if(!r.ok||d.error){setResetErr(d.error||"Reset failed — link may be expired");setLoading(false);return;}
+    // Strip ?reset= from URL
+    window.history.replaceState({},document.title,window.location.pathname);
+    setResetDone(true);
+  }catch(e){setResetErr("Network error — check connection");}
+  setLoading(false);
+};
+
+const doLogin=async()=>{
+  if(!email||!pw){setLoginErr("Enter email and password");return;}
+  setLoading(true);setLoginErr("");
+  try{
+    const r=await fetch(WORKER+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pw})});
+    const d=await r.json();
+    if(!r.ok){setLoginErr(d.error||"Login failed");setLoading(false);return;}
+    setPendingToken(d.token);setPendingUser(d.user);
+    if(d.user.must_change_password){setShowChangePw(true);setShowLogin(false);setLoading(false);return;}
+    localStorage.setItem("fc_token",d.token);localStorage.setItem("fc_user",JSON.stringify(d.user));
+    onLogin(d.user,d.token);
+  }catch(e){setLoginErr("Network error — check connection");setLoading(false);}
+  setLoading(false);
+};
+
+const doChangePw=async()=>{
+  if(newPw.length<8){setPwErr("At least 8 characters");return;}
+  if(!/[A-Z]/.test(newPw)){setPwErr("Needs an uppercase letter");return;}
+  if(!/[0-9]/.test(newPw)){setPwErr("Needs a number");return;}
+  if(newPw!==confirmPw){setPwErr("Passwords don't match");return;}
+  setLoading(true);setPwErr("");
+  try{
+    const r=await fetch(WORKER+"/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+pendingToken},body:JSON.stringify({new_password:newPw})});
+    if(!r.ok){const d=await r.json();setPwErr(d.error||"Failed");setLoading(false);return;}
+    localStorage.setItem("fc_token",pendingToken);localStorage.setItem("fc_user",JSON.stringify(pendingUser));
+    onLogin(pendingUser,pendingToken);
+  }catch(e){setPwErr("Network error");}
+  setLoading(false);
+};
+
+const doForgot=async()=>{
+  if(!forgotEmail){return;}
+  try{await fetch(WORKER+"/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:forgotEmail})});}catch(e){}
+  setForgotSent(true);
+};
+
+const LS={overlay:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20},
+card:{maxWidth:360,width:"100%",background:"#12121E",borderRadius:12,border:"1px solid #2A2A3E",padding:24},
+title:{fontSize:16,fontWeight:600,color:"#FFF",textAlign:"center",marginBottom:4},
+sub:{fontSize:12,color:"#6B7280",textAlign:"center",marginBottom:16},
+label:{fontSize:11,color:"#9CA3AF",marginBottom:3,display:"block"},
+input:{width:"100%",padding:"9px 12px",background:"#0D0D1A",border:"1px solid #2A2A3E",borderRadius:8,color:"#FFF",fontSize:13,marginBottom:10,outline:"none",boxSizing:"border-box"},
+btn:{width:"100%",padding:10,background:"#3B82F6",color:"#FFF",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8},
+link:{display:"block",textAlign:"center",fontSize:12,color:"#6B7280",cursor:"pointer",marginTop:6},
+err:{fontSize:11,color:"#F87171",textAlign:"center",marginBottom:10,padding:"6px 10px",background:"#3B1515",borderRadius:4,border:"1px solid #7F1D1D"}};
+
+// LOGIN OVERLAY
+if(showLogin&&!showChangePw)return <div style={LS.overlay}><div style={LS.card}>
+  <div style={LS.title}>Sign in to Fleet Command</div><div style={LS.sub}>Enter your credentials</div>
+  {loginErr&&<div style={LS.err}>{loginErr}</div>}
+  <label style={LS.label}>Email</label><input style={LS.input} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="darren@valleycargroup.com" onKeyDown={e=>{if(e.key==="Enter")doLogin();}}/>
+  <label style={LS.label}>Password</label>
+  <div style={{position:"relative",marginBottom:10}}><input style={{...LS.input,marginBottom:0,paddingRight:36}} type={showLoginPw?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} placeholder="Enter password" onKeyDown={e=>{if(e.key==="Enter")doLogin();}}/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",cursor:"pointer",color:"#6B7280",fontSize:14,userSelect:"none"}} onClick={()=>setShowLoginPw(!showLoginPw)}>{showLoginPw?"🙈":"👁"}</span></div>
+  <button style={LS.btn} onClick={doLogin} disabled={loading}>{loading?"Signing in...":"Sign in"}</button>
+  <span style={LS.link} onClick={()=>{setShowLogin(false);setShowForgot(true);}}>Forgot password?</span>
+  <span style={LS.link} onClick={()=>setShowLogin(false)}>Back</span>
+</div></div>;
+
+// CHANGE PASSWORD
+if(showChangePw)return <div style={LS.overlay}><div style={LS.card}>
+  <div style={{width:48,height:48,borderRadius:"50%",background:"rgba(52,211,153,0.15)",border:"1px solid rgba(52,211,153,0.3)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:20}}>🔒</div>
+  <div style={LS.title}>Set new password</div><div style={LS.sub}>Your first login requires a password change</div>
+  <div style={{fontSize:11,color:"#6B7280",lineHeight:1.6,marginBottom:12,padding:"8px 10px",background:"#0D0D1A",borderRadius:6}}>
+    <div style={{color:newPw.length>=8?"#34D399":"#4B5563"}}>{newPw.length>=8?"●":"○"} At least 8 characters</div>
+    <div style={{color:/[A-Z]/.test(newPw)?"#34D399":"#4B5563"}}>{/[A-Z]/.test(newPw)?"●":"○"} One uppercase letter</div>
+    <div style={{color:/[0-9]/.test(newPw)?"#34D399":"#4B5563"}}>{/[0-9]/.test(newPw)?"●":"○"} One number</div>
+  </div>
+  {pwErr&&<div style={LS.err}>{pwErr}</div>}
+  <label style={LS.label}>New password</label>
+  <div style={{position:"relative",marginBottom:10}}><input style={{...LS.input,marginBottom:0,paddingRight:36}} type={showNewPw?"text":"password"} value={newPw} onChange={e=>setNewPw(e.target.value)} placeholder="New password"/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",cursor:"pointer",color:"#6B7280",fontSize:14,userSelect:"none"}} onClick={()=>setShowNewPw(!showNewPw)}>{showNewPw?"🙈":"👁"}</span></div>
+  <label style={LS.label}>Confirm password</label>
+  <div style={{position:"relative",marginBottom:10}}><input style={{...LS.input,marginBottom:0,paddingRight:36}} type={showConfirmPw?"text":"password"} value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} placeholder="Confirm password" onKeyDown={e=>{if(e.key==="Enter")doChangePw();}}/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",cursor:"pointer",color:"#6B7280",fontSize:14,userSelect:"none"}} onClick={()=>setShowConfirmPw(!showConfirmPw)}>{showConfirmPw?"🙈":"👁"}</span></div>
+  <button style={LS.btn} onClick={doChangePw} disabled={loading}>{loading?"Setting...":"Set password & continue"}</button>
+</div></div>;
+
+// RESET PASSWORD (from email link with ?reset=TOKEN) — takes priority over everything else
+if(showReset)return <div style={LS.overlay}><div style={LS.card}>
+  {!resetDone?<><div style={{width:56,height:56,borderRadius:"50%",background:"rgba(52,211,153,0.15)",border:"1px solid rgba(52,211,153,0.4)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:24}}>🔒</div>
+  <div style={LS.title}>Set new password</div>
+  <div style={LS.sub}>Choose a strong password for your account</div>
+  <div style={{fontSize:11,color:"#6B7280",lineHeight:1.6,marginBottom:12,padding:"8px 10px",background:"#0D0D1A",borderRadius:6}}>
+    <div style={{color:resetPw.length>=8?"#34D399":"#4B5563"}}>{resetPw.length>=8?"●":"○"} At least 8 characters</div>
+    <div style={{color:/[A-Z]/.test(resetPw)?"#34D399":"#4B5563"}}>{/[A-Z]/.test(resetPw)?"●":"○"} One uppercase letter</div>
+    <div style={{color:/[0-9]/.test(resetPw)?"#34D399":"#4B5563"}}>{/[0-9]/.test(resetPw)?"●":"○"} One number</div>
+  </div>
+  {resetErr&&<div style={LS.err}>{resetErr}</div>}
+  <label style={LS.label}>New password</label>
+  <div style={{position:"relative",marginBottom:10}}><input style={{...LS.input,marginBottom:0,paddingRight:36}} type={showResetPw?"text":"password"} value={resetPw} onChange={e=>setResetPw(e.target.value)} placeholder="Enter new password"/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",cursor:"pointer",color:"#6B7280",fontSize:14,userSelect:"none"}} onClick={()=>setShowResetPw(!showResetPw)}>{showResetPw?"🙈":"👁"}</span></div>
+  <label style={LS.label}>Confirm password</label>
+  <div style={{position:"relative",marginBottom:10}}><input style={{...LS.input,marginBottom:0,paddingRight:36}} type={showResetConfirm?"text":"password"} value={resetConfirm} onChange={e=>setResetConfirm(e.target.value)} placeholder="Re-enter password" onKeyDown={e=>{if(e.key==="Enter")doResetPw();}}/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",cursor:"pointer",color:"#6B7280",fontSize:14,userSelect:"none"}} onClick={()=>setShowResetConfirm(!showResetConfirm)}>{showResetConfirm?"🙈":"👁"}</span></div>
+  <button style={{...LS.btn,background:"#166534"}} onClick={doResetPw} disabled={loading}>{loading?"Updating...":"Update password"}</button>
+  <span style={LS.link} onClick={()=>{setShowReset(false);window.history.replaceState({},document.title,window.location.pathname);}}>Cancel and return to sign in</span>
+  </>:<><div style={{width:56,height:56,borderRadius:"50%",background:"rgba(52,211,153,0.15)",border:"1px solid rgba(52,211,153,0.4)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px",fontSize:28}}>✅</div>
+  <div style={{...LS.title,color:"#34D399"}}>Password updated</div>
+  <div style={LS.sub}>You can now sign in with your new password</div>
+  <button style={LS.btn} onClick={()=>{setShowReset(false);setResetDone(false);setResetPw("");setResetConfirm("");setShowLogin(true);}}>Continue to sign in</button>
+  </>}
+</div></div>;
+
+// FORGOT PASSWORD
+if(showForgot)return <div style={LS.overlay}><div style={LS.card}>
+  <div style={LS.title}>{forgotSent?"Check your email":"Reset password"}</div>
+  <div style={LS.sub}>{forgotSent?"If that email exists, a reset link was sent.":"Enter your email and we'll send a reset link"}</div>
+  {!forgotSent&&<><label style={LS.label}>Email</label><input style={LS.input} type="email" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)} placeholder="darren@valleycargroup.com"/>
+  <button style={LS.btn} onClick={doForgot}>Send reset link</button></>}
+  {forgotSent&&<button style={LS.btn} onClick={()=>{setShowForgot(false);setShowLogin(true);setForgotSent(false);}}>Back to sign in</button>}
+  {!forgotSent&&<span style={LS.link} onClick={()=>{setShowForgot(false);setShowLogin(true);}}>Back to sign in</span>}
+</div></div>;
+
+// LANDING PAGE
+const HS={page:{background:"#0D0D1A",minHeight:"100vh",color:"#E5E7EB",fontFamily:"'Segoe UI',system-ui,sans-serif"},
+nav:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 28px",borderBottom:"1px solid rgba(255,255,255,0.06)"},
+logo:{fontSize:20,fontWeight:700,color:"#FFF"},logoSpan:{color:"#3B82F6"},
+navBtn:{fontSize:12,padding:"6px 16px",borderRadius:6,cursor:"pointer",fontWeight:600,border:"none"},
+section:{padding:"48px 28px",textAlign:"center"},
+heroTag:{display:"inline-block",fontSize:11,padding:"5px 14px",borderRadius:20,background:"rgba(59,130,246,0.1)",color:"#93C5FD",border:"1px solid rgba(59,130,246,0.2)",letterSpacing:0.5,marginBottom:16},
+h1:{fontSize:32,fontWeight:700,color:"#FFF",lineHeight:1.15,marginBottom:12,maxWidth:480,margin:"0 auto 12px"},
+heroP:{fontSize:14,color:"#9CA3AF",maxWidth:420,margin:"0 auto 28px",lineHeight:1.6},
+featGrid:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,maxWidth:520,margin:"0 auto",textAlign:"left"},
+feat:{padding:16,background:"#12121E",borderRadius:10,border:"1px solid #2A2A3E"},
+featTitle:{fontSize:13,fontWeight:600,color:"#FFF",marginBottom:4},
+featDesc:{fontSize:11,color:"#6B7280",lineHeight:1.5},
+spRow:{display:"flex",gap:24,justifyContent:"center",flexWrap:"wrap",marginBottom:20},
+spVal:{fontWeight:700,color:"#FFF",fontSize:16},
+divider:{border:"none",borderTop:"1px solid rgba(255,255,255,0.06)",margin:0},
+sTag:{fontSize:10,color:"#3B82F6",textTransform:"uppercase",letterSpacing:1.5,fontWeight:700,marginBottom:8},
+sH2:{fontSize:22,fontWeight:700,color:"#FFF",marginBottom:8},
+sP:{fontSize:13,color:"#6B7280",maxWidth:400,margin:"0 auto 28px",lineHeight:1.5},
+wfSteps:{display:"flex",gap:12,maxWidth:520,margin:"0 auto"},
+wfStep:{flex:1,padding:"14px 10px",background:"#12121E",borderRadius:10,border:"1px solid #2A2A3E",textAlign:"center"},
+wfNum:{fontSize:18,fontWeight:700,marginBottom:4},
+wfLabel:{fontSize:10,color:"#9CA3AF",lineHeight:1.4},
+ctaBox:{maxWidth:420,margin:"0 auto",padding:28,background:"#12121E",borderRadius:12,border:"1px solid #2A2A3E",textAlign:"center"},
+ctaH:{fontSize:20,fontWeight:700,color:"#FFF",marginBottom:6},
+ctaP:{fontSize:12,color:"#6B7280",marginBottom:16,lineHeight:1.5},
+footer:{padding:"20px 28px",borderTop:"1px solid rgba(255,255,255,0.06)",textAlign:"center",fontSize:11,color:"#4B5563"}};
+
+const dashPreview={maxWidth:520,margin:"0 auto",background:"#12121E",borderRadius:10,border:"1px solid #2A2A3E",overflow:"hidden"};
+
+return <div style={HS.page}>
+<div style={HS.nav}>
+  <div style={HS.logo}>Fleet<span style={HS.logoSpan}>Command</span></div>
+  <div style={{display:"flex",gap:12,alignItems:"center"}}>
+    <button style={{...HS.navBtn,background:"transparent",border:"1px solid #2A2A3E",color:"#FFF"}} onClick={()=>setShowLogin(true)}>Sign in</button>
+    <button style={{...HS.navBtn,background:"#3B82F6",color:"#FFF"}} onClick={()=>{const el=document.getElementById("fc-cta");if(el)el.scrollIntoView({behavior:"smooth"});}}>Request demo</button>
+  </div>
+</div>
+
+<div style={HS.section}>
+  <div style={HS.heroTag}>Built for high-volume dealer groups</div>
+  <div style={HS.h1}>Stop losing money on <span style={{color:"#3B82F6"}}>recon.</span> Start commanding it.</div>
+  <div style={HS.heroP}>Fleet Command gives your team real-time visibility into every vehicle, every vendor, and every dollar from purchase to delivery.</div>
+  <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:36}}>
+    <button style={{padding:"12px 28px",borderRadius:8,fontSize:14,fontWeight:600,cursor:"pointer",background:"#3B82F6",color:"#FFF",border:"none"}} onClick={()=>{const el=document.getElementById("fc-cta");if(el)el.scrollIntoView({behavior:"smooth"});}}>Request a demo</button>
+    <button style={{padding:"12px 28px",borderRadius:8,fontSize:14,fontWeight:600,cursor:"pointer",background:"transparent",color:"#FFF",border:"1px solid #2A2A3E"}} onClick={()=>setShowLogin(true)}>Sign in</button>
+  </div>
+  <div style={HS.spRow}>
+    <div style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:6}}><span style={HS.spVal}>700+</span> vehicles/month</div>
+    <div style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:6}}><span style={HS.spVal}>30-40hrs</span> saved weekly</div>
+    <div style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:6}}><span style={HS.spVal}>2</span> markets live</div>
+  </div>
+  <div style={dashPreview}>
+    <div style={{display:"flex",gap:4,padding:"8px 12px",background:"#0A0A14",borderBottom:"1px solid #2A2A3E"}}><div style={{width:8,height:8,borderRadius:"50%",background:"#EF4444"}}/><div style={{width:8,height:8,borderRadius:"50%",background:"#F59E0B"}}/><div style={{width:8,height:8,borderRadius:"50%",background:"#22C55E"}}/></div>
+    <div style={{padding:12}}>
+      <div style={{display:"flex",gap:8,marginBottom:6}}>
+        {[{v:"47",l:"In recon",c:"#3B82F6"},{v:"12",l:"Ready to ship",c:"#34D399"},{v:"8",l:"Bids waiting",c:"#FBBF24"},{v:"5",l:"Past due",c:"#F87171"}].map((s,i)=><div key={i} style={{flex:1,padding:8,background:"#0D0D1A",borderRadius:6,border:"1px solid #2A2A3E",textAlign:"center"}}><div style={{fontSize:14,fontWeight:700,color:s.c}}>{s.v}</div><div style={{fontSize:8,color:"#6B7280",textTransform:"uppercase"}}>{s.l}</div></div>)}
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr style={HS.divider}/>
+
+<div style={HS.section}>
+  <div style={HS.sTag}>Features</div>
+  <div style={HS.sH2}>Everything your recon operation needs</div>
+  <div style={HS.sP}>From the moment you buy a car to the moment it's delivered, Fleet Command tracks every step, every cost, every person.</div>
+  <div style={HS.featGrid}>
+    {[{t:"15 recon categories",d:"Body, paint, PDR, tires, mechanical, detail, and more."},{t:"Vendor bidding",d:"Assign multiple vendors. Compare bids. Accept the best price."},{t:"Transport tracking",d:"Inbound and outbound. ETA, carrier, cost."},{t:"24 email triggers",d:"Automated notifications. Only when action is needed."},{t:"Reports + export",d:"Recon costs, vendor performance, transport spend."},{t:"Role-based access",d:"Admin, buyer, seller, vendor, parts manager."}].map((f,i)=><div key={i} style={HS.feat}><div style={HS.featTitle}>{f.t}</div><div style={HS.featDesc}>{f.d}</div></div>)}
+  </div>
+</div>
+
+<hr style={HS.divider}/>
+
+<div style={HS.section}>
+  <div style={HS.sTag}>How it works</div>
+  <div style={HS.sH2}>Purchase to delivery in one platform</div>
+  <div style={HS.sP}>Every vehicle follows the same path. Fleet Command makes sure nothing falls through the cracks.</div>
+  <div style={HS.wfSteps}>
+    {[{n:"1",l:"Vehicle purchased & grounded",c:"#3B82F6"},{n:"2",l:"Vendors assigned, bids submitted",c:"#FBBF24"},{n:"3",l:"Recon complete, ready to ship",c:"#34D399"},{n:"4",l:"Transported & delivered",c:"#A78BFA"}].map((s,i)=><React.Fragment key={i}>{i>0&&<div style={{display:"flex",alignItems:"center",color:"#2A2A3E",fontSize:16}}>→</div>}<div style={HS.wfStep}><div style={{...HS.wfNum,color:s.c}}>{s.n}</div><div style={HS.wfLabel}>{s.l}</div></div></React.Fragment>)}
+  </div>
+</div>
+
+<hr style={HS.divider}/>
+
+<div style={HS.section} id="fc-cta">
+  <div style={HS.ctaBox}>
+    <div style={HS.ctaH}>Ready to take command?</div>
+    <div style={HS.ctaP}>See how Fleet Command can streamline your recon operation.</div>
+    <div style={{display:"flex",gap:8}}>
+      <input style={{flex:1,padding:"10px 12px",background:"#0D0D1A",border:"1px solid #2A2A3E",borderRadius:8,color:"#FFF",fontSize:13,outline:"none"}} type="email" placeholder="you@dealership.com"/>
+      <button style={{padding:"10px 20px",background:"#3B82F6",border:"none",borderRadius:8,color:"#FFF",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}} onClick={e=>{e.target.textContent="We'll be in touch!";e.target.style.background="#1D9E75";}}>Request demo</button>
+    </div>
+  </div>
+</div>
+
+<div style={HS.footer}>
+  <div style={{...HS.logo,marginBottom:8}}>Fleet<span style={HS.logoSpan}>Command</span></div>
+  Valley Car Group • Phoenix • Dallas • fleetcommandrecon.com<br/>
+  <span style={{color:"#3B82F6",cursor:"pointer"}} onClick={()=>setShowLogin(true)}>Team sign in</span>
+</div>
+</div>;
+}
+
+// ============ GLOBAL HELPERS — accessible to all components ============
+function tryParse(s,fallback){try{return typeof s==="string"?JSON.parse(s):s;}catch(e){return fallback;}}
+
+function App() {
+// ============ AUTH SYSTEM — API BASED ============
+const [allUsers,setAllUsers]=useState([]);
+const [currentUser,setCurrentUser]=useState(()=>{
+  try{const saved=localStorage.getItem("fc_user");if(saved)return JSON.parse(saved);}catch(e){}
+  return null;
+});
+const [authToken,setAuthToken]=useState(()=>localStorage.getItem("fc_token")||null);
+const handleLogin=(user,token)=>{setCurrentUser(user);setAuthToken(token);};
+const handleLogout=()=>{setCurrentUser(null);setAuthToken(null);localStorage.removeItem("fc_token");localStorage.removeItem("fc_user");};
+
+// ============ IDLE TIMEOUT — auto-logout after 4 hours of inactivity ============
+useEffect(()=>{
+  if(!currentUser)return;
+  const IDLE_MS=12*60*60*1000; // 12 hours
+  let idleTimer;
+  const resetIdle=()=>{
+    clearTimeout(idleTimer);
+    idleTimer=setTimeout(()=>{
+      alert("You've been logged out due to 12 hours of inactivity. Please log in again.");
+      handleLogout();
+    },IDLE_MS);
+  };
+  const events=["mousedown","keydown","touchstart","scroll"];
+  events.forEach(e=>window.addEventListener(e,resetIdle,{passive:true}));
+  resetIdle();
+  return()=>{
+    clearTimeout(idleTimer);
+    events.forEach(e=>window.removeEventListener(e,resetIdle));
+  };
+},[currentUser]);
+
+// ============ DETECT ?login=true URL PARAM — force fresh login (from email links) ============
+useEffect(()=>{
+  try{
+    const params=new URLSearchParams(window.location.search);
+    if(params.get("login")==="true"){
+      // Force logout — clears any stale session so the login screen shows
+      localStorage.removeItem("fc_token");
+      localStorage.removeItem("fc_user");
+      setCurrentUser(null);
+      setAuthToken(null);
+      // Clean up the URL so it doesn't keep logging out on refresh
+      window.history.replaceState({},document.title,window.location.pathname);
+    }
+  }catch(e){}
+},[]);
+
+// ============ CORE STATE — API-BACKED WITH LOCALSTORAGE FALLBACK ============
+const [vehicles,setVehicles]=useState([]);
+const [vendors,setVendors]=useState(VENDORS);
+const [tab,setTab]=useState("active");const [selV,setSelV]=useState(null);
+const [showAdd,setShowAdd]=useState(false);const [fLoc,setFLoc]=useState("All");const [search,setSearch]=useState("");const [fSt,setFSt]=useState("All");const [note,setNote]=useState(null);
+const [apiReady,setApiReady]=useState(false);
+const [loading,setLoading]=useState(true);
+const [csvUploading,setCsvUploading]=useState(false);
+const csvRef=useRef(null);
+const [users,setUsers]=useState([]);
+const [regVendors,setRegVendors]=useState([]);
+
+// ============ API HELPER ============
+const api=async(path,method="GET",body=null)=>{
+  const token=localStorage.getItem("fc_token");
+  const opts={method,headers:{"Content-Type":"application/json"}};
+  if(token)opts.headers["Authorization"]="Bearer "+token;
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch(WORKER+path,opts);
+  if(!r.ok){
+    const errData=await r.json().catch(()=>({error:"Request failed"}));
+    if(r.status===401&&path!=="/api/vehicles"&&path!=="/api/vendors"&&path!=="/api/users"){handleLogout();}
+    throw new Error(errData.error||"API error "+r.status);
+  }
+  return r.json();
+};
+
+// ============ LOAD DATA FROM API ON LOGIN ============
+// Helper used in API loader and mapVehicle — must be defined before useEffect
+useEffect(()=>{
+  if(!currentUser)return;
+  const token=localStorage.getItem("fc_token");
+  if(!token)return;
+  let mounted=true;
+  const loadAll=async()=>{
+    setLoading(true);
+    try{
+      const hdrs={"Content-Type":"application/json","Authorization":"Bearer "+token};
+      const [vRes,vnRes,uRes]=await Promise.all([
+        fetch(WORKER+"/api/vehicles",{headers:hdrs}).then(r=>r.json()),
+        fetch(WORKER+"/api/vendors",{headers:hdrs}).then(r=>r.json()),
+        fetch(WORKER+"/api/users",{headers:hdrs}).then(r=>r.json()),
+      ]);
+      if(!mounted)return;
+      // Map API vehicles to app format
+      const mapped=(vRes.vehicles||[]).map(v=>mapVehicle(v));
+      setVehicles(mapped);
+      // Build vendor map from API vendors
+      const vnMap={};
+      VCAT.forEach(c=>{vnMap[c.key]=[];});
+      const regVList=[];
+      (vnRes.vendors||[]).forEach(vn=>{
+        const cats=vn.categories?tryParse(vn.categories,[]):[];
+        cats.forEach(ck=>{
+          if(vnMap[ck]){
+            vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});
+          }
+        });
+        regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
+      });
+      setRegVendors(regVList);
+      // Merge with defaults — keep BOTH registered + defaults so test vendors stay available
+      VCAT.forEach(c=>{
+        const defaults=VENDORS[c.key]||[];
+        const existingNames=new Set(vnMap[c.key].map(v=>v.name.toLowerCase()));
+        defaults.forEach(d=>{if(!existingNames.has(d.name.toLowerCase()))vnMap[c.key].push(d);});
+      });
+      setVendors(vnMap);
+      // Users
+      setUsers((uRes.users||[]).map(u=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location})));
+      setAllUsers((uRes.users||[]).map(u=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,role:u.role,location:u.location})));
+      setApiReady(true);
+    }catch(e){
+      console.error("API load failed, falling back to localStorage:",e);
+      // Fallback to localStorage
+      try{const sv=localStorage.getItem("fc_vehicles");if(sv){const p=JSON.parse(sv);if(p&&p.length>0){setVehicles(p);}}}catch(e2){}
+      try{const sv=localStorage.getItem("fc_vendors");if(sv)setVendors(JSON.parse(sv));}catch(e2){}
+    }
+    setLoading(false);
+  };
+  loadAll();
+  return()=>{mounted=false;};
+},[currentUser]);
+
+
+// ============ MAP API VEHICLE TO APP FORMAT — DEEP COPY ============
+function mapVehicle(v){
+  // Fresh reconTasks — always a new object per vehicle
+  const freshRecon=()=>{const rt={};VCAT.forEach(c=>{rt[c.key]={needed:false,status:"na"};});return rt;};
+  let reconTasks=freshRecon();
+  if(v.recon_data){
+    const parsed=tryParse(v.recon_data,null);
+    // Check if it has VCAT keys (real recon data vs CSV financial data)
+    if(parsed&&(parsed.detail!==undefined||parsed.bodyshop!==undefined||parsed.touchup!==undefined||parsed.mechanical!==undefined)){
+      reconTasks=JSON.parse(JSON.stringify(parsed));
+      // Fill in any missing categories
+      VCAT.forEach(c=>{if(!reconTasks[c.key])reconTasks[c.key]={needed:false,status:"na"};});
+    }
+  }
+  // Fresh transport — always a new object per vehicle
+  let transport={inbound:{set:false},outbound:{set:false}};
+  if(v.transport_data){
+    const parsed=tryParse(v.transport_data,null);
+    if(parsed&&(parsed.inbound||parsed.outbound)){
+      transport=JSON.parse(JSON.stringify(parsed));
+    }
+  }
+  return {
+    id:"db_"+(v._rowid||v.id),_dbId:v._rowid||v.id,
+    vin8:v.vin?(v.vin.length>8?v.vin.slice(-8):v.vin):(v.stock_number||""),
+    fullVin:v.vin||"",stockNumber:v.stock_number||"",
+    year:v.year||0,make:v.make||"",model:v.model||"",trim:v.trim||"",
+    miles:v.miles||0,color:v.color||"",location:(()=>{const l=(v.location||"PHX").toUpperCase().trim();if(l==="PHOENIX"||l==="PHX"||l==="AZ")return "PHX";if(l==="DALLAS"||l==="DFW"||l==="TX")return "Dallas";return v.location||"PHX";})(),
+    source:v.source||"",
+    purchaseDate:v.purchase_date||v.enter_date||"",
+    enterDate:v.enter_date||v.purchase_date||"",
+    buyingBroker:v.buyer||"",sellingBroker:v.seller||"",
+    status:v.status==="sold"?"sold":v.status==="delivered"?"delivered":"in_recon",
+    soldDate:v.sale_date||null,soldTo:v.sold_to||"",
+    deliveredDate:v.grounded_date||null,
+    noReconNeeded:(()=>{const rd=tryParse(v.recon_data,{});return !!rd._noReconNeeded;})(),
+    noReconSetBy:(()=>{const rd=tryParse(v.recon_data,{});return rd._noReconSetBy||null;})(),
+    noReconSetDate:(()=>{const rd=tryParse(v.recon_data,{});return rd._noReconSetDate||null;})(),
+    buyerApprovedShip:(()=>{const rd=tryParse(v.recon_data,{});return !!rd._buyerApprovedShip;})(),
+    buyerApprovedDate:(()=>{const rd=tryParse(v.recon_data,{});return rd._buyerApprovedDate||null;})(),
+    shippingHoldBy:(()=>{const rd=tryParse(v.recon_data,{});return rd._shippingHoldBy||null;})(),
+    shippingHoldDate:(()=>{const rd=tryParse(v.recon_data,{});return rd._shippingHoldDate||null;})(),
+    arb:(()=>{const rd=tryParse(v.recon_data,{});return rd._arb||null;})(),
+    transport:transport,
+    reconTasks:reconTasks,
+    kicked:(()=>{const rd=tryParse(v.recon_data,{});return rd._kicked||v.kicked===1||v.kicked===true;})(),
+    kickedFromCSV:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedFromCSV||v.kicked===1||v.kicked===true;})(),
+    kickedReturn:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedReturn||false;})(),
+    kickedFromDealer:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedFromDealer||null;})(),
+    kickedHistory:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedHistory||[];})(),
+    notes:v.notes||"",_raw:v,
+  };
+}
+
+// ============ SYNC VEHICLE TO API ON CHANGE ============
+const syncVehicle=async(v)=>{
+  if(!apiReady||!v._dbId)return;
+  try{
+    await api("/api/vehicles/"+v._dbId,"PUT",{
+      vin:v.fullVin||v.vin8||"",
+      stock_number:v.stockNumber||v.vin8||"",
+      year:v.year,make:v.make,model:v.model,trim:v.trim||"",
+      color:v.color,miles:v.miles,location:v.location,
+      source:v.source||"",
+      buyer:v.buyingBroker||"",seller:v.sellingBroker||"",
+      sold_to:v.soldTo||null,sale_date:v.soldDate||null,
+      purchase_date:v.purchaseDate||null,
+      grounded_date:v.deliveredDate||null,
+      status:v.status==="delivered"?"delivered":v.status==="sold"?"sold":"active",
+      kicked:(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV||v.kickedReturn)?1:0,
+      notes:v.notes||"",
+      recon_data:JSON.stringify({...(v.reconTasks||{}),_kickedHistory:v.kickedHistory||[],_kickedFromDealer:v.kickedFromDealer||null,_kickedReturn:v.kickedReturn||false,_kicked:v.kicked||false,_kickedFromCSV:v.kickedFromCSV||false,_noReconNeeded:!!v.noReconNeeded,_noReconSetBy:v.noReconSetBy||null,_noReconSetDate:v.noReconSetDate||null,_buyerApprovedShip:!!v.buyerApprovedShip,_buyerApprovedDate:v.buyerApprovedDate||null,_shippingHoldBy:v.shippingHoldBy||null,_shippingHoldDate:v.shippingHoldDate||null,_arb:v.arb||null}),
+      transport_data:JSON.stringify(v.transport||{}),
+    });
+  }catch(e){console.error("Sync failed:",e);}
+};
+
+// ============ CSV UPLOAD HANDLER ============
+const handleCSVUpload=async(e)=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  setCsvUploading(true);
+  try{
+    const text=await file.text();
+    const res=await api("/api/vehicles/upload-csv","POST",{csv_data:text});
+    if(res.ok){
+      notify("✅ CSV Import: "+res.imported+" new, "+res.updated+" updated"+(res.errors?.length?" ("+res.errors.length+" errors)":""));
+      // Reload vehicles from API
+      const vRes=await api("/api/vehicles");
+      const mapped=(vRes.vehicles||[]).map(v=>mapVehicle(v));
+      setVehicles(mapped);
+    }else{
+      notify("⚠️ CSV Error: "+(res.error||"Unknown error"));
+    }
+  }catch(e){notify("⚠️ CSV upload failed: "+e.message);}
+  setCsvUploading(false);
+  if(csvRef.current)csvRef.current.value="";
+};
+const isAdmin=currentUser?.role==="Admin"||currentUser?.role==="admin"||!!(currentUser?.is_buyer&&currentUser?.is_seller);
+const isBuyer=currentUser?.role==="Buyer"||currentUser?.role==="Buyer/Seller"||currentUser?.is_buyer||isAdmin;
+const isSeller=currentUser?.role==="Seller"||currentUser?.role==="Buyer/Seller"||currentUser?.is_seller||isAdmin;
+const isVendor=currentUser?.role==="Vendor"||currentUser?.role==="vendor";
+const isAP=currentUser?.role==="ap"||currentUser?.role==="AP"||currentUser?.is_ap;
+
+// ============ LOCALSTORAGE FALLBACK SAVE (backup only) ============
+useEffect(()=>{try{localStorage.setItem("fc_vehicles",JSON.stringify(vehicles));}catch(e){}},[vehicles]);
+
+// ============ BACKGROUND AUTO-SYNC (every 5 seconds) ============
+useEffect(()=>{
+  if(!apiReady||!currentUser)return;
+  const interval=setInterval(async()=>{
+    try{
+      const token=localStorage.getItem("fc_token");
+      if(!token)return;
+      const r=await fetch(WORKER+"/api/vehicles",{headers:{"Content-Type":"application/json","Authorization":"Bearer "+token}});
+      if(!r.ok)return;
+      const data=await r.json();
+      const deletedIds=window._deletedDbIds||[];
+      const fresh=(data.vehicles||[]).map(v=>mapVehicle(v)).filter(v=>!deletedIds.includes(v._dbId));
+      setVehicles(prev=>{
+        if(prev.length!==fresh.length)return fresh;
+        let changed=false;
+        for(let i=0;i<fresh.length;i++){
+          if(!prev.find(p=>p._dbId===fresh[i]._dbId)||JSON.stringify(prev.find(p=>p._dbId===fresh[i]._dbId)?._raw)!==JSON.stringify(fresh[i]._raw)){changed=true;break;}
+        }
+        return changed?fresh:prev;
+      });
+    }catch(e){}
+  },5000);
+  return()=>clearInterval(interval);
+},[apiReady,currentUser]);
+
+// ============ DEEP LINKS FROM URL — OPEN VEHICLE + RECON TAB ============
+const [deepLinkCat,setDeepLinkCat]=useState(null);
+const [pendingDeepLink,setPendingDeepLink]=useState(()=>{try{const params=new URLSearchParams(window.location.search);const vid=params.get("vehicle");const vcat=params.get("cat");return vid?{vid,vcat}:null;}catch(e){return null;}});
+useEffect(()=>{
+  if(!pendingDeepLink)return;
+  if(!apiReady||vehicles.length===0)return;
+  const found=vehicles.find(v=>v.id===pendingDeepLink.vid);
+  if(found){
+    setSelV(found);
+    setTab("active");
+    if(pendingDeepLink.vcat)setDeepLinkCat(pendingDeepLink.vcat);
+    // Clean URL so refreshing doesn't re-trigger
+    try{const url=new URL(window.location.href);url.searchParams.delete("vehicle");url.searchParams.delete("cat");window.history.replaceState({},document.title,url.pathname);}catch(e){}
+    setPendingDeepLink(null);
+  }
+},[apiReady,vehicles.length,pendingDeepLink]);
+
+const notify=(m)=>{setNote(m);setTimeout(()=>setNote(null),3500);};
+
+// ============ EMAIL TRIGGER FUNCTION ============
+const fireEmail=async(type,data)=>{
+  try{
+    const payload={type,to:"darren@valleycargroup.com",data};
+    const resp=await fetch(WORKER+"/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(resp.ok){
+      const result=await resp.json().catch(()=>({}));
+      const recipCount=(result.recipients||[]).length;
+      notify(recipCount>0?`📧 Email sent (${recipCount} recipient${recipCount===1?"":"s"})`:"📧 Email fired — no recipients matched (fell back to admin)");
+      return;
+    }
+    // Non-ok response — show real error
+    const errText=await resp.text().catch(()=>"Unknown error");
+    notify(`⚠️ Email failed (${resp.status}): ${type.replace(/_/g," ")} — ${errText.substring(0,100)}`);
+  }catch(e){
+    notify(`⚠️ Email worker unreachable — ${type.replace(/_/g," ")} (${e.message})`);
+  }
+};
+
+// ============ ROLE-BASED FILTERING ============
+const sorted=useMemo(()=>{let l=[...vehicles];
+// Filter by tab — active board excludes delivered, delivered tab shows only delivered
+if(tab==="delivered"){l=l.filter(v=>v.status==="delivered");}
+else{l=l.filter(v=>v.status!=="delivered");}
+// Vendor: only see vehicles with their assigned jobs that are NOT yet complete
+if(isVendor&&currentUser){
+  l=l.filter(v=>{const myTasks=VCAT.filter(c=>{const t=v.reconTasks[c.key];return t?.needed&&(t.vendors||[]).some(vn=>{const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));});});if(!myTasks.length)return false;return myTasks.some(c=>v.reconTasks[c.key].status!=="complete");});
+}
+// Buyer: see vehicles where they are the buying broker
+if(currentUser?.role==="Buyer"){
+  l=l.filter(v=>v.buyingBroker===currentUser.firstName||v.buyingBroker===currentUser.name||(currentUser.firstName&&currentUser.lastName&&v.buyingBroker===(currentUser.firstName+" "+currentUser.lastName).trim()));
+}
+// Seller: see vehicles where they are the selling broker
+if(currentUser?.role==="Seller"){
+  l=l.filter(v=>v.sellingBroker===currentUser.firstName||v.sellingBroker===currentUser.name||(currentUser.firstName&&currentUser.lastName&&v.sellingBroker===(currentUser.firstName+" "+currentUser.lastName).trim()));
+}
+// Buyer/Seller: see vehicles where they are either broker
+if(currentUser?.role==="Buyer/Seller"){
+  l=l.filter(v=>{const names=[currentUser.firstName,currentUser.name,(currentUser.firstName&&currentUser.lastName?(currentUser.firstName+" "+currentUser.lastName).trim():"")].filter(Boolean);return names.some(n=>v.buyingBroker===n||v.sellingBroker===n);});
+}
+if(fLoc!=="All")l=l.filter(v=>v.location===fLoc);if(search){const q=search.toLowerCase();l=l.filter(v=>(v.fullVin||v.vin8||"").toLowerCase().includes(q)||v.vin8.toLowerCase().includes(q)||`${v.year} ${v.make} ${v.model}`.toLowerCase().includes(q)||v.buyingBroker.toLowerCase().includes(q)||(v.sellingBroker||"").toLowerCase().includes(q)||(v.soldTo||"").toLowerCase().includes(q));}
+l.sort((a,b)=>{
+// Delivered tab — sort by delivered date, newest first
+if(tab==="delivered"){const da=a.deliveredDate||"",db=b.deliveredDate||"";return da>db?-1:da<db?1:0;}
+const ak=(a.kickedHistory||[]).length>0&&a.status!=="sold"&&a.status!=="delivered";
+const bk=(b.kickedHistory||[]).length>0&&b.status!=="sold"&&b.status!=="delivered";
+if(ak&&!bk)return -1;
+if(!ak&&bk)return 1;
+if(ak&&bk){const ka=(a.kickedHistory||[]).slice(-1)[0]?.kickedDate||"",kb=(b.kickedHistory||[]).slice(-1)[0]?.kickedDate||"";return ka>kb?-1:ka<kb?1:0;}
+const as=a.status==="sold",bs=b.status==="sold";
+if(as&&!bs)return -1;
+if(!as&&bs)return 1;
+if(as&&bs){const sa=a.soldDate||"9999",sb2=b.soldDate||"9999";return sa<sb2?-1:sa>sb2?1:0;}
+const ag=a.transport?.inbound?.delivered&&a.status!=="sold";
+const bg=b.transport?.inbound?.delivered&&b.status!=="sold";
+if(ag&&!bg)return -1;
+if(!ag&&bg)return 1;
+if(ag&&bg){const da=a.purchaseDate||"9999",db=b.purchaseDate||"9999";return da<db?-1:da>db?1:0;}
+const ae=a.transport?.inbound?.set&&!a.transport?.inbound?.delivered;
+const be=b.transport?.inbound?.set&&!b.transport?.inbound?.delivered;
+if(ae&&!be)return -1;
+if(!ae&&be)return 1;
+if(ae&&be){const ea=a.transport?.inbound?.eta||"9999",eb=b.transport?.inbound?.eta||"9999";return ea<eb?-1:ea>eb?1:0;}
+const da=a.purchaseDate||"",db=b.purchaseDate||"";
+return da>db?-1:da<db?1:0;
+});return l;},[vehicles,tab,fLoc,fSt,search,currentUser]);
+const stats=useMemo(()=>{
+const all=vehicles;
+const rcNeeded=(v)=>VCAT.filter(c=>v.reconTasks[c.key]?.needed);
+const rcDone=(v)=>rcNeeded(v).filter(c=>v.reconTasks[c.key]?.status==="complete");
+const hasUnassigned=(v)=>rcNeeded(v).some(c=>v.reconTasks[c.key]?.status==="unassigned");
+const allAssigned=(v)=>rcNeeded(v).length>0&&rcNeeded(v).every(c=>v.reconTasks[c.key]?.status!=="unassigned");
+const r2ship=(v)=>{const needed=rcNeeded(v);const done=rcDone(v);const allReconDone=needed.length>0&&done.length===needed.length;const hasOpenRecon=needed.length>0&&done.length<needed.length;if(hasOpenRecon)return false;if(!v.buyerApprovedShip&&!v.transport?.outbound?.readyDate)return false;return (v.noReconNeeded)||v.buyerApprovedShip||v.transport?.outbound?.readyDate||allReconDone;};
+const waitGround=(v)=>!v.transport?.inbound?.delivered&&v.transport?.inbound?.set;
+const hasIncompleteRecon=(v)=>{const rn=rcNeeded(v);return rn.length>0&&rcDone(v).length<rn.length&&!v.noReconNeeded;};
+return {active:all.filter(v=>v.status!=="delivered").length,transit:all.filter(v=>v.status==="in_transit").length,recon:all.filter(v=>hasIncompleteRecon(v)).length,sold:all.filter(v=>v.status==="sold").length,delivered:all.filter(v=>v.status==="delivered").length,
+assigned:all.filter(v=>allAssigned(v)).length,unassigned:all.filter(v=>hasUnassigned(v)).length,r2ship:all.filter(v=>r2ship(v)).length,waitGround:all.filter(v=>waitGround(v)).length,kicked:all.filter(v=>(v.kickedHistory||[]).length>0).length};
+},[vehicles]);
+const upd=(id,u)=>{setVehicles(p=>{const updated=p.map(v=>{if(v.id===id){const nv={...v,...u};syncVehicle(nv);return nv;}return v;});return updated;});if(selV?.id===id)setSelV(p=>({...p,...u}));};
+
+// ============ SHOW LANDING PAGE IF NOT LOGGED IN ============
+if(!currentUser){
+  return <LandingPage onLogin={handleLogin}/>;
+}
+
+// ============ LOADING STATE ============
+if(loading){
+  return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>🚗</div>
+      <div style={{fontSize:20,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Fleet Command</div>
+      <div style={{fontSize:14,color:"#6B7280"}}>Loading from server...</div>
+      <div style={{marginTop:16,width:200,height:4,background:"#1E1E32",borderRadius:2,overflow:"hidden",margin:"16px auto 0"}}>
+        <div style={{width:"60%",height:"100%",background:"#3B82F6",borderRadius:2,animation:"pulse 1.5s infinite"}}/>
+      </div>
+    </div>
+  </div>;
+}
+
+return <div style={S.app}>
+{note&&<div style={S.toast}>✉️ {note}</div>}
+<header style={S.hdr}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={S.logo}>🚗</div><div><h1 style={S.h1}>FLEET COMMAND</h1><p style={S.sub}>Recon & Transport</p></div></div>
+<div style={{display:"flex",gap:8,alignItems:"center"}}>
+<span style={{fontSize:13,color:"#9CA3AF"}}>{apiReady?"🟢":"🟡"} {stats.active} active • {stats.delivered} delivered</span>
+<div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 14px",borderRadius:8,background:"#1A1A2E",border:"1px solid #2A2A3E"}}>
+  <span style={{fontSize:13,color:isAdmin?"#FBBF24":isVendor?"#60A5FA":isAP?"#34D399":"#34D399",fontWeight:700}}>{isAdmin?"🛡️ Admin":isVendor?"🔧 Vendor":isAP?"💸 AP":currentUser?.role==="Buyer"?"👤 Buyer":currentUser?.role==="Seller"?"👤 Seller":"👤 "+currentUser?.role}</span>
+  <span style={{fontSize:13,color:"#E5E7EB",fontWeight:600}}>{currentUser?.first_name||currentUser?.firstName||currentUser?.name||currentUser?.company}</span>
+  <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #7F1D1D",background:"transparent",color:"#F87171",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={handleLogout}>Logout</button>
+  {isAdmin&&<><input ref={csvRef} type="file" accept=".csv,.tsv" style={{display:"none"}} onChange={handleCSVUpload}/>
+  <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #166534",background:"transparent",color:"#34D399",fontSize:12,cursor:"pointer",fontWeight:600,opacity:csvUploading?0.5:1}} disabled={csvUploading} onClick={()=>csvRef.current?.click()}>{csvUploading?"Uploading...":"📄 CSV Upload"}</button></>}
+  {isAdmin&&<button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #78590A",background:"transparent",color:"#FBBF24",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={async()=>{if(window.confirm("Reload all data from server?")){setLoading(true);try{const vRes=await api("/api/vehicles");const mapped=(vRes.vehicles||[]).map(v=>mapVehicle(v));setVehicles(mapped);notify("🔄 Data refreshed from server");}catch(e){notify("⚠️ Refresh failed");}setLoading(false);}}}>🔄 Refresh</button>}
+</div>
+</div></header>
+{<div style={S.bar}><div style={{display:"flex",gap:6}}>
+{<button style={tab==="active"?S.tOn:S.tOff} onClick={()=>{setTab("active");setSelV(null);}}>Inventory</button>}
+{!isVendor&&<button style={tab==="delivered"?S.tOn:S.tOff} onClick={()=>{setTab("delivered");setSelV(null);}}>Delivered {stats.delivered>0&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:10,background:"#166534",color:"#34D399",marginLeft:4}}>{stats.delivered}</span>}</button>}
+{!isVendor&&<button style={tab==="vendors"?S.tOn:S.tOff} onClick={()=>{setTab("vendors");setSelV(null);}}>Vendors</button>}
+{isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>{setTab("register");setSelV(null);}}>⚙️ Register</button>}
+{isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>{setTab("reports");setSelV(null);}}>📊 Reports</button>}
+{(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>{setTab("payments");setSelV(null);}}>💸 Payment Queue</button>}
+</div><div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+{<div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>🔍</span>
+<input style={{...S.inp,paddingLeft:32,minWidth:280,fontFamily:"monospace"}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value.toUpperCase())}/></div>}
+{<select style={S.sel} value={fLoc} onChange={e=>setFLoc(e.target.value)}><option value="All">All Locations</option>{LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}</select>}
+{tab!=="vendors"&&tab!=="register"&&!isVendor&&<button style={S.btn} onClick={()=>setShowAdd(true)}>+ Add Vehicle</button>}
+</div></div>}
+<div style={{padding:"12px 16px"}}>
+{tab==="register"?<RegPanel users={users} setUsers={setUsers} regVendors={regVendors} setRegVendors={setRegVendors} vendors={vendors} setVendors={setVendors} notify={notify} allUsers={allUsers} setAllUsers={setAllUsers}/>
+:tab==="reports"?<ReportsPanel vehicles={vehicles} vendors={vendors}/>
+:tab==="payments"?<PaymentQueue vehicles={vehicles} vendors={vendors} notify={notify} fireEmail={fireEmail} currentUser={currentUser} upd={upd}/>
+:tab==="vendors"?<VPanel vendors={vendors}/>
+:(tab==="active"||tab==="delivered")?<div style={{display:"flex",gap:0,height:"calc(100vh - 120px)"}}>
+<div style={{flex:selV?"0 0 35%":"1",overflow:"auto",borderRight:selV?"2px solid #2A2A3E":"none"}}>
+{tab==="delivered"&&<div style={{padding:"8px 12px",background:"#0D3B1E",borderBottom:"1px solid #166534",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Delivered Vehicles</span><span style={{fontSize:12,color:"#6EE7B7"}}>{sorted.length} vehicles</span></div>}
+<Tbl list={sorted} onSelect={setSelV} isVendor={isVendor} currentUser={currentUser}/>
+</div>
+{selV&&<div style={{flex:"0 0 65%",overflow:"auto",padding:"0 8px"}}>
+<Detail v={selV} vendors={vendors} onBack={()=>{setSelV(null);setDeepLinkCat(null);}} onUpdate={u=>{upd(selV.id,u);setSelV(p=>({...p,...u}));}} onDelete={async()=>{
+  if(!window.confirm("Delete this vehicle permanently? This cannot be undone."))return;
+  const deleteId=selV.id;
+  const deleteDbId=selV._dbId;
+  setSelV(null);
+  if(deleteDbId&&apiReady){
+    try{
+      const res=await api("/api/vehicles/"+deleteDbId,"DELETE");
+      if(res.ok){notify("🗑️ Vehicle deleted from database");window._deletedDbIds=(window._deletedDbIds||[]);window._deletedDbIds.push(deleteDbId);}
+    }catch(e){notify("⚠️ Delete from database failed: "+e.message);}
+  }
+  setVehicles(prev=>{const filtered=prev.filter(v2=>v2.id!==deleteId);return [...filtered];});
+}} notify={notify} fireEmail={fireEmail} isAdmin={isAdmin} isVendor={isVendor} currentUser={currentUser} deepLinkCat={deepLinkCat} onClearDeepLink={()=>setDeepLinkCat(null)} allUsers={allUsers}/>
+</div>}
+</div>:null}
+</div>
+{showAdd&&<AddM vendors={vendors} allUsers={allUsers} onClose={()=>setShowAdd(false)} onAdd={async v=>{
+  if(apiReady){
+    try{
+      const res=await api("/api/vehicles","POST",{
+        vin:v.fullVin||v.vin8||"",stock_number:v.vin8||"",
+        year:v.year,make:v.make,model:v.model,trim:v.trim||"",
+        color:v.color,miles:v.miles,location:v.location,
+        source:v.source||"",buyer:v.buyingBroker||"",seller:v.sellingBroker||"",
+        purchase_date:v.purchaseDate||null,status:"active",
+        recon_data:JSON.stringify(v.reconTasks||{}),
+        transport_data:JSON.stringify(v.transport||{}),
+      });
+      if(res.ok&&res.id){v.id="db_"+res.id;v._dbId=res.id;v.stockNumber=v.vin8||"";}
+    }catch(e){console.error("API create failed:",e);}
+  }
+  setVehicles(p=>[v,...p]);setShowAdd(false);notify("Vehicle added");
+}}/>}
+</div>;
+}
+function Tbl({list,onSelect,isVendor,currentUser}){
+const [sortCol,setSortCol]=useState("");const [sortDir,setSortDir]=useState("asc");
+const toggleSort=(col)=>{if(sortCol===col)setSortDir(sortDir==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("asc");}};
+if(!list.length)return <div style={{textAlign:"center",padding:60,color:"#4B5563",fontSize:17}}>No vehicles found.</div>;
+const soldCount=list.filter(v=>v.status==="sold"||v.status==="delivered").length;
+const reconCount=list.filter(v=>{const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);return rc2.length>0&&rc2.some(c=>v.reconTasks[c.key]?.status!=="complete");}).length;
+const r2sCount=list.filter(v=>{const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const dn2=rc2.filter(c=>v.reconTasks[c.key]?.status==="complete");return v.noReconNeeded||(rc2.length>0&&dn2.length===rc2.length);}).length;
+const inboundCount=list.filter(v=>v.transport?.inbound?.set&&!v.transport?.inbound?.delivered).length;
+const onGroundCount=list.filter(v=>v.transport?.inbound?.delivered&&v.status!=="delivered").length;
+const outSetCount=list.filter(v=>v.transport?.outbound?.set&&!v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
+const pickedUpCount=list.filter(v=>v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
+const getPriority=(v)=>{const isKicked=(v.kickedReturn||(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV))&&v.status!=="sold"&&v.status!=="delivered";if(isKicked)return -1;const sold=v.status==="sold"||v.status==="delivered";const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const pastDue=rc.some(c=>{const t=v.reconTasks[c.key];if(!t||t.status==="complete")return false;const sv2=(t.vendors||[]).find(x=>x.selected);const eta=sv2?.etaDone||t.etaComplete;if(!eta)return false;let d=new Date(eta);if(d.getFullYear()<100)d.setFullYear(d.getFullYear()+2000);return d<new Date();});if(sold&&pastDue)return 0;if(sold&&rc.some(c=>v.reconTasks[c.key]?.status!=="complete"))return 1;if(pastDue)return 2;return 3;};
+const isMyVendorRecord=(vn)=>{if(!isVendor||!currentUser)return false;const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));};
+const getVendorStatus=(v)=>{if(!isVendor||!currentUser)return null;const myTasks=VCAT.filter(c=>{const t=v.reconTasks[c.key];return t?.needed&&(t.vendors||[]).some(isMyVendorRecord);});if(!myTasks.length)return null;let bidPending=false,working=false,done=true;for(const c of myTasks){const t=v.reconTasks[c.key];const me=(t.vendors||[]).find(isMyVendorRecord);if(!me)continue;if(t.status==="complete"){continue;}done=false;if(me.bidLocked&&me.selected){working=true;}else if(!me.bidLocked){bidPending=true;}}if(bidPending)return{key:"bid_pending",label:"⏳ BID PENDING",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};if(working)return{key:"working",label:"🔧 WORKING",bg:"#1E3A5F",color:"#93C5FD",border:"#3B82F6"};if(done)return{key:"done",label:"✅ DONE",bg:"#0D3B1E",color:"#6EE7B7",border:"#166534"};return{key:"awaiting",label:"⏳ AWAITING BUYER",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};};
+const sorted2=[...list].sort((a,b)=>{const pa=getPriority(a),pb=getPriority(b);if(pa!==pb)return pa-pb;if(sortCol){let av,bv;
+if(sortCol==="Vehicle")av=a.year+" "+a.make+" "+a.model,bv=b.year+" "+b.make+" "+b.model;
+else if(sortCol==="Purchased")av=a.purchaseDate||"",bv=b.purchaseDate||"";
+else if(sortCol==="Buyer")av=a.buyingBroker||"",bv=b.buyingBroker||"";
+else if(sortCol==="Seller")av=a.sellingBroker||"",bv=b.sellingBroker||"";
+else if(sortCol==="Location")av=a.location||"",bv=b.location||"";
+else if(sortCol==="Miles")av=a.miles||0,bv=b.miles||0;
+else if(sortCol==="Sold To")av=a.soldTo||"",bv=b.soldTo||"";
+else if(sortCol==="Color")av=a.color||"",bv=b.color||"";
+else if(sortCol==="Source")av=a.source||"",bv=b.source||"";
+else if(sortCol==="Sold")av=a.soldDate||"",bv=b.soldDate||"";
+else if(sortCol==="VIN#")av=a.vin8||"",bv=b.vin8||"";
+else return 0;
+if(typeof av==="number")return sortDir==="asc"?av-bv:bv-av;
+return sortDir==="asc"?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av));}
+// Default sort within same priority: sold by oldest sold date first, others by oldest purchase date first
+const sa=a.soldDate||"9999",sb2=b.soldDate||"9999";
+if(a.status==="sold"&&b.status==="sold")return sa<sb2?-1:sa>sb2?1:0;
+const da=a.purchaseDate||"9999",db=b.purchaseDate||"9999";
+return da<db?-1:da>db?1:0;});
+return <span style={{display:"contents"}}><div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+{isVendor?<>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:11,color:"#9CA3AF"}}>Total Active</span> <span style={{fontSize:18,fontWeight:800,color:"#E5E7EB"}}>{list.length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#3B2F10",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>Bid Pending</span> <span style={{fontSize:18,fontWeight:800,color:"#FDE68A"}}>{list.filter(v=>getVendorStatus(v)?.key==="bid_pending").length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#1E3A5F",border:"1px solid #3B82F6",textAlign:"center"}}><span style={{fontSize:11,color:"#93C5FD"}}>Working</span> <span style={{fontSize:18,fontWeight:800,color:"#BFDBFE"}}>{list.filter(v=>getVendorStatus(v)?.key==="working").length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#3B2F10",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>Awaiting Buyer</span> <span style={{fontSize:18,fontWeight:800,color:"#FDE68A"}}>{list.filter(v=>getVendorStatus(v)?.key==="awaiting").length}</span></div>
+</>:<>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:11,color:"#9CA3AF"}}>Total</span> <span style={{fontSize:18,fontWeight:800,color:"#E5E7EB"}}>{list.length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #166534",textAlign:"center"}}><span style={{fontSize:11,color:"#34D399"}}>Sold</span> <span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{soldCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(96,165,250,0.1)",border:"1px solid #1E3A5F",textAlign:"center"}}><span style={{fontSize:11,color:"#60A5FA"}}>Inbound</span> <span style={{fontSize:18,fontWeight:800,color:"#60A5FA"}}>{inboundCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #0D3B1E",textAlign:"center"}}><span style={{fontSize:11,color:"#34D399"}}>On Ground</span> <span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{onGroundCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(251,191,36,0.1)",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>In Recon</span> <span style={{fontSize:18,fontWeight:800,color:"#FBBF24"}}>{reconCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(6,182,212,0.1)",border:"1px solid #06B6D4",textAlign:"center"}}><span style={{fontSize:11,color:"#06B6D4"}}>R2-Ship</span> <span style={{fontSize:18,fontWeight:800,color:"#06B6D4"}}>{r2sCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(168,85,247,0.1)",border:"1px solid #7C3AED",textAlign:"center"}}><span style={{fontSize:11,color:"#A78BFA"}}>Outbound Set</span> <span style={{fontSize:18,fontWeight:800,color:"#A78BFA"}}>{outSetCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(249,115,22,0.1)",border:"1px solid #C2410C",textAlign:"center"}}><span style={{fontSize:11,color:"#F97316"}}>Picked Up</span> <span style={{fontSize:18,fontWeight:800,color:"#F97316"}}>{pickedUpCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(239,68,68,0.1)",border:"1px solid #7F1D1D",textAlign:"center"}}><span style={{fontSize:11,color:"#F87171"}}>Kicked</span> <span style={{fontSize:18,fontWeight:800,color:"#F87171"}}>{list.filter(v=>((v.kicked||v.kickedFromCSV||v.kickedReturn)&&v.status!=="sold"&&v.status!=="delivered")).length}</span></div>
+</>}
+</div>
+<div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}><table style={{width:"100%",minWidth:isVendor?700:1400,borderCollapse:"collapse",fontSize:14}}><thead><tr>
+{(isVendor?["VIN#","Vehicle","Color","Miles","Location","Days on Ground","Sold","Status"]:["Buyer","Source","Inbound","Location","VIN#","Purchased","Vehicle","Miles","Color","Days on Ground","Sold","Sold To","Seller","R2-Ship","Outbound","Recon"]).map(h=><th key={h} style={{...S.th,cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSort(h)}>{h}{sortCol===h?sortDir==="asc"?" ▲":" ▼":""}</th>)}
+</tr></thead><tbody>{sorted2.map(v=>{const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed),dn=rc.filter(c=>v.reconTasks[c.key]?.status==="complete"),sold=v.status==="sold"||v.status==="delivered";const inb=v.transport?.inbound,outb=v.transport?.outbound;
+const allDone=rc.length>0&&dn.length===rc.length;
+const allApproved=rc.length>0&&rc.every(c=>{const s=v.reconTasks[c.key]?.status;return s==="complete"||s==="approved";});
+const readyToShip=allDone&&allApproved;
+const noReconOnGround=v.noReconNeeded&&inb?.delivered;
+const lastComplete=readyToShip?rc.reduce((latest,c)=>{const d=v.reconTasks[c.key]?.dateCompleted;return d&&d>latest?d:latest;},""):null;
+const outbReady=outb?.readyDate;
+const rowIdx=sorted2.indexOf(v);const vPriority=getPriority(v);const stripe=rowIdx%2===0?"rgba(255,255,255,0.02)":"transparent";const borderClr=v.arb?.open?"#EF4444":vPriority===0?"#EF4444":vPriority===1?"#F59E0B":sold?"#34D399":readyToShip||v.noReconNeeded?"#06B6D4":rc.length>0&&rc.some(c=>v.reconTasks[c.key]?.status==="started")?"#FBBF24":rc.length>0?"#F97316":"#4B5563";
+return <tr key={v.id} style={{borderBottom:"1px solid #1A1A2E",cursor:"pointer",borderLeft:"4px solid "+borderClr,background:sold?"rgba(52,211,153,0.06)":stripe}}
+onClick={()=>onSelect(v)} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.05)"} onMouseLeave={e=>e.currentTarget.style.background=sold?"rgba(52,211,153,0.06)":stripe}>
+{isVendor?<>
+<td style={{...S.td,fontFamily:"monospace",letterSpacing:1}}>{v.fullVin?<span style={{display:"contents"}}>{v.fullVin.slice(0,-8)}<b>{v.fullVin.slice(-8)}</b></span>:v.vin8}</td>
+<td style={{...S.td,fontWeight:600}}>{v.year} {v.make} {v.model} {v.trim}</td>
+<td style={S.td}>{v.color}</td>
+<td style={S.td}>{v.miles.toLocaleString()}</td>
+<td style={S.td}>{v.location}</td>
+<td style={S.td}>{(()=>{const gDate=v.transport?.inbound?.dateDelivered;if(!gDate||!v.transport?.inbound?.delivered)return "—";const d=Math.max(0,Math.floor((new Date()-new Date(gDate))/864e5));return <span style={{fontWeight:700,color:d>14?"#F87171":d>7?"#FBBF24":"#34D399"}}>{d}d</span>;})()}</td>
+<td style={S.td}>{sold?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>SOLD {fmtDate(v.soldDate)}</span>:"—"}</td>
+<td style={S.td}>{(()=>{const st=getVendorStatus(v);return st?<span style={{...S.badge,background:st.bg,color:st.color,border:"1px solid "+st.border,fontWeight:700}}>{st.label}</span>:"—";})()}</td>
+</>:<>
+<td style={S.td}>{v.buyingBroker}</td><td style={S.td}>{v.source}</td>
+<td style={S.td}><div style={{display:"flex",flexDirection:"column",gap:3}}>
+{inb?.drivewayPickedUp?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>🏠 PICKED UP {inb.drivewayPickedUpDate?fmtDate(inb.drivewayPickedUpDate):""}</span>
+:inb?.drivewayDest?<span style={{...S.badge,background:"#7C3AED",color:"#DDD6FE"}}>🏠 DW→{inb.drivewayDest}{inb.driverwayClearDate?" Clear to P/U "+fmtDate(inb.driverwayClearDate):""}{inb.drivewayEta?" ETA "+fmtDate(inb.drivewayEta):""}</span>
+:inb?.drivewayEta?<span style={{...S.badge,background:"#4C1D95",color:"#C4B5FD"}}>🏠 DW ETA {fmtDate(inb.drivewayEta)}</span>
+:inb?.delivered?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>ON GROUND {inb.dateDelivered?fmtDate(inb.dateDelivered):""}</span>
+:inb?.eta?<span style={{...S.badge,background:"#78590A",color:"#FDE68A"}}>ETA {inb.destination||""} {fmtDate(inb.eta)}</span>
+:<span style={{...S.badge,background:"#3B1515",color:"#F87171"}}>NOT SET</span>}
+</div></td>
+<td style={S.td}>{v.location}</td>
+<td style={{...S.td,fontFamily:"monospace",letterSpacing:1}}>{v.fullVin?<span style={{display:"contents"}}>{v.fullVin.slice(0,-8)}<b>{v.fullVin.slice(-8)}</b></span>:v.vin8}</td>
+<td style={S.td}>{fmtDate(v.purchaseDate)}</td><td style={{...S.td,fontWeight:600}}>{v.year} {v.make} {v.model} {v.trim}</td>
+<td style={S.td}>{v.miles.toLocaleString()}</td><td style={S.td}>{v.color}</td>
+<td style={S.td}>{(()=>{const gDate=v.transport?.inbound?.dateDelivered;if(!gDate||!v.transport?.inbound?.delivered)return "—";const d=Math.max(0,Math.floor((new Date()-new Date(gDate))/864e5));return <span style={{fontWeight:700,color:d>14?"#F87171":d>7?"#FBBF24":"#34D399"}}>{d}d</span>;})()}</td>
+<td style={S.td}><div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+{(v.kickedHistory||[]).length>0&&<span style={{...S.badge,background:"#7C2D12",color:"#FDBA74",fontSize:10}}>🔄 KICKED {fmtDate((v.kickedHistory||[]).slice(-1)[0]?.kickedDate)}</span>}
+{(v.kicked||v.kickedFromCSV)&&(v.kickedHistory||[]).length===0&&v.status!=="sold"&&<span style={{...S.badge,background:"#7C2D12",color:"#FDBA74",fontSize:10}}>🔄 KICKED</span>}
+{v.arb?.open&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:10}}>🔴 IN ARB — {v.arb.source||"?"} {fmtDate(v.arb.openDate)}</span>}
+{v.arb?.resolved&&!v.arb?.open&&<span style={{...S.badge,background:"#166534",color:"#6EE7B7",fontSize:10}}>✅ ARB RESOLVED {fmtDate(v.arb.resolvedDate)}</span>}
+{(v.kicked||v.kickedFromCSV)&&v.status!=="sold"?<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5"}}>KICKED</span>:v.status==="sold"||v.status==="delivered"?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>{(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV)?"RE-SOLD":"SOLD"} {fmtDate(v.soldDate)}</span>:"—"}
+</div></td>
+<td style={S.td}>{(v.soldTo&&v.soldTo!=="null")?v.soldTo:v.kickedFromDealer||(v.kickedHistory||[]).slice(-1)[0]?.dealer||"—"}</td><td style={S.td}>{v.sellingBroker||"—"}</td>
+<td style={S.td}>{outbReady?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {fmtDate(outbReady)}</span>
+:readyToShip?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {lastComplete?fmtDate(lastComplete):""}</span>
+:noReconOnGround?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {inb.dateDelivered?fmtDate(inb.dateDelivered):""}</span>
+:v.noReconNeeded?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+:sold&&(allDone||v.noReconNeeded)&&!v.buyerApprovedShip&&!outb?.readyDate?<span style={{...S.badge,background:"#78590A",color:"#FDE68A",fontWeight:800,fontSize:11}}>⏳ WAITING ON BUYER {allDone&&lastComplete?fmtDate(lastComplete):v.noReconNeeded&&v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+:"—"}</td>
+<td style={S.td}><div style={{display:"flex",flexDirection:"column",gap:3}}>
+{outb?.delivered?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>{outb.isRetail?"🏪 RETAIL DELIVERED":outb.isDriveway?"🏠 DELIVERED":"DELIVERED"} {outb.dateDelivered?fmtDate(outb.dateDelivered):""}</span>
+:outb?.pickedUp?<span style={{...S.badge,background:outb.isRetail?"#164E63":"#1E3A5F",color:outb.isRetail?"#67E8F9":"#93C5FD"}}>{outb.isRetail?"🏪 RETAIL SHIPPED":outb.isDriveway?"🏠 SHIPPED":"P/U"} {outb.datePickedUp?fmtDate(outb.datePickedUp):""}</span>
+:outb?.eta?<span style={{...S.badge,background:outb.isRetail?"#164E63":outb.isDriveway?"#4C1D95":"#78590A",color:outb.isRetail?"#67E8F9":outb.isDriveway?"#DDD6FE":"#FDE68A"}}>{outb.isRetail?"🏪 RETAIL ETA P/U "+(outb.shippingFrom||""):outb.isDriveway?"🏠 ETA DW":"ETA"} {fmtDate(outb.eta)}</span>
+:outb?.readyDate?<span style={{...S.badge,background:outb.isRetail?"#164E63":"#78590A",color:outb.isRetail?"#67E8F9":"#FDE68A"}}>{outb.isRetail?"🏪 RETAIL READY TO SHIP":outb.isDriveway?"🏠 CLEAR P/U":"TRANS SET"} {fmtDate(outb.readyDate)}</span>
+:outb?.isRetail?<span style={{...S.badge,background:"#164E63",color:"#67E8F9"}}>🏪 RETAIL DELIVERY</span>
+:outb?.set||outb?.isDriveway?<span style={{...S.badge,background:"#78590A",color:"#FDE68A"}}>{outb.isDriveway?"🏠 DW":"TRANS"} → SET</span>
+:sold?<span style={{...S.badge,background:"#3B1515",color:"#F87171"}}>NOT SET</span>
+:<span style={{color:"#4B5563"}}>—</span>}
+</div></td>
+<td style={{...S.td,whiteSpace:"normal",minWidth:240}}>{v.noReconNeeded?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:12}}>✅ NO RECON {v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+:<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[...rc].sort((a,b)=>{const ao=v.reconTasks[a.key]?.order;const bo=v.reconTasks[b.key]?.order;if(ao&&bo)return ao-bo;if(ao&&!bo)return -1;if(!ao&&bo)return 1;return 0;}).map(c=>{const t=v.reconTasks[c.key],cl=stColor(t.status);return <div key={c.key} title={`#${t.order||"—"} ${c.label}: ${stLabel(t.status)}`}
+onClick={e=>{e.stopPropagation();onSelect(v);}}
+style={{padding:"2px 6px",borderRadius:4,background:cl.bg,border:`1px solid ${cl.bd}`,fontSize:11,fontWeight:600,color:cl.text,cursor:"pointer",transition:"transform 0.1s"}}
+onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+<span style={{color:"#FFF",background:"rgba(255,255,255,0.15)",borderRadius:3,padding:"0 3px",marginRight:3,fontSize:10}}>{t.order||"—"}</span>{t.status==="complete"?"✓ ":""}{c.label}
+{c.key==="oemdealer"&&t.oemDropDate&&t.status!=="complete"&&<span style={{fontSize:9,display:"block",color:"#FDE68A"}}>AT OEM {fmtDate(t.oemDropDate)}</span>}
+{c.key==="oemdealer"&&t.oemWorkStarted&&t.status!=="complete"&&<span style={{fontSize:8,display:"block",color:"#FBBF24"}}>WORK STARTED {t.oemWorkStartedDate?fmtDate(t.oemWorkStartedDate):""}</span>}
+{c.key==="oemdealer"&&t.oemPickedUp&&<span style={{fontSize:9,display:"block",color:"#34D399"}}>PICKED UP {t.oemPickedUpDate?fmtDate(t.oemPickedUpDate):""} ✅ COMPLETED {t.dateCompleted?fmtDate(t.dateCompleted):""}</span>}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status!=="complete"&&<span style={{fontSize:9,display:"block",color:"#F97316"}}>🔄 Round {(t.completedRounds||[]).length+1}</span>}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status==="complete"&&<span style={{fontSize:9,display:"block",color:"#34D399"}}>✅ {(t.completedRounds||[]).length+1} rounds done</span>}
+{c.key!=="oemdealer"&&!(t.completedRounds||[]).length&&t.status==="approved"&&<span style={{fontSize:9,display:"block",color:"#FDE68A"}}>RECON NOT STARTED {t.dateApproved?fmtDate(t.dateApproved):""}</span>}
+{c.key!=="oemdealer"&&!(t.completedRounds||[]).length&&t.status==="started"&&<span style={{fontSize:9,display:"block",color:"#FBBF24"}}>{c.key==="cr"?"REQUESTED":c.key==="blackwidow"?"PICS REQUESTED":"WORK STARTED"} {t.dateStarted?fmtDate(t.dateStarted):""}</span>}
+{c.key!=="oemdealer"&&!(t.completedRounds||[]).length&&t.status==="complete"&&<span style={{fontSize:9,display:"block"}}>{fmtDate(t.dateCompleted)}</span>}
+{t.status==="declined"&&<span style={{fontSize:9,display:"block",color:"#FCA5A5"}}>DECLINED {(t.vendors||[]).filter(v2=>v2.declined).map(v2=>fmtDate(v2.declinedDate)).pop()||""}</span>}
+{c.key==="parts"&&t.vendors&&(()=>{const sv2=(t.vendors||[]).find(x=>x.selected);if(!sv2)return null;const wt2=t.workTasks||[];const pts2=wt2.filter(w=>{const li9=(sv2.lineItems||[]).find(x=>x.id===w.id)||{};return (w.isPart||c.key==="parts")&&!li9.declined&&li9.accepted;});if(!pts2.length)return null;const allInstalled=pts2.every(w=>{const li2=(sv2.lineItems||[]).find(x=>x.id===w.id)||{};return li2.partInstalled;});if(allInstalled)return <span style={{fontSize:8,display:"block",color:"#34D399"}}>ALL INSTALLED</span>;return pts2.map(w=>{const li2=(sv2.lineItems||[]).find(x=>x.id===w.id)||{};const st=li2.partInstalled?"✅":li2.partArrived?"📦":li2.partOrdered?"🔄":"⏳";const dt=li2.partInstalled?li2.partInstalledDate:li2.partArrived?li2.partArrivedDate:li2.partOrdered?li2.partOrderedDate:"";const lbl=li2.partInstalled?"Done":li2.partArrived?"Arrived":li2.partOrdered?"Ordered":"Pending";return <span key={w.id} style={{fontSize:8,display:"block",color:li2.partInstalled?"#34D399":li2.partArrived?"#60A5FA":li2.partOrdered?"#FBBF24":"#6B7280"}}>{st} {w.desc}: {lbl}{dt?" "+fmtDate(dt):""}</span>;});})()}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status!=="complete"&&t.status==="approved"&&<span style={{fontSize:8,display:"block",color:"#FDE68A"}}>NOT STARTED</span>}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status!=="complete"&&t.status==="started"&&<span style={{fontSize:8,display:"block",color:"#FBBF24"}}>STARTED {t.dateStarted?fmtDate(t.dateStarted):""}</span>}
+</div>;})}{vPriority===0&&<span style={{...S.badge,background:"#EF4444",color:"#FFF",fontSize:9,padding:"2px 5px"}}>🔴 PAST DUE</span>}{vPriority===1&&<span style={{...S.badge,background:"#F59E0B",color:"#000",fontSize:9,padding:"2px 5px"}}>⚡ SOLD</span>}{rc.length>0&&<span style={{color:"#E5E7EB",fontSize:11,alignSelf:"center"}}>{dn.length}/{rc.length}</span>}{rc.length===0&&<span style={{color:"#4B5563",fontSize:11}}>None</span>}</div>}
+</td>
+</>}
+</tr>;})}</tbody></table></div>
+</span>;
+}
+function Detail({v,vendors,onBack,onUpdate,onDelete,notify,fireEmail,isAdmin,isVendor,currentUser,deepLinkCat,onClearDeepLink,allUsers}){
+const [sm,setSm]=useState(false);const [sb,setSb]=useState(()=>{const names=((allUsers||[]).filter(u=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map(u=>u.firstName+(u.lastName?" "+u.lastName:""))).filter(n=>n);return names[0]||"";});const [st,setSt]=useState("");
+const [showKick,setShowKick]=useState(false);const [kickReason,setKickReason]=useState("");const [lbImg2,setLbImg2]=useState(null);
+const [editInb,setEditInb]=useState(true);const [editOut,setEditOut]=useState(true);const [editRetail,setEditRetail]=useState(false);const [retailForm,setRetailForm]=useState(v.transport?.retail||{});
+const [showArbForm,setShowArbForm]=useState(false);const [arbSource,setArbSource]=useState(v.arb?.source||"");const [arbCustom,setArbCustom]=useState("");const [arbReason,setArbReason]=useState("");const [arbCloseReason,setArbCloseReason]=useState("");
+const saveInb=(newInb)=>{setInbForm(newInb);const curOut=v.transport?.outbound||{};const syncOut=curOut.isDriveway?{...curOut,readyDate:newInb.driverwayClearDate||curOut.readyDate||"",eta:newInb.drivewayEta||curOut.eta||"",set:!!(newInb.driverwayClearDate||curOut.readyDate),pickedUp:newInb.drivewayPickedUp||curOut.pickedUp||false,datePickedUp:newInb.drivewayPickedUpDate||curOut.datePickedUp||""}:curOut;const locUp=newInb.destination?{location:newInb.destination}:{};onUpdate({...locUp,transport:{inbound:newInb,outbound:syncOut}});};
+const saveOut=(newOut)=>{setOutForm(newOut);onUpdate({transport:{...v.transport,outbound:newOut}});};
+const [inbForm,setInbForm]=useState(v.transport?.inbound||{});const [outForm,setOutForm]=useState(v.transport?.outbound||{});
+// Check if all recon is done
+const rcNeeded=VCAT.filter(c=>v.reconTasks[c.key]?.needed);
+const rcDone=rcNeeded.filter(c=>v.reconTasks[c.key]?.status==="complete");
+const rcApproved=rcNeeded.filter(c=>{const s=v.reconTasks[c.key]?.status;return s==="complete"||s==="approved";});
+const allReconComplete=rcNeeded.length>0&&rcDone.length===rcNeeded.length;
+const allReconApproved=rcNeeded.length>0&&rcApproved.length===rcNeeded.length&&rcApproved.every(c=>v.reconTasks[c.key]?.status==="complete");
+const waitingBuyerApproval=(allReconComplete||v.noReconNeeded)&&!v.buyerApprovedShip;
+const buyerApproved=v.buyerApprovedShip;
+const allReconDone=buyerApproved;
+const outboundLocked=!allReconDone; const isGrounded=v.transport?.inbound?.delivered||false;
+const isInArb=v.arb?.open||false;
+const canAssignVendors=isGrounded&&!isInArb;
+const assign=(ck,vid)=>{const vl=vendors[ck]||[],vn=vl.find(x=>x.id===vid);if(!vn)return;if(!isGrounded){notify("⚠️ Vehicle must be on ground before assigning vendors");return;}if(isInArb){notify("⚠️ Vehicle is in arbitration — recon paused");return;}const t={...v.reconTasks};
+const existing=t[ck].vendors||[];if(existing.find(x=>x.id===vn.id))return;const now=new Date().toISOString().split("T")[0];
+const catName=VCAT.find(c2=>c2.key===ck)?.label||ck;
+const newVn={id:vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||"",location:vn.location||"",estimate:null,etaDone:"",dateAssigned:now,dateCompleted:null,notes:"",selected:false,flaggedLate:false,reminderSent:false,
+notifications:[{type:"assigned",date:now,msg:`Assigned to ${catName} on ${v.year} ${v.make} ${v.model} VIN:${v.vin8}`,sent:"sms+email"}]};
+const newVendors=[...existing,newVn];
+if(ck==="blackwidow"){newVn.selected=true;newVn.bidLocked=true;newVn.estimate=0;newVn.lineItems=[{id:"wt1",desc:"Advertising Photos",price:0,accepted:true,costType:"ws"}];
+t[ck]={...t[ck],needed:true,status:"started",vendorId:vn.id,vendorName:vn.name,vendors:[newVn],dateAssigned:now,dateStarted:now,workTasks:[{id:"wt1",desc:"Advertising Photos",isPart:false}]};}
+else if(ck==="cr"){newVn.selected=true;newVn.bidLocked=true;newVn.estimate=0;newVn.lineItems=[{id:"wt1",desc:"Condition Report",price:0,accepted:true,costType:"ws"}];
+t[ck]={...t[ck],needed:true,status:"started",vendorId:vn.id,vendorName:vn.name,vendors:[newVn],dateAssigned:now,dateStarted:now,workTasks:[{id:"wt1",desc:"Condition Report",isPart:false}]};}
+else{t[ck]={...t[ck],needed:true,status:t[ck].status==="unassigned"||t[ck].status==="na"?"assigned":t[ck].status,vendorId:vn.id,vendorName:newVendors.map(x=>x.name).join(", "),vendors:newVendors,dateAssigned:t[ck].dateAssigned||now};}
+onUpdate({reconTasks:t});notify(`📲 ${vn.name} notified via SMS & Email — ${catName} on ${v.year} ${v.make} ${v.model}`);
+// Fire vendor_assigned email
+if(typeof fireEmail==="function"){const reconOrder=t[ck].order||null;const allOrdered=VCAT.filter(c2=>t[c2.key]?.needed&&t[c2.key]?.order).sort((a,b)=>(t[a.key].order||99)-(t[b.key].order||99));const aheadOfMe=allOrdered.filter(c2=>t[c2.key].order&&reconOrder&&t[c2.key].order<reconOrder).map(c2=>({name:c2.label,order:t[c2.key].order,status:t[c2.key].status||"unassigned"}));const totalOrdered=allOrdered.length;fireEmail("vendor_assigned",{vendor:{name:vn.name},vehicle:vData(v),category:catName,categoryKey:ck,tasks:(t[ck].workTasks||[]).map(w=>({desc:w.desc,isPart:w.isPart})),reconOrder:reconOrder,totalReconSteps:totalOrdered,aheadTasks:aheadOfMe,isGrounded:true,groundedDate:v.transport?.inbound?.dateDelivered||""});}};
+const updVendor=(ck,vid,updates,statusChange)=>{const t={...v.reconTasks};const vs=[...(t[ck].vendors||[])];const idx=vs.findIndex(x=>x.id===vid);if(idx<0)return;
+vs[idx]={...vs[idx],...updates};t[ck]={...t[ck],vendors:vs};
+const totalEst=vs.reduce((s,vn)=>s+(Number(vn.estimate)||0),0);if(totalEst)t[ck].estimate=totalEst;
+if(statusChange)t[ck]={...t[ck],...statusChange};
+onUpdate({reconTasks:t});};
+const selectVendor=(ck,vid)=>{const t={...v.reconTasks};const vs=[...(t[ck].vendors||[])];const catName=VCAT.find(c2=>c2.key===ck)?.label||ck;const now=new Date().toISOString().split("T")[0];
+vs.forEach(vn=>{vn.selected=vn.id===vid;
+if(vn.id===vid)vn.notifications=[...(vn.notifications||[]),{type:"selected",date:now,msg:`✅ You won the bid — start ${catName} work now`,sent:"sms+email"}];
+});t[ck]={...t[ck],vendors:vs,status:"approved",dateApproved:now,estimate:vs.find(x=>x.id===vid)?.estimate||t[ck].estimate};onUpdate({reconTasks:t});notify("📲 Bid Accepted — Approved");
+// Fire vendor_bid_accepted email
+const acceptedVn=vs.find(x=>x.id===vid);
+if(acceptedVn&&typeof fireEmail==="function"){const accItems=(acceptedVn.lineItems||[]).filter(x=>x.accepted);const total=accItems.reduce((s,x)=>s+(Number(x.price)||0),0);fireEmail("vendor_bid_accepted",{vendor:{name:acceptedVn.name},vehicle:vData(v),category:VCAT.find(c2=>c2.key===ck)?.label||ck,categoryKey:ck,lineItems:accItems.map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),totalApproved:total,approvedBy:v.buyingBroker||"Buyer",approvedDate:new Date().toISOString().split("T")[0]});};};
+const sendReminder=(ck,vid)=>{const t={...v.reconTasks};const vs=[...(t[ck].vendors||[])];const idx=vs.findIndex(x=>x.id===vid);if(idx<0)return;const now=new Date().toISOString().split("T")[0];
+vs[idx].notifications=[...(vs[idx].notifications||[]),{type:"reminder",date:now,msg:`⚠️ PAST DUE — ${VCAT.find(c2=>c2.key===ck)?.label||ck} on ${v.year} ${v.make} ${v.model}`,sent:"sms+email"}];
+vs[idx].reminderSent=true;vs[idx].lastReminder=now;
+t[ck]={...t[ck],vendors:vs};onUpdate({reconTasks:t});notify(`⚠️ Past-due reminder sent to ${vs[idx].name}`);
+const catName=VCAT.find(c2=>c2.key===ck)?.label||ck;
+if(typeof fireEmail==="function")fireEmail("vendor_assigned",{vendor:{name:vs[idx].name},vehicle:vData(v),category:"⚠️ PAST DUE — "+catName,tasks:[{desc:"PAST DUE REMINDER — Complete "+catName+" ASAP",isPart:false}]});};
+const reassignNext=(ck,vid)=>{const t={...v.reconTasks};const vs=[...(t[ck].vendors||[])];const now=new Date().toISOString().split("T")[0];
+const cur=vs.findIndex(x=>x.id===vid);if(cur<0)return;vs[cur].selected=false;vs[cur].flaggedLate=true;
+vs[cur].notifications=[...(vs[cur].notifications||[]),{type:"removed",date:now,msg:`Job removed — reassigned to next vendor`,sent:"sms+email"}];
+const next=vs.find((x,i)=>i!==cur&&!x.flaggedLate);
+if(next){next.selected=true;next.notifications=[...(next.notifications||[]),{type:"reassigned",date:now,msg:`🔄 Job reassigned to you — previous vendor late`,sent:"sms+email"}];
+t[ck]={...t[ck],vendors:vs};onUpdate({reconTasks:t});notify(`📲 Job reassigned to ${next.name} — both vendors notified`);
+const catName=VCAT.find(c2=>c2.key===ck)?.label||ck;
+if(typeof fireEmail==="function")fireEmail("vendor_assigned",{vendor:{name:next.name},vehicle:vData(v),category:catName,tasks:[{desc:"🔄 REASSIGNED — Previous vendor removed (late)",isPart:false}]});}
+else{t[ck]={...t[ck],vendors:vs};onUpdate({reconTasks:t});notify("⚠️ No other vendors to reassign — add a new vendor");};};
+const est=(ck,a)=>{const t={...v.reconTasks};t[ck]={...t[ck],status:"estimated",estimate:Number(a)};onUpdate({reconTasks:t});};
+const apr=(ck)=>{const t={...v.reconTasks};t[ck]={...t[ck],status:"approved"};onUpdate({reconTasks:t});};
+const startRecon=(ck,eta)=>{const t={...v.reconTasks};
+const sv6=(t[ck].vendors||[]).find(x=>x.selected);if(sv6&&(sv6.lineItems||[]).length>0&&!(sv6.lineItems||[]).every(x=>x.accepted||x.declined)){notify("⚠️ Buyer must accept/decline all bid items before work can start");return;}
+const partsItems=(sv6?.lineItems||[]).filter(x=>x.accepted&&x.isPart&&!x.declined);if(partsItems.length>0&&!partsItems.every(x=>x.partArrived)){notify("⚠️ All accepted parts must arrive before starting work");return;}
+if(ck==="parts"&&sv6){const allParts=(sv6.lineItems||[]).filter(x=>x.accepted&&!x.declined);if(allParts.length>0&&!allParts.every(x=>x.partArrived)){notify("⚠️ All accepted parts must arrive before starting work");return;}}
+let fixedEta=eta;if(fixedEta&&fixedEta.startsWith("00"))fixedEta="20"+fixedEta.slice(2);t[ck]={...t[ck],status:"started",dateStarted:new Date().toISOString().split("T")[0],etaComplete:fixedEta};onUpdate({reconTasks:t});notify("🔧 Work started");
+const catName=VCAT.find(c2=>c2.key===ck)?.label||ck;
+const sv=(t[ck].vendors||[]).find(x=>x.selected);
+if(typeof fireEmail==="function"&&sv){const items=(sv.lineItems||[]).filter(x=>x.accepted);const total=items.reduce((s,x)=>s+(Number(x.price)||0),0);const findItems=(sv.vendorFindings||[]).filter(x=>x.approved);const findTotal=findItems.reduce((s,x)=>s+(Number(x.price)||0),0);fireEmail("vendor_work_started",{buyer:v.buyingBroker||"Buyer",vendor:{name:sv.name},vehicle:vData(v),category:catName,lineItems:[...items.map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...findItems.map(x=>({desc:"🔍 "+x.desc,price:x.price,costType:x.findingCostType||"ws"}))],totalApproved:total+findTotal,startedDate:new Date().toISOString().split("T")[0],etaComplete:fixedEta||""});}};
+const cmp=(ck)=>{const t={...v.reconTasks};const cur=t[ck];const sv=(cur.vendors||[]).find(x=>x.selected);const taskDescs=(cur.workTasks||[]).map(w=>w.desc).join(", ");const totalCost=sv?(sv.lineItems||[]).filter(x=>x.accepted).reduce((s,x)=>s+(Number(x.price)||0),0):0;const findCost=sv?(sv.vendorFindings||[]).filter(x=>x.approved).reduce((s,x)=>s+(Number(x.price)||0),0):0;const rounds=[...(cur.completedRounds||[]),{tasks:taskDescs,cost:totalCost+findCost,date:new Date().toISOString().split("T")[0],vendor:sv?.name||cur.vendorName||"",photoCount:(cur.photos||[]).length-(cur.roundPhotoStart||0)}];t[ck]={...t[ck],status:"complete",dateCompleted:new Date().toISOString().split("T")[0],completedRounds:rounds};
+const catName=VCAT.find(c2=>c2.key===ck)?.label||ck;
+const sv3=(t[ck].vendors||[]).find(x=>x.selected);
+// Check if ALL recon is now complete
+const rcNeeded2=VCAT.filter(c=>t[c.key]?.needed);
+const rcDone2=rcNeeded2.filter(c=>t[c.key]?.status==="complete");
+const allDone=rcNeeded2.length>0&&rcDone2.length===rcNeeded2.length;
+// Auto-set outbound readyDate when all recon is done (if not already set)
+const updatePayload={reconTasks:t};
+if(allDone&&!v.transport?.outbound?.readyDate){
+  const today=new Date().toISOString().split("T")[0];
+  updatePayload.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{set:false}),readyDate:today}};
+}
+onUpdate(updatePayload);notify(allDone?"Complete ✅ — Ready to Ship":"Complete ✅");
+if(typeof fireEmail==="function"){
+  // Single category complete
+  const items=(sv3?.lineItems||[]).filter(x=>x.accepted);const total=items.reduce((s,x)=>s+(Number(x.price)||0),0);
+  const findItems2=(sv3?.vendorFindings||[]).filter(x=>x.approved);const findTotal2=findItems2.reduce((s,x)=>s+(Number(x.price)||0),0);
+  fireEmail("buyer_work_complete",{buyer:v.buyingBroker||"Buyer",vendor:{name:sv3?.name||"Vendor"},vehicle:vData(v),category:catName,categoryKey:ck,lineItems:[...items.map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...findItems2.map(x=>({desc:"🔍 "+x.desc,price:x.price,costType:x.findingCostType||"ws"}))],totalCost:total+findTotal2});
+  // If ALL recon done, also send recon complete
+  if(allDone){const summary=rcNeeded2.map(c=>{const ct=t[c.key];const sv2=(ct.vendors||[]).find(x=>x.selected);const cost=(sv2?.lineItems||[]).filter(x=>x.accepted).reduce((s,x)=>s+(Number(x.price)||0),0);const fCost=(sv2?.vendorFindings||[]).filter(x=>x.approved).reduce((s,x)=>s+(Number(x.price)||0),0);return {icon:c.icon,category:c.label,vendor:sv2?.name||"—",cost:cost+fCost};});const totalRecon=summary.reduce((s,x)=>s+x.cost,0);fireEmail("buyer_recon_complete",{buyer:v.buyingBroker||"Buyer",seller:v.sellingBroker||"",vehicle:vData(v),reconSummary:summary,totalReconCost:totalRecon});}
+}};
+const tog=(ck)=>{const t={...v.reconTasks};const cur=t[ck]||{};if(cur.needed){t[ck]={...cur,needed:false,status:"na"};}else{t[ck]={...cur,needed:true,status:cur.completedRounds?.length>0?"unassigned":"unassigned",vendorId:null,vendorName:null,estimate:null,notes:"",photos:cur.photos||[]};}onUpdate({reconTasks:t});};
+const inb=v.transport?.inbound,outb=v.transport?.outbound;
+// Only count approved/complete recon — use selected vendor bid only
+const reconCost=VCAT.reduce((s,c)=>{const t=v.reconTasks[c.key];if(!t?.needed)return s;if(t.status!=="approved"&&t.status!=="complete")return s;
+const sel=(t.vendors||[]).find(vn=>vn.selected);return s+(sel?Number(sel.estimate)||0:Number(t.estimate)||0);},0);
+const inbCost=inb?.cost||0;const outbCost=outb?.cost||0;
+return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button style={{padding:"10px 20px",fontSize:16,fontWeight:700,borderRadius:8,background:"#1E3A5F",color:"#93C5FD",border:"2px solid #3B82F6",cursor:"pointer"}} onClick={onBack}>← Back</button>
+{isAdmin&&onDelete&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:600,borderRadius:8,background:"transparent",color:"#F87171",border:"1px solid #7F1D1D",cursor:"pointer"}} onClick={onDelete}>🗑️ Delete</button>}</div>
+{(v.status==="sold"||v.status==="delivered")?<div style={{margin:"10px 0",padding:"10px 14px",borderRadius:8,background:"#0D3B1E33",borderLeft:"4px solid #34D399",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:13,color:"#34D399",fontWeight:700,marginBottom:2}}>💰 SOLD — Customer waiting</div><div style={{fontSize:12,color:"#6EE7B7"}}>Sold to {v.soldTo||"—"}{v.soldDate?" on "+fmtDate(v.soldDate):""}</div></div><span style={{fontSize:11,padding:"6px 12px",borderRadius:6,background:"#166534",color:"#6EE7B7",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Priority</span></div>
+:<div style={{margin:"10px 0",padding:"10px 14px",borderRadius:8,background:"#1A1A2E",borderLeft:"4px solid #6B7280",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:13,color:"#9CA3AF",fontWeight:700,marginBottom:2}}>📦 IN INVENTORY — Not yet sold</div><div style={{fontSize:12,color:"#6B7280"}}>Standard turnaround</div></div><span style={{fontSize:11,padding:"6px 12px",borderRadius:6,background:"#2A2A3E",color:"#9CA3AF",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Standard</span></div>}
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",margin:"12px 0",flexWrap:"wrap",gap:12}}>
+<div><h2 style={{margin:0,fontSize:22,fontWeight:800,color:"#F1F5F9"}}>{v.year} {v.make} {v.model} {v.trim}</h2>
+<div style={{display:"flex",gap:20,flexWrap:"wrap",color:"#E5E7EB",fontSize:17,marginTop:8}}>
+<span>VIN: <b style={{fontFamily:"monospace"}}>{v.fullVin||v.vin8}</b></span><span>Color: <b>{v.color}</b></span><span>Miles: <b>{v.miles.toLocaleString()}</b></span>
+<span>Location: <b>{v.location}</b></span><span>Buyer: <b>{v.buyingBroker}</b></span>
+{v.sellingBroker&&<span>Seller: <b>{v.sellingBroker}</b></span>}</div></div>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+{v.status!=="sold"&&v.status!=="delivered"&&<button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>setSm(true)}>Mark Sold</button>}
+{v.status==="sold"&&<button style={{...S.btn,background:"#166534"}} onClick={()=>{onUpdate({status:"delivered",deliveredDate:new Date().toISOString().split("T")[0]});notify("On Ground");
+if(typeof fireEmail==="function")fireEmail("vehicle_grounded",{buyer:v.buyingBroker||"",seller:v.sellingBroker||"",dealer:v.soldTo||"",vehicle:vData(v),location:v.location||"",groundedDate:new Date().toISOString().split("T")[0]});}}>Mark On Ground</button>}
+{(v.status==="sold"||v.status==="delivered")&&<button style={{padding:"7px 16px",borderRadius:6,border:"2px solid #F97316",background:"#7C2D12",color:"#FDBA74",fontSize:14,cursor:"pointer",fontWeight:800}}
+onClick={()=>{setShowKick(true);setKickReason("");}}>🔄 Kicked</button>}
+{v.status==="sold"&&<button style={{padding:"7px 16px",borderRadius:6,border:"2px solid #6B7280",background:"#1A1A2E",color:"#9CA3AF",fontSize:14,cursor:"pointer",fontWeight:800}}
+onClick={()=>{onUpdate({status:"in_recon",soldTo:null,soldDate:null,sellingBroker:"",
+buyerApprovedShip:false,buyerApprovedDate:null,shippingHoldDate:null,shippingHoldBy:null,
+transport:{...v.transport,outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false,datePickedUp:"",delivered:false,dateDelivered:"",readyDate:"",isDriveway:false}}
+});notify("↩️ Sale reversed — vehicle back in inventory");}}>↩️ Unsell</button>}
+</div></div>
+<div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12,alignItems:"stretch"}}>
+{(v.kickedHistory||[]).map((k,i)=><div key={i} style={{padding:"12px 18px",borderRadius:10,background:"#3B1515",border:"2px solid #7F1D1D",minWidth:260}}>
+<div style={{fontSize:13,color:"#FCA5A5",textTransform:"uppercase",letterSpacing:2,fontWeight:600}}>Kicked — #{i+1}</div>
+<div style={{fontSize:28,fontWeight:900,color:"#F87171",marginTop:4}}>{k.dealer}</div>
+<div style={{fontSize:14,color:"#FCA5A5",marginTop:6,fontWeight:600}}>📅 Sold: {k.soldDate?fmtDate(k.soldDate):"—"}</div>
+<div style={{fontSize:14,color:"#FCA5A5",fontWeight:600}}>🔄 Kicked: {k.kickedDate?fmtDate(k.kickedDate):"—"}</div>
+{k.sellingBroker&&<div style={{fontSize:13,color:"#9CA3AF",marginTop:2}}>Seller: {k.sellingBroker}</div>}
+{k.reason&&<div style={{fontSize:13,color:"#FDBA74",marginTop:6,padding:"6px 10px",background:"rgba(249,115,22,0.1)",borderRadius:4,border:"1px solid #7C2D12"}}>📝 {k.reason}</div>}
+</div>)}
+{(v.soldTo&&v.soldTo!=="null"&&v.status==="sold")&&(()=>{
+const isReSold=(v.kickedHistory||[]).length>0;
+return <div style={{padding:"12px 18px",borderRadius:10,background:"#0D3B1E",border:"2px solid #166534",minWidth:260}}>
+<div style={{fontSize:13,color:"#6EE7B7",textTransform:"uppercase",letterSpacing:2,fontWeight:600}}>{isReSold?"🔄 Re-Sold To":"Sold To"}</div>
+<div style={{fontSize:28,fontWeight:900,color:"#34D399",marginTop:4}}>{v.soldTo}</div>
+{v.soldDate&&<div style={{fontSize:16,color:"#6EE7B7",marginTop:6,fontWeight:600}}>📅 Sold: {fmtDate(v.soldDate)}</div>}
+</div>;})()}
+</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}><div style={{...S.card,borderTop:`4px solid ${inb?.delivered?"#34D399":inb?.set?"#FBBF24":"#EF4444"}`,padding:18}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+<span style={{fontWeight:800,color:"#E5E7EB",fontSize:18}}>🚛 Inbound Transport</span>
+
+</div>
+{inb?.kickedReturn&&<div style={{padding:"8px 14px",marginBottom:10,borderRadius:6,background:"#7C2D12",border:"1px solid #F97316"}}>
+<span style={{fontSize:15,fontWeight:800,color:"#FDBA74"}}>🔄 KICKED RETURN — Pick up from: <span style={{color:"#FFF"}}>{inb.pickupFrom||v.kickedFromDealer||"—"}</span></span>
+</div>}
+{true?<div style={{display:"grid",gap:12}}>
+{inb?.kickedReturn&&<label style={{...S.fl,fontSize:15}}>Pick Up From (Dealer)<input style={{...S.fi,fontSize:18,padding:"10px 14px",color:"#FDBA74"}} value={inbForm.pickupFrom||""} onChange={e=>setInbForm({...inbForm,pickupFrom:e.target.value})} onBlur={()=>saveInb(inbForm)}/></label>}
+<div style={{padding:14,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}>
+<div style={{fontSize:16,fontWeight:700,color:"#E5E7EB",marginBottom:10}}>🚛 Transport</div>
+<label style={{...S.fl,fontSize:15,marginBottom:8}}>Destination *
+<select style={{...S.fi,fontSize:18,padding:"10px 14px"}} value={inbForm.destination||""} onChange={e=>{const nf={...inbForm,destination:e.target.value};setInbForm(nf);saveInb(nf);}}>
+<option value="">Select location...</option>
+<option value="PHX">PHX</option>
+<option value="Dallas">Dallas</option>
+</select></label>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+<label style={{...S.fl,fontSize:15}}>Company *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.company||""} onChange={e=>setInbForm({...inbForm,company:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Company"/></label>
+<label style={{...S.fl,fontSize:15}}>Phone *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.phone||""} onChange={e=>setInbForm({...inbForm,phone:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Phone #"/></label>
+<label style={{...S.fl,fontSize:15}}>Email *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.email||""} onChange={e=>setInbForm({...inbForm,email:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Email"/></label>
+</div>
+<label style={{...S.fl,fontSize:15}}>Cost ($)<input style={{...S.fi,fontSize:18,padding:"10px 14px"}} type="number" value={inbForm.cost||""} onChange={e=>setInbForm({...inbForm,cost:Number(e.target.value)})} onBlur={()=>saveInb(inbForm)}/></label>
+<label style={{...S.fl,fontSize:15}}>ETA Date<DateIn style={{fontSize:18,padding:"10px 14px"}} value={inbForm.eta||""} onChange={v2=>{if(!inbForm.destination||!inbForm.company){notify("⚠️ Fill in destination and company before setting ETA");return;}const nf={...inbForm,eta:v2,set:!!v2};setInbForm(nf);saveInb(nf);if(v2&&typeof fireEmail==="function")fireEmail("transport_inbound_set",{buyer:v.buyingBroker||"",vehicle:vData(v),transport:{company:nf.company||"",phone:nf.phone||"",email:nf.email||"",eta:v2,destination:nf.destination||v.location||"",cost:nf.cost||0}});}}/></label>
+{inbForm.eta&&!inbForm.delivered&&<div style={{fontSize:14,color:"#FBBF24",fontWeight:600,marginTop:6}}>📅 ETA: {fmtDate(inbForm.eta)}</div>}
+<label style={{display:"flex",alignItems:"center",gap:8,fontSize:17,color:"#E5E7EB",fontWeight:600,marginTop:10}}><input type="checkbox" style={{width:20,height:20}} checked={inbForm.delivered||false} onChange={e=>{if(e.target.checked){const isDW2=inbForm.drivewayDest||inbForm.driverwayClearDate;if(!isDW2&&(!inbForm.company||!inbForm.destination||!inbForm.eta)){notify("⚠️ Fill in company, destination, and ETA first");return;}if(isDW2&&(!inbForm.drivewayDest||!inbForm.dwCompany)){notify("⚠️ Fill in driveway destination and company first");return;}const nf={...inbForm,delivered:true,dateDelivered:new Date().toISOString().split("T")[0]};setInbForm(nf);saveInb(nf);if(typeof fireEmail==="function")fireEmail("vehicle_grounded",{buyer:v.buyingBroker||"",seller:v.sellingBroker||"",dealer:v.soldTo||"",vehicle:vData(v),location:nf.destination||v.location||"",groundedDate:nf.dateDelivered});}else{const nf={...inbForm,delivered:false,dateDelivered:""};setInbForm(nf);saveInb(nf);}}}/> Grounded</label>
+{inbForm.delivered&&<div style={{fontSize:16,color:"#34D399",fontWeight:700,padding:"10px 14px",background:"#0D3B1E",borderRadius:6,border:"1px solid #166534",marginTop:6}}>📅 Grounded: {fmtDate(inbForm.dateDelivered)}</div>}
+</div>
+
+{!inb?.kickedReturn&&<div style={{padding:14,background:"#1A1A2E",borderRadius:8,border:"1px solid #4C1D95",marginBottom:4}}>
+<div style={{fontSize:16,fontWeight:700,color:"#C4B5FD",marginBottom:8}}>🏠 Driveway Buy</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+<label style={{...S.fl,fontSize:15}}>Company *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.dwCompany||""} onChange={e=>setInbForm({...inbForm,dwCompany:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Company"/></label>
+<label style={{...S.fl,fontSize:15}}>Phone *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.dwPhone||""} onChange={e=>setInbForm({...inbForm,dwPhone:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Phone #"/></label>
+<label style={{...S.fl,fontSize:15}}>Email *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.dwEmail||""} onChange={e=>setInbForm({...inbForm,dwEmail:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Email"/></label>
+</div>
+<label style={{...S.fl,fontSize:15}}>Destination *
+<select style={{...S.fi,fontSize:18,padding:"10px 14px"}} value={inbForm.drivewayDest||""} onChange={e=>{const nf={...inbForm,drivewayDest:e.target.value};setInbForm(nf);saveInb(nf);}}>
+<option value="">Select destination...</option>
+<option value="PHX">PHX</option>
+<option value="Dallas">Dallas</option>
+{v.soldTo&&<option value={v.soldTo}>🏢 {v.soldTo} (Buying Dealer)</option>}
+</select></label>
+{inbForm.drivewayDest&&<div style={{marginTop:8}}>
+<label style={{...S.fl,fontSize:15}}>Clear to Pick Up Date<DateIn style={{fontSize:18,padding:"10px 14px"}} value={inbForm.driverwayClearDate||""} onChange={v2=>{const nf={...inbForm,driverwayClearDate:v2};setInbForm(nf);saveInb(nf);}}/></label>
+{inbForm.driverwayClearDate&&<div style={{fontSize:14,color:"#DDD6FE",fontWeight:600,marginTop:4}}>✅ Clear: {fmtDate(inbForm.driverwayClearDate)}</div>}
+{inbForm.driverwayClearDate&&<label style={{...S.fl,fontSize:15,marginTop:8}}>ETA Pick Up<DateIn style={{fontSize:18,padding:"10px 14px"}} value={inbForm.drivewayEta||""} onChange={v2=>{const nf={...inbForm,drivewayEta:v2};setInbForm(nf);saveInb(nf);}}/></label>}
+{inbForm.drivewayEta&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:17,color:"#E5E7EB",fontWeight:600,marginTop:8}}><input type="checkbox" style={{width:20,height:20}} checked={inbForm.drivewayPickedUp||false} onChange={e=>{const now=new Date().toISOString().split("T")[0];if(e.target.checked){const nf2={...inbForm,drivewayPickedUp:true,drivewayPickedUpDate:now};setInbForm(nf2);saveInb(nf2);const outb=v.transport?.outbound||{};if(outb.isDriveway){onUpdate({transport:{...v.transport,outbound:{...outb,pickedUp:true,datePickedUp:now,readyDate:outb.readyDate||inbForm.driverwayClearDate||"",eta:outb.eta||inbForm.drivewayEta||"",set:true}}});}}else{const nf2={...inbForm,drivewayPickedUp:false,drivewayPickedUpDate:""};setInbForm(nf2);saveInb(nf2);}}}/> Picked Up</label>}
+{inbForm.drivewayPickedUp&&<div style={{fontSize:15,color:"#34D399",fontWeight:700,marginTop:6}}>📅 Picked Up: {fmtDate(inbForm.drivewayPickedUpDate)}</div>}
+</div>}
+</div>}
+<button style={{...S.btn,fontSize:16,padding:"12px",background:"#7F1D1D",color:"#FCA5A5"}} onClick={()=>{onUpdate({transport:{...v.transport,inbound:{set:false,destination:"",eta:"",cost:0,delivered:false,dateDelivered:"",company:"",phone:"",email:"",drivewayDest:"",driverwayClearDate:"",drivewayEta:"",drivewayPickedUp:false,drivewayPickedUpDate:"",dwCompany:"",dwPhone:"",dwEmail:""}}});setInbForm({});notify("🗑️ Inbound transport cleared");if(typeof fireEmail==="function")fireEmail("shipping_hold",{buyer:v.buyingBroker||"",vehicle:vData(v),reason:"Inbound transport canceled",holdDate:new Date().toISOString().split("T")[0],holdBy:v.buyingBroker||"Buyer"});}}>🗑️ Clear Transport</button>
+</div>
+:<div style={{display:"grid",gap:8,fontSize:16,color:"#E5E7EB"}}>
+{inb?.company&&<div style={{padding:"8px 12px",background:"#1A1A2E",borderRadius:6,border:"1px solid #2A2A3E",marginBottom:4}}>
+<div style={{fontSize:15,fontWeight:700}}>{inb.company}</div>
+<div style={{fontSize:13,color:"#9CA3AF"}}>{inb.phone||"—"} • {inb.email||"—"}</div>
+</div>}
+{inb?.pickupFrom&&<div>Pick Up From: <b style={{color:"#FDBA74",fontSize:17}}>{inb.pickupFrom}</b></div>}
+<div>Status: <b style={{color:inb?.delivered?"#34D399":inb?.pickedUp?"#60A5FA":inb?.setDate?"#FBBF24":"#F87171",fontSize:17}}>{inb?.delivered?"On Ground":inb?.pickedUp?"Picked Up — ETA "+(inb?.eta?fmtDate(inb.eta):"TBD"):inb?.etaPickup?"ETA Pickup "+fmtDate(inb.etaPickup):inb?.eta?"ETA "+(inb?.destination||"")+" "+fmtDate(inb.eta):"Not Set"}</b></div>
+<div>Destination: <b style={{fontSize:17}}>{inb?.destination||"—"}</b></div>
+<div>ETA: <b style={{fontSize:17}}>{inb?.eta?fmtDate(inb.eta):"—"}</b></div>
+{inb?.delivered&&inb?.dateDelivered&&<div>On Ground: <b style={{color:"#34D399",fontSize:17}}>{fmtDate(inb.dateDelivered)}</b></div>}
+<div>Cost: <b style={{color:"#FBBF24",fontSize:18}}>{inb?.cost?`$${inb.cost}`:"—"}</b></div>
+{inb?.dwCompany&&<div style={{padding:"6px 10px",background:"#1A1A2E",borderRadius:6,border:"1px solid #4C1D95",marginBottom:4}}>
+<div style={{fontSize:14,fontWeight:700,color:"#C4B5FD"}}>🏠 {inb.dwCompany}</div>
+<div style={{fontSize:12,color:"#9CA3AF"}}>{inb.dwPhone||"—"} • {inb.dwEmail||"—"}</div>
+</div>}
+{inb?.drivewayDest&&<div>🏠 Driveway → <b style={{color:"#C4B5FD",fontSize:17}}>{inb.drivewayDest}</b></div>}
+{inb?.driverwayClearDate&&<div>🏠 Clear to Pick Up: <b style={{color:"#DDD6FE",fontSize:17}}>{fmtDate(inb.driverwayClearDate)}</b></div>}
+{inb?.drivewayEta&&<div>🏠 ETA Pick Up: <b style={{color:"#C4B5FD",fontSize:17}}>{fmtDate(inb.drivewayEta)}</b></div>}
+{inb?.drivewayPickedUp&&<div>🏠 Picked Up: <b style={{color:"#34D399",fontSize:17}}>{fmtDate(inb.drivewayPickedUpDate)}</b></div>}
+</div>}
+</div><div style={{...S.card,borderTop:`4px solid ${outb?.pickedUp?"#34D399":outb?.set?"#FBBF24":"#4B5563"}`,padding:18}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+<span style={{fontWeight:800,color:"#E5E7EB",fontSize:18}}>🚚 Outbound Transport</span>
+{!allReconComplete&&!v.noReconNeeded&&rcNeeded.length>0?
+<span style={{padding:"8px 16px",borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",fontSize:18,fontWeight:800}}>🔒 RECON INCOMPLETE ({rcNeeded.length-rcDone.length} remaining)</span>
+:!v.noReconNeeded&&rcNeeded.length===0&&!v.buyerApprovedShip?
+<span style={{padding:"8px 16px",borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",fontSize:16,fontWeight:800}}>🔒 Set Recon or mark No Recon Needed first</span>
+:waitingBuyerApproval?
+<div style={{display:"flex",flexDirection:"column",gap:6}}>
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+<span style={{padding:"8px 16px",borderRadius:8,background:"#78590A",color:"#FDE68A",fontSize:16,fontWeight:800}}>⏳ WAITING ON BUYER APPROVAL</span>
+<button style={{padding:"8px 16px",borderRadius:8,background:"#166534",color:"#6EE7B7",fontSize:16,fontWeight:800,border:"none",cursor:"pointer"}}
+onClick={()=>{onUpdate({buyerApprovedShip:true,buyerApprovedDate:new Date().toISOString().split("T")[0]});notify("✅ Buyer approved — ready to ship!");
+if(typeof fireEmail==="function")fireEmail("buyer_approved_shipping",{buyer:v.buyingBroker||"",vehicle:vData(v),dealer:v.soldTo||"",approvedDate:new Date().toISOString().split("T")[0]});}}>
+✅ Approve Shipping</button>
+</div>
+{v.shippingHoldDate&&<div style={{fontSize:13,color:"#FCA5A5"}}>🛑 Previously held by {v.shippingHoldBy} on {fmtDate(v.shippingHoldDate)}</div>}
+</div>
+:buyerApproved?
+<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+<span style={{padding:"8px 16px",borderRadius:8,background:"#166534",color:"#6EE7B7",fontSize:16,fontWeight:800}}>✅ BUYER APPROVED SHIPPING {v.buyerApprovedDate?fmtDate(v.buyerApprovedDate):""}</span>
+<button style={{padding:"8px 16px",borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",fontSize:14,fontWeight:800,border:"none",cursor:"pointer"}}
+onClick={()=>{onUpdate({buyerApprovedShip:false,buyerApprovedDate:null,shippingHoldDate:new Date().toISOString().split("T")[0],shippingHoldBy:v.buyingBroker});notify("🛑 Shipping on HOLD — buyer unapproved");
+if(typeof fireEmail==="function")fireEmail("shipping_hold",{buyer:v.buyingBroker||"Buyer",vehicle:vData(v),reason:"Buyer unapproved shipping",holdDate:new Date().toISOString().split("T")[0],holdBy:v.buyingBroker||"Buyer"});}}>
+🛑 Hold Shipping</button>
+
+</div>
+:v.noReconNeeded?
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+<span style={{padding:"8px 16px",borderRadius:8,background:"#06B6D4",color:"#FFF",fontSize:18,fontWeight:800}}>✅ NO RECON NEEDED</span>
+
+</div>
+:null}
+</div>
+{true?<div style={{display:"grid",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+<label style={{...S.fl,fontSize:15}}>Company *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={outForm.company||""} onChange={e=>setOutForm({...outForm,company:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Company"/></label>
+<label style={{...S.fl,fontSize:15}}>Phone *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={outForm.phone||""} onChange={e=>setOutForm({...outForm,phone:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Phone #"/></label>
+<label style={{...S.fl,fontSize:15}}>Email *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={outForm.email||""} onChange={e=>setOutForm({...outForm,email:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Email"/></label>
+</div>
+<label style={{...S.fl,fontSize:15}}>Destination{outForm.isRetail&&outForm.deliveryAddress?<div style={{fontSize:14,fontWeight:700,color:"#67E8F9",padding:"10px 14px",background:"#0D2B3E",borderRadius:6,border:"1px solid #164E63"}}>🏪 {outForm.customerName||"Customer"} — {outForm.deliveryAddress}</div>:outForm.isDriveway&&v.soldTo?<div style={{fontSize:14,fontWeight:700,color:"#34D399",padding:"10px 14px",background:"#0D3B1E",borderRadius:6,border:"1px solid #166534"}}>🏢 {v.soldTo} (Buying Dealer)</div>:v.soldTo?<div style={{fontSize:14,fontWeight:700,color:"#34D399",padding:"10px 14px",background:"#0D3B1E",borderRadius:6,border:"1px solid #166534"}}>🏢 {v.soldTo}</div>:<div style={{fontSize:14,color:"#6B7280",padding:"10px 14px",background:"#0D0D1A",borderRadius:6,border:"1px solid #2A2A3E"}}>No buyer — sell vehicle first</div>}</label>
+<label style={{...S.fl,fontSize:15}}>Shipping From *<select style={{...S.fi,fontSize:18,padding:"10px 14px"}} value={outForm.shippingFrom||""} onChange={e=>{const nf={...outForm,shippingFrom:e.target.value};setOutForm(nf);saveOut(nf);}}><option value="">Select...</option><option value="PHX">PHX</option><option value="Dallas">Dallas</option></select></label>
+<label style={{...S.fl,fontSize:15}}>Cost ($)<input style={{...S.fi,fontSize:18,padding:"10px 14px"}} type="number" value={outForm.cost===0?"":outForm.cost||""} onChange={e=>{const val=e.target.value===""?0:parseFloat(e.target.value);setOutForm({...outForm,cost:val});}} onBlur={()=>saveOut(outForm)}/></label>
+{outForm.isRetail&&<div style={{display:"grid",gap:8,padding:10,background:"#0D2B3E",borderRadius:8,border:"1px solid #164E63"}}>
+<div style={{fontSize:14,fontWeight:700,color:"#67E8F9"}}>🏪 Retail Customer Info</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+<label style={{...S.fl,fontSize:13}}>Customer Name<input style={{...S.fi,fontSize:14,padding:"8px 10px"}} value={outForm.customerName||""} onChange={e=>setOutForm({...outForm,customerName:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Customer name"/></label>
+<label style={{...S.fl,fontSize:13}}>Customer Phone<input style={{...S.fi,fontSize:14,padding:"8px 10px"}} value={outForm.customerPhone||""} onChange={e=>setOutForm({...outForm,customerPhone:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Phone"/></label>
+<label style={{...S.fl,fontSize:13}}>Customer Email<input style={{...S.fi,fontSize:14,padding:"8px 10px"}} value={outForm.customerEmail||""} onChange={e=>setOutForm({...outForm,customerEmail:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Email"/></label>
+</div>
+<label style={{...S.fl,fontSize:13}}>Delivery Address<input style={{...S.fi,fontSize:14,padding:"8px 10px"}} value={outForm.deliveryAddress||""} onChange={e=>setOutForm({...outForm,deliveryAddress:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Full delivery address"/></label>
+<label style={{...S.fl,fontSize:13}}>Customer Charge ($)<input style={{...S.fi,fontSize:16,padding:"8px 10px",background:"#0D3B1E",border:"1px solid #166534"}} type="number" value={outForm.customerCharge===0?"":outForm.customerCharge||""} onChange={e=>{const val=e.target.value===""?0:parseFloat(e.target.value);setOutForm({...outForm,customerCharge:val});}} onBlur={()=>saveOut(outForm)}/></label>
+{outForm.cost>0&&outForm.customerCharge>0&&<div style={{padding:"8px 12px",borderRadius:6,background:"#0D3B1E",border:"1px solid #166534"}}><span style={{fontSize:14,color:"#9CA3AF"}}>Cost: ${outForm.cost} → Charge: ${outForm.customerCharge} = </span><span style={{fontSize:16,color:"#34D399",fontWeight:700}}>Profit: ${(outForm.customerCharge-outForm.cost)}</span></div>}
+</div>}
+<div style={{display:"flex",gap:8}}>
+<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,
+border:!outForm.isDriveway&&!outForm.isRetail?"2px solid #3B82F6":"2px solid #2A2A3E",background:!outForm.isDriveway&&!outForm.isRetail?"#1E3A5F":"#0D0D1A",color:!outForm.isDriveway&&!outForm.isRetail?"#93C5FD":"#6B7280"}}
+onClick={()=>{const nf={...outForm,isDriveway:false,isRetail:false,dealerHandling:false};setOutForm(nf);saveOut(nf);}}>🚛 Lot Pick Up</button>
+<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,border:outForm.dealerHandling?"2px solid #34D399":"2px solid #2A2A3E",background:outForm.dealerHandling?"#0D3B1E":"#0D0D1A",color:outForm.dealerHandling?"#34D399":"#6B7280"}} onClick={()=>{const nf={...outForm,dealerHandling:true,isDriveway:false,isRetail:false,company:v.soldTo||""};setOutForm(nf);saveOut(nf);}}>🏢 Dealer P/U</button>
+<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,
+border:outForm.isDriveway?"2px solid #7C3AED":"2px solid #2A2A3E",background:outForm.isDriveway?"#4C1D95":"#0D0D1A",color:outForm.isDriveway?"#DDD6FE":"#6B7280"}}
+onClick={()=>{const inb=v.transport?.inbound||{};const dest=v.soldTo||outForm.destination||"";setOutForm({...outForm,isDriveway:true,isRetail:false,destination:dest,readyDate:inb.driverwayClearDate||outForm.readyDate||"",eta:inb.drivewayEta||outForm.eta||"",set:!!(inb.driverwayClearDate||outForm.readyDate),pickedUp:inb.drivewayPickedUp||outForm.pickedUp||false,datePickedUp:inb.drivewayPickedUpDate||outForm.datePickedUp||""});if(v.soldTo&&inb.drivewayDest){onUpdate({transport:{...v.transport,inbound:{...inb,drivewayDest:v.soldTo}}});}}}> 🏠 Driveway Delivery</button>
+<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,
+border:outForm.isRetail?"2px solid #06B6D4":"2px solid #2A2A3E",background:outForm.isRetail?"#164E63":"#0D0D1A",color:outForm.isRetail?"#67E8F9":"#6B7280"}}
+onClick={()=>{const nf={...outForm,isDriveway:false,isRetail:true};setOutForm(nf);saveOut(nf);}}>🏪 Retail Delivery</button>
+</div>
+<div style={{padding:14,background:"#1A1A2E",borderRadius:8,border:`1px solid ${outForm.isDriveway?"#4C1D95":"#2A2A3E"}`}}>
+<div style={{fontSize:16,fontWeight:700,color:"#E5E7EB",marginBottom:10}}>{outForm.isDriveway?"🏠 Driveway Steps":outForm.isRetail?"🏪 Retail Delivery Steps":"📋 Lot Pick Up Steps"}</div>
+<div style={{padding:"10px 12px",marginBottom:8,borderRadius:6,background:outForm.readyDate?"#0D3B1E":"#0D0D1A",border:`1px solid ${outForm.readyDate?"#166534":"#2A2A3E"}`}}>
+<label style={{...S.fl,fontSize:15}}>① {outForm.isDriveway?"Clear to P/U":outForm.isRetail?"Ready to Ship":"Ready to Pick Up"}
+<div style={{display:"flex",gap:6}}>
+<DateIn style={{fontSize:16,padding:"8px 12px"}} value={outForm.readyDate||""} onChange={v2=>{if(!outForm.isDriveway&&!outForm.company){notify("⚠️ Fill in transport company first");return;}const nf={...outForm,readyDate:v2,set:true};setOutForm(nf);saveOut(nf);}}/>
+{outForm.readyDate&&<button style={{...S.sm,fontSize:14,color:"#F87171",padding:"8px 12px"}} onClick={()=>{const nf={...outForm,readyDate:""};setOutForm(nf);saveOut(nf);}}>✕</button>}
+</div>
+</label>
+{outForm.readyDate&&<div style={{fontSize:14,color:"#34D399",fontWeight:600,marginTop:4}}>✓ Ready {fmtDate(outForm.readyDate)}</div>}
+</div><div style={{padding:"10px 12px",marginBottom:8,borderRadius:6,background:outForm.eta?"#1A2940":"#0D0D1A",border:`1px solid ${outForm.eta?"#1E3A5F":"#2A2A3E"}`}}>
+<label style={{...S.fl,fontSize:15}}>② {outForm.isDriveway?"ETA Driveway Arrival":outForm.isRetail?"ETA Pick Up From "+(outForm.shippingFrom||"Location"):"ETA Pick Up"}
+<div style={{display:"flex",gap:6}}>
+<DateIn style={{fontSize:16,padding:"8px 12px"}} value={outForm.eta||""} onChange={v2=>{if(!outForm.isDriveway&&!outForm.company){notify("⚠️ Fill in transport company first");return;}const nf={...outForm,eta:v2,set:true};setOutForm(nf);saveOut(nf);}}/>
+{outForm.eta&&<button style={{...S.sm,fontSize:14,color:"#F87171",padding:"8px 12px"}} onClick={()=>{const nf={...outForm,eta:""};setOutForm(nf);saveOut(nf);}}>✕</button>}
+</div>
+</label>
+{outForm.eta&&<div style={{fontSize:14,color:"#60A5FA",fontWeight:600,marginTop:4}}>{outForm.isDriveway?"🏠":"🚛"} {outForm.isDriveway?"Arriving at driveway":"Transport arriving"} {fmtDate(outForm.eta)}</div>}
+</div><div style={{padding:"10px 12px",marginBottom:8,borderRadius:6,background:outForm.pickedUp?"#0D3B1E":"#0D0D1A",border:`1px solid ${outForm.pickedUp?"#166534":"#2A2A3E"}`}}>
+<label style={{display:"flex",alignItems:"center",gap:8,fontSize:17,color:"#E5E7EB",fontWeight:600}}><input type="checkbox" style={{width:20,height:20}} checked={outForm.pickedUp||false} onChange={e=>{if(e.target.checked&&!outForm.eta){notify("⚠️ ETA date required before marking picked up");return;}if(e.target.checked){if(!outForm.isDriveway&&(!outForm.company||!outForm.phone||!outForm.email)){notify("⚠️ Fill in transport company first");return;}const nf={...outForm,pickedUp:true,datePickedUp:new Date().toISOString().split("T")[0]};setOutForm(nf);saveOut(nf);const vd=vData(v);if(typeof fireEmail==="function"){if(nf.isDriveway)fireEmail("driveway_outbound_shipped",{buyer:v.buyingBroker||"",vehicle:vd,dealer:v.soldTo||"",destination:nf.destination||v.soldTo||"",pickedUpDate:nf.datePickedUp});else if(nf.isRetail)fireEmail("retail_vehicle_shipped",{buyer:v.buyingBroker||"",vehicle:vd,customerName:nf.customerName||"",deliveryAddress:nf.deliveryAddress||"",transport:{company:nf.company||"",phone:nf.phone||"",eta:nf.eta||""},pickedUpDate:nf.datePickedUp});else fireEmail("dealer_vehicle_shipped",{dealer:v.soldTo||"",vehicle:vd,transport:{company:nf.company||"",phone:nf.phone||"",eta:nf.eta||""},pickedUpDate:nf.datePickedUp});}}else{const nf={...outForm,pickedUp:false,datePickedUp:""};setOutForm(nf);saveOut(nf);}}}/> ③ {outForm.isDriveway?"Shipped":outForm.isRetail?"Shipped":"Picked Up"}</label>
+{outForm.pickedUp&&<div style={{fontSize:15,color:"#34D399",fontWeight:700,marginTop:6}}>📅 {outForm.isDriveway?"Shipped":"Picked Up"}: {fmtDate(outForm.datePickedUp)} (auto-locked)</div>}
+</div><div style={{padding:"10px 12px",borderRadius:6,background:outForm.delivered?"#0D3B1E":"#0D0D1A",border:`1px solid ${outForm.delivered?"#166534":"#2A2A3E"}`}}>
+<label style={{display:"flex",alignItems:"center",gap:8,fontSize:17,color:"#E5E7EB",fontWeight:600}}><input type="checkbox" style={{width:20,height:20}} checked={outForm.delivered||false} onChange={e=>{if(e.target.checked&&!outForm.pickedUp){notify("⚠️ Must be picked up before marking delivered");return;}if(e.target.checked){const nf={...outForm,delivered:true,dateDelivered:new Date().toISOString().split("T")[0]};setOutForm(nf);saveOut(nf);onUpdate({status:"delivered",deliveredDate:nf.dateDelivered});const vd=vData(v);if(typeof fireEmail==="function"){if(nf.isDriveway)fireEmail("driveway_outbound_delivered",{buyer:v.buyingBroker||"",vehicle:vd,dealer:v.soldTo||"",destination:nf.destination||v.soldTo||"",deliveredDate:nf.dateDelivered});else if(nf.isRetail)fireEmail("retail_vehicle_delivered",{buyer:v.buyingBroker||"",vehicle:vd,customerName:nf.customerName||"",deliveryAddress:nf.deliveryAddress||"",deliveredDate:nf.dateDelivered});else fireEmail("dealer_vehicle_delivered",{dealer:v.soldTo||"",vehicle:vd,deliveredDate:nf.dateDelivered});}}else{const nf={...outForm,delivered:false,dateDelivered:""};setOutForm(nf);saveOut(nf);}}}/> ④ {outForm.isDriveway?"DW Delivered":outForm.isRetail?"Customer Delivered":"Delivered"}</label>
+{outForm.delivered&&<div style={{fontSize:15,color:"#34D399",fontWeight:700,marginTop:6}}>📅 Delivered: {fmtDate(outForm.dateDelivered)} (auto-locked)</div>}
+</div>
+</div>
+<button style={{...S.btn,fontSize:16,padding:"12px",background:"#7F1D1D",color:"#FCA5A5"}} onClick={()=>{onUpdate({transport:{...v.transport,outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false,datePickedUp:"",delivered:false,dateDelivered:"",readyDate:"",isDriveway:false,isRetail:false,company:"",phone:"",email:"",shippingFrom:"",customerName:"",customerPhone:"",customerEmail:"",deliveryAddress:"",customerCharge:0}}});setOutForm({set:false});notify("🗑️ Outbound transport cleared");if(typeof fireEmail==="function")fireEmail("shipping_hold",{buyer:v.buyingBroker||"",vehicle:vData(v),reason:"Outbound transport canceled",holdDate:new Date().toISOString().split("T")[0],holdBy:v.buyingBroker||"Buyer"});}}>🗑️ Clear Transport</button>
+</div>
+:<div style={{display:"grid",gap:8,fontSize:16,color:"#E5E7EB"}}>
+{outb?.company&&<div style={{padding:"8px 12px",background:"#1A1A2E",borderRadius:6,border:"1px solid #2A2A3E",marginBottom:4}}>
+<div style={{fontSize:15,fontWeight:700}}>{outb.company}</div>
+<div style={{fontSize:13,color:"#9CA3AF"}}>{outb.phone||"—"} • {outb.email||"—"}</div>
+</div>}
+<div style={{display:"flex",gap:8,alignItems:"center"}}>
+<span style={{fontSize:18,fontWeight:700}}>Destination:</span><b style={{fontSize:18}}>{(outb?.destination&&outb.destination!=="Buyer")?outb.destination:(v.soldTo||"—")}</b>
+{v.noReconNeeded&&v.soldTo&&<div style={{fontSize:12,color:"#06B6D4",marginTop:2}}>Auto-filled from buying dealer (No Recon)</div>}
+{outb?.isDriveway&&<span style={{...S.badge,background:"#4C1D95",color:"#DDD6FE",fontSize:12}}>🏠 DRIVEWAY</span>}
+</div>
+<div>Cost: <b style={{color:"#FBBF24",fontSize:18}}>{outb?.cost?`$${outb.cost}`:"—"}</b></div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:4}}>
+<div style={{padding:10,borderRadius:6,background:outb?.readyDate?"#0D3B1E":"#1A1A2E",border:`1px solid ${outb?.readyDate?"#166534":"#2A2A3E"}`}}>
+<div style={{fontSize:12,color:"#6B7280"}}>① Ready</div>
+<div style={{fontSize:16,fontWeight:700,color:outb?.readyDate?"#34D399":"#4B5563"}}>{outb?.readyDate?fmtDate(outb.readyDate):"—"}</div>
+</div>
+<div style={{padding:10,borderRadius:6,background:outb?.eta?"#1A2940":"#1A1A2E",border:`1px solid ${outb?.eta?"#1E3A5F":"#2A2A3E"}`}}>
+<div style={{fontSize:12,color:"#6B7280"}}>② ETA {outb?.isDriveway?"DW Arrival":"Pick Up"}</div>
+<div style={{fontSize:16,fontWeight:700,color:outb?.eta?"#60A5FA":"#4B5563"}}>{outb?.eta?fmtDate(outb.eta):"—"}</div>
+</div>
+<div style={{padding:10,borderRadius:6,background:outb?.pickedUp?"#0D3B1E":"#1A1A2E",border:`1px solid ${outb?.pickedUp?"#166534":"#2A2A3E"}`}}>
+<div style={{fontSize:12,color:"#6B7280"}}>③ {outb?.isDriveway?"Shipped":"Picked Up"}</div>
+<div style={{fontSize:16,fontWeight:700,color:outb?.pickedUp?"#34D399":"#4B5563"}}>{outb?.datePickedUp?fmtDate(outb.datePickedUp):"—"}</div>
+</div>
+<div style={{padding:10,borderRadius:6,background:outb?.delivered?"#0D3B1E":"#1A1A2E",border:`1px solid ${outb?.delivered?"#166534":"#2A2A3E"}`}}>
+<div style={{fontSize:12,color:"#6B7280"}}>④ Delivered</div>
+<div style={{fontSize:16,fontWeight:700,color:outb?.delivered?"#34D399":"#4B5563"}}>{outb?.dateDelivered?fmtDate(outb.dateDelivered):"—"}</div>
+</div>
+</div>
+</div>}
+</div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+<div style={{...S.card,textAlign:"center"}}><div style={{fontSize:11,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Transport Inbound</div><div style={{fontSize:20,fontWeight:700,color:"#60A5FA"}}>{inbCost?`$${inbCost.toLocaleString()}`:"—"}</div></div>
+<div style={{...S.card,textAlign:"center"}}><div style={{fontSize:11,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Transport Outbound</div><div style={{fontSize:20,fontWeight:700,color:"#60A5FA"}}>{outbCost?`$${outbCost.toLocaleString()}`:"—"}</div></div>
+<div style={{...S.card,textAlign:"center"}}><div style={{fontSize:11,color:"#9CA3AF",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Recon Cost</div><div style={{fontSize:20,fontWeight:700,color:"#FBBF24"}}>{reconCost?`$${reconCost.toLocaleString()}`:"$0"}</div><div style={{fontSize:10,color:"#6B7280",marginTop:2}}>approved+</div></div>
+</div><div style={{...S.card,marginBottom:10,padding:16}}>
+{(()=>{const arb=v.arb||{};const isInArbLocal=arb.open;
+return <div style={{width:"100%"}}>
+{!isInArbLocal&&!arb.resolved&&<button style={{padding:"10px 20px",borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",border:"2px solid #EF4444",fontSize:15,fontWeight:800,cursor:"pointer",width:"100%"}} onClick={()=>setShowArbForm(true)}>⚖️ Open Arbitration</button>}
+{arb.resolved&&!isInArbLocal&&<div style={{padding:14,borderRadius:10,background:"#0D3B1E",border:"2px solid #166534",width:"100%"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,color:"#6EE7B7",textTransform:"uppercase",letterSpacing:1,fontWeight:700}}>✅ Arbitration Resolved</div><div style={{fontSize:16,fontWeight:700,color:"#34D399",marginTop:4}}>{arb.source} — {fmtDate(arb.resolvedDate)}</div>{arb.closeReason&&<div style={{fontSize:13,color:"#6EE7B7",marginTop:4}}>📝 {arb.closeReason}</div>}{arb.reason&&<div style={{fontSize:12,color:"#9CA3AF",marginTop:2}}>Original reason: {arb.reason}</div>}</div><button style={{padding:"8px 16px",borderRadius:6,background:"#7F1D1D",color:"#FCA5A5",border:"none",fontSize:13,fontWeight:700,cursor:"pointer"}} onClick={()=>setShowArbForm(true)}>⚖️ New Arb</button></div></div>}
+{showArbForm&&!isInArbLocal&&<div style={{padding:16,borderRadius:10,background:"#1A1A2E",border:"2px solid #EF4444",width:"100%",marginTop:8}}><div style={{fontSize:16,fontWeight:800,color:"#FCA5A5",marginBottom:12}}>⚖️ Open Arbitration</div><div style={{fontSize:13,color:"#9CA3AF",marginBottom:8}}>Source / Auction</div><div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>{ARB_SOURCES.map(s=><button key={s} style={{padding:"8px 16px",borderRadius:6,fontSize:14,fontWeight:700,cursor:"pointer",border:arbSource===s?"2px solid #EF4444":"1px solid #2A2A3E",background:arbSource===s?"#7F1D1D":"#0D0D1A",color:arbSource===s?"#FCA5A5":"#6B7280"}} onClick={()=>{setArbSource(s);setArbCustom("");}}>{s}</button>)}<input style={{...S.fi,width:120,fontSize:14}} placeholder="Other..." value={arbCustom} onChange={e=>{setArbCustom(e.target.value);setArbSource(e.target.value);}}/></div><label style={{...S.fl,fontSize:14,marginBottom:10}}>Reason for Arbitration *<textarea style={{...S.fi,minHeight:60,resize:"vertical",width:"100%",boxSizing:"border-box"}} value={arbReason} onChange={e=>setArbReason(e.target.value)} placeholder="Describe the issue..."/></label><div style={{display:"flex",gap:8}}><button style={{flex:1,padding:12,borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",border:"2px solid #EF4444",fontSize:16,fontWeight:800,cursor:"pointer",opacity:arbSource&&arbReason?1:0.4}} disabled={!arbSource||!arbReason} onClick={()=>{onUpdate({arb:{open:true,source:arbSource,reason:arbReason,openDate:new Date().toISOString().split("T")[0],resolved:false,resolvedDate:null,kicked:false,kickedDate:null,closeReason:"",closedDate:null}});notify("⚖️ Arbitration opened — "+arbSource);setShowArbForm(false);}}>⚖️ Open Arb</button><button style={{padding:12,borderRadius:8,background:"#1A1A2E",color:"#6B7280",border:"1px solid #2A2A3E",fontSize:14,cursor:"pointer"}} onClick={()=>setShowArbForm(false)}>Cancel</button></div></div>}
+{isInArbLocal&&<div style={{width:"100%"}}><div style={{padding:16,borderRadius:10,background:"#3B1515",border:"3px solid #EF4444",width:"100%"}}><div style={{textAlign:"center",padding:"8px 0",marginBottom:12}}><div style={{fontSize:13,color:"#FCA5A5",textTransform:"uppercase",letterSpacing:2,fontWeight:700}}>🔴 VEHICLE IN ARBITRATION</div><div style={{fontSize:28,fontWeight:900,color:"#F87171",marginTop:4}}>{arb.source}</div><div style={{fontSize:14,color:"#FCA5A5",marginTop:4}}>Opened: {fmtDate(arb.openDate)}</div></div><div style={{padding:12,background:"#2A1010",borderRadius:8,marginBottom:12}}><div style={{fontSize:12,color:"#FCA5A5",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Reason</div><div style={{fontSize:15,color:"#FDBA74"}}>{arb.reason}</div></div><div style={{padding:12,background:"rgba(239,68,68,0.1)",borderRadius:8,marginBottom:12,textAlign:"center"}}><div style={{fontSize:14,fontWeight:700,color:"#FCA5A5"}}>⚠️ All recon is paused while in arbitration</div></div><div style={{fontSize:13,color:"#9CA3AF",marginBottom:6}}>Resolution</div><label style={{...S.fl,fontSize:14,marginBottom:10}}>Close / Resolution Notes<textarea style={{...S.fi,minHeight:50,resize:"vertical",width:"100%",boxSizing:"border-box"}} value={arbCloseReason} onChange={e=>setArbCloseReason(e.target.value)} placeholder="Resolution details..."/></label><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={{flex:1,padding:14,borderRadius:8,background:"#166534",color:"#6EE7B7",border:"2px solid #34D399",fontSize:15,fontWeight:800,cursor:"pointer",opacity:arbCloseReason?1:0.4}} onClick={()=>{if(!arbCloseReason){notify("⚠️ Enter resolution notes before closing");return;}onUpdate({arb:{...arb,open:false,resolved:true,resolvedDate:new Date().toISOString().split("T")[0],closeReason:arbCloseReason}});notify("✅ Arb resolved — recon unlocked");}}>✅ Arb Resolved</button><button style={{flex:1,padding:14,borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",border:"2px solid #EF4444",fontSize:15,fontWeight:800,cursor:"pointer",opacity:arbCloseReason?1:0.4}} onClick={()=>{if(!arbCloseReason){notify("⚠️ Enter resolution notes before closing");return;}const now=new Date().toISOString().split("T")[0];onUpdate({arb:{...arb,open:false,kicked:true,kickedDate:now,closeReason:arbCloseReason,closedDate:now},status:"sold",soldTo:arb.source+" (Arb Return)",soldDate:now,sellingBroker:v.buyingBroker});notify("🔄 Vehicle kicked back to "+arb.source);}}>🔄 Vehicle Kicked</button><button style={{flex:1,padding:14,borderRadius:8,background:"#1E3A5F",color:"#93C5FD",border:"2px solid #3B82F6",fontSize:15,fontWeight:800,cursor:"pointer",opacity:arbCloseReason?1:0.4}} onClick={()=>{if(!arbCloseReason){notify("⚠️ Enter resolution notes before closing");return;}onUpdate({arb:{...arb,open:false,closedDate:new Date().toISOString().split("T")[0],closeReason:arbCloseReason}});notify("⚖️ Arb closed — "+arbCloseReason);}}>📋 Arb Closed</button></div></div></div>}
+</div>;})()}
+</div><div style={{...S.card,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+{!v.noReconNeeded?
+rcNeeded.length>0?<div style={{fontSize:14,color:"#6B7280"}}>☐ No Recon Needed <span style={{fontSize:12,color:"#F87171"}}>(recon already assigned — remove tasks first)</span></div>
+:<label style={{display:"flex",alignItems:"center",gap:10,fontSize:18,color:"#E5E7EB",fontWeight:700,cursor:"pointer"}}>
+<input type="checkbox" style={{width:22,height:22}} checked={false} onChange={()=>{const today=new Date().toISOString().split("T")[0];const upd={noReconNeeded:true,noReconSetBy:"Darren",noReconSetDate:today};if(!v.transport?.outbound?.readyDate){upd.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{set:false}),readyDate:today}};}onUpdate(upd);notify("✅ No Recon Needed — Ready to Ship");}}/>
+No Recon Needed
+</label>
+:<div style={{display:"flex",alignItems:"center",gap:10}}>
+<input type="checkbox" style={{width:22,height:22,cursor:"pointer"}} checked={true} onChange={()=>{const upd={noReconNeeded:false,noReconSetBy:null,noReconSetDate:null};if(v.transport?.outbound?.readyDate&&!v.transport?.outbound?.set){upd.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{}),readyDate:null}};}onUpdate(upd);notify("Recon required — No Recon flag removed");}}/>
+<div>
+<div style={{fontSize:18,fontWeight:800,color:"#06B6D4"}}>No Recon Needed</div>
+<div style={{fontSize:12,color:"#6B7280"}}>Set by {v.noReconSetBy||"—"} on {v.noReconSetDate?fmtDate(v.noReconSetDate):"—"}</div>
+</div>
+</div>}
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+{v.noReconNeeded&&<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontSize:13,padding:"4px 12px"}}>🚀 Straight to R2-SHIP when on ground</span>}
+{v.noReconNeeded&&<button style={{padding:"6px 14px",borderRadius:6,background:"#7F1D1D",color:"#FCA5A5",fontSize:13,fontWeight:700,border:"none",cursor:"pointer"}}
+onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:null});notify("Recon required — buyer removed No Recon flag");}}>
+🔄 Needs Recon (Buyer Only)</button>}
+</div>
+</div>
+{!v.noReconNeeded&&isInArb&&<div style={{padding:16,borderRadius:10,background:"#3B1515",border:"2px solid #EF4444",textAlign:"center",marginBottom:10}}><div style={{fontSize:18,fontWeight:800,color:"#FCA5A5"}}>🔴 RECON PAUSED — IN ARBITRATION WITH {v.arb?.source||"?"}</div><div style={{fontSize:13,color:"#F87171",marginTop:4}}>Resolve arbitration before continuing recon</div></div>}
+{!v.noReconNeeded&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10,opacity:isInArb?0.4:1,pointerEvents:isInArb?"none":"auto"}}>
+{[...VCAT].sort((a,b)=>{const ao=v.reconTasks[a.key]?.order;const bo=v.reconTasks[b.key]?.order;if(ao&&bo)return ao-bo;if(ao&&!bo)return -1;if(!ao&&bo)return 1;return 0;}).map(cat=>{
+if(cat.key==="cr"){const crt=v.reconTasks[cat.key];const crNeed=crt?.needed;const crCl=stColor(crt?.status||"na");
+return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+crCl.bd,background:crCl.bg,opacity:crNeed?1:0.5,minHeight:50}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+<span style={{fontSize:20}}>{cat.icon}</span><span style={{fontWeight:700,color:"#E5E7EB",fontSize:16}}>{cat.label}</span>
+<span style={{...S.badge,background:crCl.bd,color:crCl.text,fontSize:11}}>{crt?.status==="complete"?"DONE":crt?.status==="started"?"CR REQUESTED":"—"}</span>
+</div>
+<label style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:4}}>
+{crt?.status==="complete"||crt?.status==="started"?<span>🔒</span>
+:<input type="checkbox" checked={crNeed||false} onChange={()=>{const t2={...v.reconTasks};t2[cat.key]=t2[cat.key]?.needed?{needed:false,status:"na"}:{needed:true,status:"unassigned"};onUpdate({reconTasks:t2});}}/>} Need</label>
+</div>
+{crNeed&&!crt?.vendorName&&<div style={{marginTop:8}}>
+<select style={{...S.sel,width:"100%",opacity:canAssignVendors?1:0.5}} defaultValue="" disabled={!canAssignVendors} onChange={e=>{if(e.target.value)assign(cat.key,e.target.value);e.target.value="";}}><option value="" disabled>{canAssignVendors?"+ Assign CR Writer...":"⚠️ Vehicle must be on ground"}</option>{(vendors[cat.key]||[]).map(vn2=><option key={vn2.id} value={vn2.id}>{vn2.name}</option>)}</select>
+</div>}
+{crNeed&&crt?.vendorName&&<div style={{marginTop:6}}>
+<div style={{fontSize:14,fontWeight:700,color:"#FFF"}}>{crt.vendorName}</div>
+<div style={{fontSize:13,color:"#FBBF24",marginTop:2}}>CR Requested: {crt.dateStarted?fmtDate(crt.dateStarted):crt.dateAssigned?fmtDate(crt.dateAssigned):"—"}</div>
+{crt.status==="started"&&<div style={{marginTop:8}}>
+<button style={{...S.btn,width:"100%",background:"#166534",color:"#6EE7B7",padding:10,fontSize:14}} onClick={e=>{e.target.disabled=true;const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"complete",dateCompleted:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});
+if(typeof fireEmail==="function")fireEmail("buyer_work_complete",{buyer:v.buyingBroker||"Buyer",vendor:{name:crt?.vendorName||"CR Writer"},vehicle:vData(v),category:"Condition Report",lineItems:[{desc:"Condition Report",price:0,costType:"ws"}],totalCost:0});}}>✅ CR Complete</button>
+</div>}
+{crt.status==="complete"&&<div style={{marginTop:6}}>
+<div style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Completed: {crt.dateCompleted?fmtDate(crt.dateCompleted):"—"} • {(crt.photos||[]).length} files</div>
+<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14,marginTop:8}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"started",dateStarted:new Date().toISOString().split("T")[0],dateCompleted:null,crRetakeCount:(crt.crRetakeCount||0)+1,lastCrCompleted:crt.dateCompleted,photos:[]};onUpdate({reconTasks:t2});
+if(typeof fireEmail==="function")fireEmail("vendor_assigned",{vendor:{name:crt?.vendorName||"CR Writer"},vehicle:vData(v),category:"📋 NEW CR REQUESTED",tasks:[{desc:"New Condition Report requested — Re-write #"+((crt.crRetakeCount||0)+2),isPart:false}]});}}>📋 Request New CR</button>
+{crt.crRetakeCount>0&&<div style={{fontSize:12,color:"#9CA3AF",marginTop:4}}>Re-writes: {crt.crRetakeCount} • Last completed: {crt.lastCrCompleted?fmtDate(crt.lastCrCompleted):"—"}</div>}
+</div>}
+</div>}
+</div>;}
+if(cat.key==="auction"){const axt=v.reconTasks[cat.key];const axNeed=axt?.needed;const axCl=stColor(axt?.status||"na");
+return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+axCl.bd,background:axCl.bg,opacity:axNeed?1:0.5,minHeight:50}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+<span style={{fontSize:20}}>{cat.icon}</span><span style={{fontWeight:700,color:"#E5E7EB",fontSize:16}}>{cat.label}</span>
+<span style={{...S.badge,background:axCl.bd,color:axCl.text,fontSize:11}}>{axt?.status==="complete"?"SOLD":axt?.auctionRan?"RAN":axt?.auctionInspected?"INSPECTED":axt?.auctionAssigned?"LISTED":"—"}</span>
+</div>
+<label style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:4}}>
+{axt?.status==="complete"?<span>🔒</span>
+:<input type="checkbox" checked={axNeed||false} onChange={()=>{const t2={...v.reconTasks};t2[cat.key]=t2[cat.key]?.needed?{needed:false,status:"na"}:{needed:true,status:"unassigned"};onUpdate({reconTasks:t2});}}/>} Need</label>
+</div>
+{axNeed&&<div style={{marginTop:8}}>
+<div style={{fontSize:13,color:"#9CA3AF",marginBottom:6}}>Location: <b style={{color:"#E5E7EB"}}>{v.location}</b></div>
+<div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:6}}>Push to Auction:</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+{["Manheim","ACV","Openlane"].map(ax=><label key={ax} style={{display:"flex",alignItems:"center",gap:4,fontSize:14,color:(axt?.auctions||[]).includes(ax)?"#FBBF24":"#6B7280",fontWeight:600,cursor:"pointer"}}>
+<input type="checkbox" checked={(axt?.auctions||[]).includes(ax)} onChange={e=>{const t2={...v.reconTasks};const cur=t2[cat.key]?.auctions||[];t2[cat.key]={...t2[cat.key],auctions:e.target.checked?[...cur,ax]:cur.filter(x=>x!==ax)};onUpdate({reconTasks:t2});}}/>{ax}</label>)}
+<button style={{fontSize:12,padding:"4px 10px",borderRadius:4,background:"#78590A",color:"#FDE68A",border:"none",cursor:"pointer",fontWeight:700}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],auctions:["Manheim","ACV","Openlane"]};onUpdate({reconTasks:t2});}}>All</button>
+</div>
+{(axt?.auctions||[]).length>0&&!axt?.auctionAssigned&&<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"assigned",auctionAssigned:true,auctionAssignedDate:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});
+if(typeof fireEmail==="function")fireEmail("vendor_assigned",{vendor:{name:"Auction Dept"},vehicle:vData(v),category:"Send to Auction",tasks:(axt?.auctions||[]).map(a=>({desc:"Listed on "+a,isPart:false}))});}}>📋 List on {(axt?.auctions||[]).join(" + ")}</button>}
+{axt?.auctionAssigned&&<div style={{marginTop:4}}>
+<div style={{fontSize:13,color:"#FBBF24"}}>📋 Listed: {fmtDate(axt.auctionAssignedDate)} — {(axt?.auctions||[]).join(", ")}</div>
+{!axt?.auctionInspected&&<div style={{marginTop:6}}><button style={{...S.btn,width:"100%",background:"#1E3A5F",color:"#93C5FD",padding:10,fontSize:14}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],auctionInspected:true,auctionInspectedDate:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});}}>🔍 Auction Inspected</button></div>}
+{axt?.auctionInspected&&<div style={{fontSize:13,color:"#60A5FA",marginTop:4}}>🔍 Inspected: {fmtDate(axt.auctionInspectedDate)}</div>}
+{axt?.auctionInspected&&!axt?.auctionRan&&<div style={{marginTop:6}}><button style={{...S.btn,width:"100%",background:"#4C1D95",color:"#DDD6FE",padding:10,fontSize:14}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],auctionRan:true,auctionRanDate:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});}}>🔨 Ran at Auction</button></div>}
+{axt?.auctionRan&&<div style={{fontSize:13,color:"#C4B5FD",marginTop:4}}>🔨 Ran: {fmtDate(axt.auctionRanDate)}</div>}
+{axt?.auctionRan&&axt?.status!=="complete"&&<div style={{marginTop:6}}>
+<div style={{fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:6}}>Sold at which auction?</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+{(axt?.auctions||[]).map(ax=><button key={ax} style={{...S.btn,fontSize:14,padding:"8px 16px",background:axt?.soldAtAuction===ax?"#166534":"#1A1A2E",color:axt?.soldAtAuction===ax?"#6EE7B7":"#9CA3AF",border:axt?.soldAtAuction===ax?"2px solid #34D399":"1px solid #2A2A3E"}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],soldAtAuction:ax};onUpdate({reconTasks:t2});}}>{ax}</button>)}
+</div>
+{axt?.soldAtAuction&&<button style={{...S.btn,width:"100%",background:"#166534",color:"#6EE7B7",padding:12,fontSize:16}} onClick={()=>{const now=new Date().toISOString().split("T")[0];const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"complete",dateCompleted:now};onUpdate({reconTasks:t2,status:"sold",soldDate:now,soldTo:axt.soldAtAuction+" Auction",sellingBroker:v.buyingBroker});
+if(typeof fireEmail==="function")fireEmail("seller_vehicle_sold",{seller:v.sellingBroker||"",buyer:v.buyingBroker||"",vehicle:vData(v)});}}>💰 Sold at {axt.soldAtAuction}</button>}
+{!axt?.soldAtAuction&&<div style={{fontSize:12,color:"#6B7280",textAlign:"center"}}>Pick auction to mark sold</div>}
+</div>}
+{axt?.status==="complete"&&<div style={{fontSize:14,color:"#34D399",fontWeight:700,marginTop:4}}>💰 Sold: {fmtDate(axt.dateCompleted)}</div>}
+</div>}
+</div>}
+</div>;}
+if(cat.key==="blackwidow"){const bwt=v.reconTasks[cat.key];const bwNeed=bwt?.needed;const bwCl=stColor(bwt?.status||"na");
+return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+bwCl.bd,background:bwCl.bg,opacity:bwNeed?1:0.5,minHeight:50}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+<span style={{fontSize:20}}>{cat.icon}</span><span style={{fontWeight:700,color:"#E5E7EB",fontSize:16}}>{cat.label}</span>
+<span style={{...S.badge,background:bwCl.bd,color:bwCl.text,fontSize:11}}>{bwt?.status==="complete"?"DONE":bwt?.status==="started"?"PICS REQUESTED":"—"}</span>
+</div>
+<label style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:4}}>
+{bwt?.status==="complete"||bwt?.status==="started"?<span>🔒</span>
+:<input type="checkbox" checked={bwNeed||false} onChange={()=>{const t2={...v.reconTasks};t2[cat.key]=t2[cat.key]?.needed?{needed:false,status:"na"}:{needed:true,status:"unassigned"};onUpdate({reconTasks:t2});}}/>} Need</label>
+</div>
+{bwNeed&&!bwt?.vendorName&&<div style={{marginTop:8}}>
+<select style={{...S.sel,width:"100%",opacity:canAssignVendors?1:0.5}} defaultValue="" disabled={!canAssignVendors} onChange={e=>{if(e.target.value)assign(cat.key,e.target.value);e.target.value="";}}><option value="" disabled>{canAssignVendors?"+ Assign Photo Vendor...":"⚠️ Vehicle must be on ground"}</option>{(vendors[cat.key]||[]).map(vn2=><option key={vn2.id} value={vn2.id}>{vn2.name}</option>)}</select>
+</div>}
+{bwNeed&&bwt?.vendorName&&<div style={{marginTop:6}}>
+<div style={{fontSize:14,fontWeight:700,color:"#FFF"}}>{bwt.vendorName}</div>
+<div style={{fontSize:13,color:"#FBBF24",marginTop:2}}>Pics Requested: {bwt.dateStarted?fmtDate(bwt.dateStarted):bwt.dateAssigned?fmtDate(bwt.dateAssigned):"—"}</div>
+{bwt.status==="started"&&<button style={{...S.btn,width:"100%",background:"#166534",color:"#6EE7B7",padding:10,fontSize:14,marginTop:8}} onClick={e=>{e.target.disabled=true;const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"complete",dateCompleted:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});
+if(typeof fireEmail==="function")fireEmail("buyer_work_complete",{buyer:v.buyingBroker||"Buyer",vendor:{name:bwt?.vendorName||"Photo Vendor"},vehicle:vData(v),category:"Black Widow Pics",lineItems:[{desc:"Advertising Photos",price:0,costType:"ws"}],totalCost:0});}}>✅ Pics Complete</button>}
+{bwt.status==="complete"&&<div style={{marginTop:6}}>
+<div style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Completed: {bwt.dateCompleted?fmtDate(bwt.dateCompleted):"—"}</div>
+<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14,marginTop:8}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"started",dateStarted:new Date().toISOString().split("T")[0],dateCompleted:null,retakeCount:(bwt.retakeCount||0)+1,lastCompleted:bwt.dateCompleted};onUpdate({reconTasks:t2});
+if(typeof fireEmail==="function")fireEmail("vendor_assigned",{vendor:{name:bwt?.vendorName||"Photo Vendor"},vehicle:vData(v),category:"📸 RE-TAKE PICS REQUESTED",tasks:[{desc:"Re-take advertising photos — Round "+(((bwt.retakeCount||0)+2)),isPart:false}]});}}>📸 Request Re-Take Pics</button>
+{bwt.retakeCount>0&&<div style={{fontSize:12,color:"#9CA3AF",marginTop:4}}>Re-takes: {bwt.retakeCount} • Last completed: {bwt.lastCompleted?fmtDate(bwt.lastCompleted):"—"}</div>}
+</div>}
+</div>}
+</div>;}
+return <RC key={cat.key} cat={cat} task={v.reconTasks[cat.key]} vOpts={vendors[cat.key]||[]} isAdmin={isAdmin} isVendor={isVendor} currentUser={currentUser} buyingBroker={v.buyingBroker} onAssign={vid=>assign(cat.key,vid)} onEst={a=>est(cat.key,a)} onApr={()=>apr(cat.key)} onStart={eta=>startRecon(cat.key,eta)} onCmp={()=>cmp(cat.key)} onTog={()=>tog(cat.key)}
+onUpdVendor={(vid,u,sc)=>updVendor(cat.key,vid,u,sc)} onSelectVendor={vid=>selectVendor(cat.key,vid)}
+onUpdateTask={u=>{const t={...v.reconTasks};const cur=t[cat.key];const newStatus=u.status||cur.status;t[cat.key]={...cur,...u,needed:true,status:newStatus==="na"?"unassigned":newStatus};onUpdate({reconTasks:t});}}
+onSendReminder={vid=>sendReminder(cat.key,vid)} onReassign={vid=>reassignNext(cat.key,vid)} canEditRecon={true}
+onOrder={n=>{const t={...v.reconTasks};t[cat.key]={...t[cat.key],order:n?Number(n):null};onUpdate({reconTasks:t});}}
+onNotes={(n,clearUnread,setUnread)=>{const t={...v.reconTasks};if(clearUnread)t[cat.key]={...t[cat.key],noteUnread:false};else t[cat.key]={...t[cat.key],notes:n,noteUnread:setUnread?true:false};onUpdate({reconTasks:t});}} onPhotos={p=>{const t={...v.reconTasks};t[cat.key]={...t[cat.key],photos:p};onUpdate({reconTasks:t});}}
+autoExpand={deepLinkCat===cat.key} onClearDeepLink={onClearDeepLink} fireEmail={fireEmail} vehicle={v} isGrounded={canAssignVendors} usedOrders={VCAT.filter(c2=>c2.key!==cat.key&&v.reconTasks[c2.key]?.order).map(c2=>v.reconTasks[c2.key].order)}
+/>})}
+</div>}
+{sm&&<div style={S.ov} onClick={()=>setSm(false)}><div style={{...S.modal,maxWidth:400}} onClick={e=>e.stopPropagation()}>
+<h2 style={{color:"#E5E7EB",fontSize:16,marginBottom:12}}>Mark as Sold</h2>
+<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<label style={S.fl}>Seller<select style={S.fi} value={sb} onChange={e=>setSb(e.target.value)}>{(()=>{const names=((allUsers||[]).filter(u=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map(u=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n,i,a)=>n&&a.indexOf(n)===i);return names.length?names.map(b=><option key={b} value={b}>{b}</option>):<option value="">— No sellers registered —</option>;})()}</select></label>
+<label style={S.fl}>Sold To (Buying Dealer) *<input style={S.fi} value={st} onChange={e=>setSt(e.target.value)} placeholder="e.g. AutoMax Dealers"/></label></div>
+<div style={{display:"flex",gap:8,marginTop:12}}><button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>{const dealer=st||"TBD";if(!window.confirm("Mark as SOLD to "+dealer+"?"))return;const soldUpdate={status:"sold",soldDate:new Date().toISOString().split("T")[0],sellingBroker:sb,soldTo:dealer,kickedReturn:false,kicked:false,kickedFromCSV:false,kickedFromDealer:null};onUpdate(soldUpdate);setSm(false);notify(`Sold! ${st?`to ${st}`:""}`);if(typeof fireEmail==="function"){fireEmail("seller_vehicle_sold",{seller:sb,buyer:v.buyingBroker||"",vehicle:vData({...v,soldTo:dealer,soldDate:new Date().toISOString().split("T")[0]})});};}}>Confirm</button>
+<button style={S.sm} onClick={()=>setSm(false)}>Cancel</button></div>
+</div></div>}{showKick&&<div style={S.ov} onClick={()=>setShowKick(false)}><div style={{...S.modal,maxWidth:500}} onClick={e=>e.stopPropagation()}>
+<h2 style={{color:"#FDBA74",fontSize:20,marginBottom:4}}>🔄 Kick Vehicle</h2>
+<div style={{fontSize:14,color:"#9CA3AF",marginBottom:12}}>Vehicle will be removed from {v.soldTo} and returned to inventory</div>
+<div style={{padding:12,background:"#3B1515",borderRadius:8,border:"1px solid #7F1D1D",marginBottom:12}}>
+<div style={{fontSize:13,color:"#FCA5A5"}}>Dealer: <b style={{fontSize:18,color:"#F87171"}}>{v.soldTo}</b></div>
+<div style={{fontSize:13,color:"#9CA3AF",marginTop:4}}>Sold: {v.soldDate?fmtDate(v.soldDate):"—"} • Seller: {v.sellingBroker||"—"}</div>
+</div>
+<label style={{...S.fl,fontSize:15,marginBottom:8}}>Reason for Kick *
+<textarea style={{...S.fi,fontSize:16,minHeight:100,resize:"vertical",width:"100%"}} value={kickReason} onChange={e=>setKickReason(e.target.value)} placeholder="Why was this vehicle kicked? (e.g. mechanical issues found, frame damage, buyer changed mind, etc.)"/>
+</label>
+<div style={{display:"flex",gap:8,marginTop:12}}>
+<button style={{flex:1,padding:"12px",borderRadius:6,border:"2px solid #F97316",background:"#7C2D12",color:"#FDBA74",fontSize:16,cursor:"pointer",fontWeight:800}} onClick={()=>{
+if(!kickReason.trim()){notify("⚠️ Please enter a reason for the kick");return;}
+const now=new Date().toISOString().split("T")[0];
+if(!window.confirm("KICK this vehicle from "+v.soldTo+"? This will return it to inventory.")){setShowKick(false);return;}const kickRecord={dealer:v.soldTo,soldDate:v.soldDate,kickedDate:now,sellingBroker:v.sellingBroker,reason:kickReason.trim(),
+outbound:{...v.transport?.outbound},buyerApprovedShip:v.buyerApprovedShip,buyerApprovedDate:v.buyerApprovedDate};
+const history=[...(v.kickedHistory||[]),kickRecord];
+onUpdate({
+status:"in_recon",soldTo:null,soldDate:null,sellingBroker:"",deliveredDate:null,
+buyerApprovedShip:false,buyerApprovedDate:null,shippingHoldDate:null,shippingHoldBy:null,
+kickedReturn:true,kickedFromDealer:v.soldTo,
+transport:{
+inbound:{set:false,destination:v.location||"",eta:"",cost:0,delivered:false,dateDelivered:"",pickupFrom:v.soldTo,kickedReturn:true},
+outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false,datePickedUp:"",delivered:false,dateDelivered:"",readyDate:"",isDriveway:false}
+},
+kickedHistory:history
+});
+setShowKick(false);setKickReason("");notify(`🔄 KICKED by ${v.soldTo} — vehicle back in inventory`);
+if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.sellingBroker||"",buyer:v.buyingBroker||"",vehicle:vData(v),kickReason:kickReason.trim(),kickedBy:v.soldTo});}
+}}>🔄 Confirm Kick</button>
+<button style={{...S.sm,fontSize:14,padding:"12px 16px"}} onClick={()=>setShowKick(false)}>Cancel</button>
+</div>
+</div></div>}
+{lbImg2&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.98)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"pointer"}} onClick={()=>setLbImg2(null)}>
+<div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.stopPropagation()}>
+{lbImg2.type==="video"?<video src={lbImg2.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={e=>e.stopPropagation()}/>:<img src={lbImg2.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
+<button style={{position:"fixed",top:12,right:12,width:48,height:48,borderRadius:"50%",background:"#EF4444",border:"none",color:"#FFF",fontSize:24,cursor:"pointer"}} onClick={()=>setLbImg2(null)}>✕</button></div></div>}
+</div>;
+}
+
+function DateIn({value,onChange,style:st2}){
+const [typing,setTyping]=useState(false);
+const [raw,setRaw]=useState("");
+const display=value?fmtDate(value):"";
+const parse=(s)=>{
+const digits=s.replace(/[^0-9]/g,"");
+let m=0,d=0;
+if(digits.length===3){m=parseInt(digits[0]);d=parseInt(digits.slice(1));}
+else if(digits.length===4){m=parseInt(digits.slice(0,2));d=parseInt(digits.slice(2));}
+else if(digits.length>=2&&s.includes("/")){const p=s.split("/");m=parseInt(p[0]);d=parseInt(p[1]);}
+if(m>=1&&m<=12&&d>=1&&d<=31){
+const now=new Date();let y=now.getFullYear();
+if(new Date(y,m-1,d)<new Date(now.getFullYear(),now.getMonth(),now.getDate()))y++;
+onChange(y+"-"+String(m).padStart(2,"0")+"-"+String(d).padStart(2,"0"));return true;}
+return false;};
+const handleBlur=()=>{if(raw)parse(raw);setTyping(false);setRaw("");};
+return <input style={{...S.fi,...(st2||{}),fontFamily:"monospace"}} placeholder="321 = 3/21"
+value={typing?raw:display}
+onFocus={()=>{setTyping(true);setRaw("");}}
+onChange={e=>setRaw(e.target.value)}
+onBlur={handleBlur}
+onKeyDown={e=>{if(e.key==="Enter"){handleBlur();e.target.blur();}}}
+/>;
+}
+function RC({cat,task,vOpts,onAssign,onEst,onApr,onStart,onCmp,onTog,onNotes,onPhotos,onOrder,onUpdVendor,onSelectVendor,isAdmin,isVendor,currentUser,buyingBroker,onSendReminder,onReassign,canEditRecon,onUpdateTask,autoExpand,onClearDeepLink,fireEmail,vehicle,isGrounded,usedOrders}){
+const [ei,setEi]=useState("");const [no,setNo]=useState(false);const [nv,setNv]=useState(task?.notes||"");const [po,setPo]=useState(false);const [exp,setExp]=useState(autoExpand||false);const fr=useRef(null);
+const [startEta,setStartEta]=useState("");const [lbImg,setLbImg]=useState(null);const [editBid,setEditBid]=useState(false);
+// Auto-expand when deep link changes - keep panel open until user manually closes it
+useEffect(()=>{if(autoExpand){setExp(true);setTimeout(()=>{if(fr.current)fr.current.scrollIntoView({behavior:"smooth",block:"center"});},200);}},[autoExpand]);
+const cl=stColor(task?.status||"na"),need=task?.needed,photos=task?.photos||[];const isOEM=cat.key==="oemdealer";
+const hu=(e)=>{const fs=Array.from(e.target.files||[]);if(!fs.length)return;const np=fs.map(f=>{const isVid=f.type.startsWith("video");return {data:isVid?URL.createObjectURL(f):"pending",blob:isVid?null:f,name:f.name,date:new Date().toISOString().split("T")[0],type:isVid?"video":"image"};});const imgs=np.filter(x=>x.type==="image");const vids=np.filter(x=>x.type==="video");if(imgs.length===0){onPhotos([...photos,...vids]);e.target.value="";return;}Promise.all(imgs.map(item=>new Promise(r=>{const rd=new FileReader();rd.onload=()=>{item.data=rd.result;r(item);};rd.readAsDataURL(item.blob);}))).then(done=>{onPhotos([...photos,...done,...vids]);});e.target.value="";};
+const sv=(task?.vendors||[]).find(v=>v.selected)||(task?.vendors||[])[0]||null;
+return <span style={{display:"contents"}}>{!exp?<div style={{...S.card,borderLeft:`4px solid ${cl.bd}`,background:cl.bg,opacity:need?1:0.5,cursor:"pointer",minHeight:50}} onClick={()=>setExp(true)}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+{need&&<select style={{width:32,height:24,borderRadius:4,border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.1)",color:"#FFF",fontSize:12,fontWeight:800}} value={task?.order||""} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();onOrder&&onOrder(e.target.value);}}>
+<option value="">—</option>{[1,2,3,4,5,6,7,8,9,10].map(n=><option key={n} value={n} disabled={(usedOrders||[]).includes(n)&&task?.order!==n}>{n}{(usedOrders||[]).includes(n)&&task?.order!==n?" ✗":""}</option>)}</select>}
+<span style={{fontSize:20}}>{cat.icon}</span><span style={{fontWeight:700,color:"#E5E7EB",fontSize:16}}>{cat.label}{task?.noteUnread&&<span style={{marginLeft:6,fontSize:10,background:"#F59E0B",color:"#000",borderRadius:10,padding:"2px 6px",fontWeight:700}}>🔔</span>}</span></div>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+<span style={{...S.badge,background:cl.bd,color:cl.text,fontSize:11}}>{stLabel(task?.status||"na")}</span>
+<label style={{fontSize:12,color:"#6B7280",display:"flex",alignItems:"center",gap:4}} onClick={e=>e.stopPropagation()}>
+{need&&(task?.status==="complete"||task?.status==="started"||task?.status==="approved"||(task?.completedRounds||[]).length>0)?<span>🔒</span>
+:<input type="checkbox" checked={need||false} onChange={onTog}/>} Need</label></div></div>
+{need&&sv&&<div style={{marginTop:4}}><span style={{fontSize:14,fontWeight:700,color:"#FFF"}}>{sv.name}</span><span style={{color:"#FBBF24",marginLeft:8}}>${(()=>{const acceptedTotal=(sv.lineItems||[]).filter(x=>x.accepted&&!x.declined).reduce((s,x)=>s+(Number(x.price)||0),0);if(acceptedTotal>0)return acceptedTotal.toLocaleString();const bidTotal=(sv.lineItems||[]).filter(x=>!x.declined).reduce((s,x)=>s+(Number(x.price)||0),0);return bidTotal.toLocaleString()+(sv.bidLocked&&task?.status==="estimated"?" pending":"");})()}</span></div>}
+{need&&!sv&&(task.completedRounds||[]).length>0&&<div style={{marginTop:4,fontSize:12,color:"#F97316"}}>🔄 Round {(task.completedRounds||[]).length+1} — assign vendor</div>}
+{need&&(task.completedRounds||[]).length>0&&<div style={{marginTop:2}}>{(task.completedRounds||[]).map((rd,ri)=><div key={ri} style={{fontSize:10,color:"#34D399"}}>✅ R{ri+1}: {rd.tasks||"completed"} — ${rd.cost||0}{rd.vendor?" — "+rd.vendor:""}</div>)}</div>}
+{need&&(()=>{const vs=task.vendors||[];const dec=vs.filter(v2=>v2.declined).length;return dec>0?<div style={{fontSize:12,color:"#FCA5A5",marginTop:2}}>❌ {dec}/{vs.length} vendors declined</div>:null;})()}
+{need&&sv&&(cat.key==="parts"||(task.workTasks||[]).some(w=>w.isPart))&&(()=>{const wt2=task.workTasks||[];const pts2=(cat.key==="parts"?wt2:wt2.filter(w=>w.isPart)).filter(w=>{const li9=(sv.lineItems||[]).find(x=>x.id===w.id)||{};return !li9.declined&&li9.accepted;});if(!pts2.length)return null;return <div style={{marginTop:4}}>{pts2.map(w=>{const li2=(sv.lineItems||[]).find(x=>x.id===w.id)||{};const st=li2.partInstalled?"✅ Installed":li2.partArrived?"📦 Arrived":li2.partOrdered?"🔄 Ordered":"⏳ Pending";const dt=li2.partInstalled?li2.partInstalledDate:li2.partArrived?li2.partArrivedDate:li2.partOrdered?li2.partOrderedDate:"";const clr=li2.partInstalled?"#34D399":li2.partArrived?"#60A5FA":li2.partOrdered?"#FBBF24":"#6B7280";return <div key={w.id} style={{fontSize:11,color:clr}}>{st} {w.desc}{dt?" — "+fmtDate(dt):""}</div>;})}</div>;})()}
+{need&&task?.status==="started"&&task?.etaComplete&&<div style={{fontSize:12,color:"#FBBF24",marginTop:2}}>ETA: {fmtDate(task.etaComplete)}</div>}
+{need&&task?.status==="complete"&&task?.dateCompleted&&<div style={{fontSize:12,color:"#34D399",marginTop:2}}>Completed: {fmtDate(task.dateCompleted)}</div>}
+{need&&(task?.workTasks||[]).length>0&&<div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{(()=>{const wt=task.workTasks||[];const activeTasks=wt.filter(w=>{const li=(sv?.lineItems||[]).find(x=>x.id===w.id)||{};return !li.declined;});const done=activeTasks.filter(w=>{const li=(sv?.lineItems||[]).find(x=>x.id===w.id);return li?.taskDone;}).length;const rds=(task?.completedRounds||[]).length;return done===activeTasks.length&&activeTasks.length>0?<span style={{color:"#34D399"}}>✅ All {activeTasks.length} tasks done{rds>0?" (R"+(rds+1)+")":""}</span>:<span>{done}/{activeTasks.length} tasks done{rds>0?" (R"+(rds+1)+")":""}</span>;})()}</div>}
+</div>:null}
+{exp&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}} onClick={()=>setExp(false)}>
+<div style={{background:"#12122A",border:`2px solid ${cl.bd}`,borderRadius:12,padding:24,width:"95%",maxWidth:800,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+<div style={{display:"flex",alignItems:"center",gap:10}}>
+<span style={{fontSize:32}}>{cat.icon}</span><span style={{fontWeight:800,color:"#E5E7EB",fontSize:22}}>{cat.label}</span>
+<span style={{...S.badge,background:cl.bd,color:cl.text,fontSize:14,padding:"4px 12px"}}>{stLabel(task?.status||"na")}</span></div>
+<button style={{...S.sm,fontSize:18}} onClick={()=>setExp(false)}>✕</button></div>
+<div>
+{!isOEM&&<div style={{marginBottom:12,padding:14,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+<span style={{fontSize:16,fontWeight:700,color:"#E5E7EB"}}>📋 Work Tasks</span>
+<div style={{display:"flex",gap:6}}>
+{cat.key==="mechanical"&&!(task.workTasks||[]).some(w=>w.desc==="Full Inspection")&&(!task.status||task.status==="unassigned"||task.status==="assigned")&&<button style={{...S.sm,color:"#F97316",border:"1px solid #F97316"}} onClick={()=>{const wt2=[...(task.workTasks||[]),{id:`wt${Date.now()}`,desc:"Full Inspection",isPart:false,isInspection:true}];const vs=(task.vendors||[]).map(vn=>({...vn,lineItems:wt2.map(w=>{const ex=(vn.lineItems||[]).find(x=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:wt2,vendors:vs});}}>🔍 Request Inspection</button>}
+{(!task.status||task.status==="unassigned"||task.status==="assigned")?<button style={{...S.sm,color:"#3B82F6"}} onClick={()=>{const wt=[...(task.workTasks||[]),{id:`wt${Date.now()}`,desc:"",isPart:false}];const vs=(task.vendors||[]).map(vn=>({...vn,lineItems:wt.map(w=>{const ex=(vn.lineItems||[]).find(x=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));const extra={workTasks:wt,vendors:vs};if(task.status==="complete"){const sv9=(task.vendors||[]).find(x=>x.selected);const prevCost=(sv9?.lineItems||[]).filter(x=>x.accepted).reduce((s,x)=>s+(Number(x.price)||0),0);const prevTasks=(task.workTasks||[]).map(w=>w.desc).join(", ");const priorPhotos=(task.photos||[]).length;extra.status="started";extra.dateStarted=new Date().toISOString().split("T")[0];extra.roundPhotoStart=(task.photos||[]).length;extra.completedRounds=[...(task.completedRounds||[]),{date:task.dateCompleted,tasks:prevTasks,cost:prevCost}];}onUpdateTask(extra);}}>+ Add Task</button>:<span style={{fontSize:11,color:"#4B5563"}}>🔒 Locked</span>}</div></div>
+{(task.workTasks||[]).length===0&&<div style={{fontSize:14,color:"#4B5563",textAlign:"center",padding:10}}>Add tasks for vendor to price</div>}
+{(task.workTasks||[]).map((wt,wi)=><div key={wt.id} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
+<input style={{...S.fi,fontSize:15,padding:"10px 12px",flex:1}} placeholder="e.g. Paint Hood" value={wt.desc} onChange={e=>{const items=[...(task.workTasks||[])];items[wi]={...items[wi],desc:e.target.value};const vs=(task.vendors||[]).map(vn=>({...vn,lineItems:items.map(w=>{const ex=(vn.lineItems||[]).find(x=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}/>
+<label style={{display:"flex",alignItems:"center",gap:4,fontSize:13,color:wt.isPart?"#60A5FA":"#6B7280"}}><input type="checkbox" checked={wt.isPart||false} onChange={e=>{const items=[...(task.workTasks||[])];items[wi]={...items[wi],isPart:e.target.checked};const vs=(task.vendors||[]).map(vn=>({...vn,lineItems:items.map(w=>{const ex=(vn.lineItems||[]).find(x=>x.id===w.id);return ex?{...ex,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}/>Part</label>
+{(()=>{const hasVendors=(task.vendors||[]).length>0;const anyBid=(task.vendors||[]).some(vn2=>(vn2.lineItems||[]).some(li2=>li2.price>0||li2.accepted));const locked=hasVendors&&(anyBid||task.status==="started"||task.status==="complete"||task.status==="approved");return locked?<span style={{fontSize:14,color:"#4B5563",padding:"0 4px"}} title="Locked — vendor assigned">🔒</span>:<button style={{background:"none",border:"none",color:"#F87171",fontSize:18,cursor:"pointer"}} onClick={()=>{const items=(task.workTasks||[]).filter((_,j)=>j!==wi);const vs=(task.vendors||[]).map(vn=>({...vn,lineItems:items.map(w=>{const ex=(vn.lineItems||[]).find(x=>x.id===w.id);return ex||{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}>✕</button>;})()}</div>)}</div>}
+{isOEM&&need&&<div style={{padding:12,background:"#1A1A2E",borderRadius:8,border:"1px solid #78590A",marginBottom:10}}>
+<div style={{fontSize:16,fontWeight:800,color:"#FDE68A",marginBottom:10}}>🏭 OEM Dealer Service</div>
+<label style={{...S.fl,fontSize:14}}>Dealer Name *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={task.oemDealer||""} onChange={e=>{onUpdateTask({oemDealer:e.target.value})}} placeholder="e.g. Larry H Miller Toyota"/></label>
+<label style={{...S.fl,fontSize:14,marginTop:8}}>Drop Off Date<div style={{display:"flex",gap:6}}>
+<input style={{...S.fi,fontSize:16,padding:"10px 14px",flex:1}} type="date" value={task.oemDropDate||""} onChange={e=>onUpdateTask({oemDropDate:e.target.value,status:e.target.value?"assigned":"unassigned",vendorName:task.oemDealer||"OEM Dealer",dateAssigned:e.target.value||task.dateAssigned})}/>
+</div></label>
+{task.oemDropDate&&<div style={{fontSize:14,color:"#FBBF24",fontWeight:600,marginTop:4}}>📅 Dropped Off: {fmtDate(task.oemDropDate)}</div>}
+<label style={{...S.fl,fontSize:14,marginTop:8}}>Problems / Concerns *<textarea style={{...S.fi,fontSize:14,minHeight:80,resize:"vertical"}} value={task.oemProblems||""} onChange={e=>onUpdateTask({oemProblems:e.target.value})} placeholder="Describe what needs to be looked at..."/></label>
+{task.oemDropDate&&<div style={{marginTop:12}}>
+<div style={{display:"flex",gap:8,marginBottom:10}}>
+<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:15,fontWeight:700,border:task.oemPaidRepair?"2px solid #3B82F6":"2px solid #2A2A3E",background:task.oemPaidRepair?"#1E3A5F":"#0D0D1A",color:task.oemPaidRepair?"#93C5FD":"#6B7280"}} onClick={()=>onUpdateTask({oemPaidRepair:!task.oemPaidRepair})}>💰 Paid Repair</button>
+<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:15,fontWeight:700,border:task.oemWarranty?"2px solid #166534":"2px solid #2A2A3E",background:task.oemWarranty?"#0D3B1E":"#0D0D1A",color:task.oemWarranty?"#34D399":"#6B7280"}} onClick={()=>onUpdateTask({oemWarranty:!task.oemWarranty})}>🛡️ Warranty — No Cost</button>
+</div>
+{task.oemWarranty&&<div style={{padding:12,borderRadius:8,background:"#0D3B1E",border:"2px solid #166534",marginBottom:8}}>
+<div style={{fontSize:16,fontWeight:700,color:"#34D399"}}>🛡️ WARRANTY COVERED — $0</div>
+<label style={{...S.fl,fontSize:13,marginTop:6}}>Warranty Notes<textarea style={{...S.fi,fontSize:13,minHeight:50,resize:"vertical",width:"100%",boxSizing:"border-box"}} value={task.oemWarrantyNotes||""} onChange={e=>onUpdateTask({oemWarrantyNotes:e.target.value})} placeholder="Recall #, warranty type, what's covered..."/></label>
+</div>}
+{(task.oemPaidRepair||(!task.oemWarranty&&!task.oemPaidRepair))&&<div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+<span style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>Dealer Estimate</span>
+<button style={{...S.btn,fontSize:12,padding:"4px 10px",background:"#78590A"}} onClick={()=>{const items=[...(task.oemItems||[]),{id:"oi"+Date.now(),desc:"",price:0,accepted:false,declined:false,costType:""}];onUpdateTask({oemItems:items});}}>+ Add Line Item</button>
+</div>
+{(task.oemItems||[]).length===0&&<div style={{fontSize:13,color:"#F87171",padding:10,textAlign:"center"}}>⚠️ Add dealer estimate line items before proceeding</div>}
+{(task.oemItems||[]).map((item,ii)=><div key={item.id} style={{padding:8,marginBottom:4,borderRadius:6,background:"#0D0D1A",border:"1px solid #2A2A3E"}}>
+<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4}}>
+<input style={{...S.fi,fontSize:14,padding:"6px 10px",flex:1}} placeholder="Work description" value={item.desc} onChange={e=>{const items=[...(task.oemItems||[])];items[ii]={...items[ii],desc:e.target.value};onUpdateTask({oemItems:items});}}/>
+<input style={{...S.fi,fontSize:14,padding:"6px 10px",width:100,textAlign:"right"}} type="number" placeholder="$" value={item.price||""} onChange={e=>{const items=[...(task.oemItems||[])];items[ii]={...items[ii],price:Number(e.target.value)};onUpdateTask({oemItems:items});}}/>
+<button style={{background:"none",border:"none",color:"#F87171",fontSize:16,cursor:"pointer"}} onClick={()=>{const items=(task.oemItems||[]).filter((_,j)=>j!==ii);onUpdateTask({oemItems:items});}}>✕</button>
+</div>
+<div style={{display:"flex",gap:4,alignItems:"center"}}>
+{item.desc&&item.price>0?<span style={{display:"contents"}}>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:item.accepted?"2px solid #166534":"1px solid #2A2A3E",cursor:item.costType?"pointer":"not-allowed",fontWeight:700,background:item.accepted?"#166534":"transparent",color:item.accepted?"#6EE7B7":item.costType?"#6B7280":"#4B5563",opacity:item.costType?1:0.5}} onClick={()=>{if(!item.costType)return;const items=[...(task.oemItems||[])];items[ii]={...items[ii],accepted:true,declined:false};onUpdateTask({oemItems:items,status:"approved",dateApproved:new Date().toISOString().split("T")[0]});}}>✅ {item.accepted?"Accepted":"Accept"}</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:item.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:item.declined?"#7F1D1D":"transparent",color:item.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const items=[...(task.oemItems||[])];items[ii]={...items[ii],declined:true,accepted:false};onUpdateTask({oemItems:items});}}>❌ Decline</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:item.costType!=="retail"&&item.costType?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:item.costType!=="retail"&&item.costType?"#1E3A5F":"transparent",color:item.costType!=="retail"&&item.costType?"#93C5FD":"#6B7280"}} onClick={()=>{const items=[...(task.oemItems||[])];items[ii]={...items[ii],costType:"ws"};onUpdateTask({oemItems:items});}}>W/S</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:item.costType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:item.costType==="retail"?"#164E63":"transparent",color:item.costType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const items=[...(task.oemItems||[])];items[ii]={...items[ii],costType:"retail"};onUpdateTask({oemItems:items});}}>🏪 Retail</button>
+</span>:<span style={{fontSize:12,color:"#6B7280"}}>⚠️ Enter description and cost first</span>}
+</div>
+</div>)}
+{(task.oemItems||[]).length>0&&<div style={{marginTop:8,paddingTop:8,borderTop:"2px solid #2A2A3E"}}>
+<div style={{fontSize:16,fontWeight:800,color:"#E5E7EB"}}>Total: <span style={{color:"#FBBF24",fontSize:20}}>${(task.oemItems||[]).reduce((s,x)=>s+(x.accepted?Number(x.price)||0:0),0).toLocaleString()}</span> <span style={{fontSize:12,color:"#6B7280"}}>(accepted)</span></div>
+{(()=>{const items=task.oemItems||[];const ws=items.filter(x=>x.accepted&&x.costType!=="retail").reduce((s,x)=>s+(Number(x.price)||0),0);const ret=items.filter(x=>x.accepted&&x.costType==="retail").reduce((s,x)=>s+(Number(x.price)||0),0);return (ws>0||ret>0)?<div style={{display:"flex",gap:12,marginTop:4}}>{ws>0&&<span style={{fontSize:13,color:"#93C5FD",fontWeight:600}}>W/S: ${ws.toLocaleString()}</span>}{ret>0&&<span style={{fontSize:13,color:"#67E8F9",fontWeight:600}}>🏪 Retail: ${ret.toLocaleString()}</span>}</div>:null;})()}
+</div>}
+</div>}
+</div>}
+{task.oemDropDate&&((task.oemWarranty)||(task.oemItems||[]).some(x=>x.accepted))&&!task.oemWorkStarted&&<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:12,fontSize:16,marginTop:8}} onClick={e=>{e.target.disabled=true;onUpdateTask({oemWorkStarted:true,oemWorkStartedDate:new Date().toISOString().split("T")[0],status:"started",dateStarted:new Date().toISOString().split("T")[0]});
+if(typeof fireEmail==="function")fireEmail("vendor_work_started",{buyer:v.buyingBroker||"Buyer",vendor:{name:task.oemDealer||"OEM Dealer"},vehicle:vData(v),category:"OEM Dealer — "+cat.label,lineItems:(task.oemItems||[]).filter(x=>x.accepted).map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),totalApproved:(task.oemItems||[]).filter(x=>x.accepted).reduce((s,x)=>s+(Number(x.price)||0),0),startedDate:new Date().toISOString().split("T")[0]});}}>🔧 Work Started</button>}
+{task.oemDropDate&&!task.oemWarranty&&!task.oemPaidRepair&&!task.oemWorkStarted&&<div style={{fontSize:13,color:"#6B7280",textAlign:"center",marginTop:8}}>Select Paid Repair, Warranty, or both to proceed</div>}
+{task.oemWorkStarted&&!task.oemPickedUp&&<div style={{padding:10,marginTop:8,borderRadius:6,background:"#3B2F10",border:"1px solid #78590A"}}>
+<div style={{fontSize:14,color:"#FBBF24",fontWeight:700}}>🔧 Work In Progress — Started: {fmtDate(task.oemWorkStartedDate)}</div>
+<button style={{...S.btn,width:"100%",background:"#166534",color:"#6EE7B7",padding:12,fontSize:16,marginTop:8}} onClick={e=>{e.target.disabled=true;onUpdateTask({oemPickedUp:true,oemPickedUpDate:new Date().toISOString().split("T")[0],status:"complete",dateCompleted:new Date().toISOString().split("T")[0]});if(typeof onCmp==="function")onCmp();
+if(typeof fireEmail==="function")fireEmail("buyer_work_complete",{buyer:v.buyingBroker||"Buyer",vendor:{name:task.oemDealer||"OEM Dealer"},vehicle:vData(v),category:"OEM Dealer — "+(task.oemDealer||""),lineItems:[...(task.oemItems||[]).filter(x=>x.accepted).map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...(task.oemWarranty?[{desc:"🛡️ WARRANTY: "+(task.oemWarrantyNotes||"Warranty covered"),price:0,costType:"ws"}]:[])],totalCost:(task.oemItems||[]).filter(x=>x.accepted).reduce((s,x)=>s+(Number(x.price)||0),0)});}}>✅ Picked Up — Work Complete</button>
+</div>}
+{task.oemPickedUp&&<div style={{padding:10,marginTop:8,borderRadius:6,background:"#0D3B1E",border:"1px solid #166534"}}>
+<div style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Picked Up: {fmtDate(task.oemPickedUpDate)}</div>
+</div>}
+</div>}
+
+
+{!isOEM&&(task.vendors||[]).length>0&&<div style={{marginBottom:12}}>
+<div style={{fontSize:13,fontWeight:700,color:"#9CA3AF",marginBottom:8}}>VENDOR BIDS</div></div>}
+{!isOEM&&(task.vendors||[]).filter(vn=>{if(!isVendor||!currentUser)return true;const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));}).map((vn,i)=>{const bidTotal=(vn.lineItems||[]).reduce((s,x)=>s+(Number(x.price)||0),0);const lt=vn.bidLocked?(vn.lineItems||[]).filter(x=>x.accepted&&!x.declined).reduce((s,x)=>s+(Number(x.price)||0),0):bidTotal;const wt=task.workTasks||[];const ap=wt.length>0&&wt.every(w=>{const li=(vn.lineItems||[]).find(x=>x.id===w.id);return li&&(Number(li.price)>0||li.noCharge||li.declined);});
+return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:vn.selected?"#0F294088":"rgba(255,255,255,0.03)",border:vn.selected?"2px solid #3B82F6":"1px solid #2A2A3E"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+<span style={{fontSize:16,fontWeight:700,color:vn.declined?"#F87171":"#E5E7EB"}}>{vn.name}</span>
+{vn.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5"}}>❌ DECLINED</span>}
+{vn.selected&&<span style={{...S.badge,background:"#3B82F6",color:"#FFF"}}>✓ ACCEPTED</span>}
+{vn.selected&&vn.bidLocked&&<button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:editBid?"2px solid #F59E0B":"1px solid #2A2A3E",background:editBid?"#78590A":"transparent",color:editBid?"#FDE68A":"#9CA3AF",cursor:"pointer",fontWeight:700}} onClick={()=>setEditBid(!editBid)}>{editBid?"💾 Done Editing":"✏️ Edit Bid"}</button>}
+{lt>=0&&<span style={{fontSize:18,fontWeight:800,color:lt===0&&!vn.bidAdjustment?"#9CA3AF":vn.bidAdjustedDate?"#F59E0B":"#FBBF24"}}>{lt===0&&!vn.bidAdjustment?"$0 (No Charge)":"$"+(lt+(vn.bidAdjustment||0)).toLocaleString()}{vn.bidAdjustedDate&&<span style={{fontSize:11,color:"#9CA3AF",marginLeft:4}}>(was ${bidTotal.toLocaleString()})</span>}</span>}</div>
+{!isVendor&&!vn.selected&&!vn.declined&&vn.bidLocked&&!(task.vendors||[]).some(v2=>v2.selected)&&(()=>{const items=vn.lineItems||[];const allDecided=items.every(x=>x.accepted||x.declined);const anyAccepted=items.some(x=>x.accepted);return allDecided&&anyAccepted?<button style={{padding:"10px 20px",borderRadius:6,background:"#166534",color:"#6EE7B7",fontSize:16,fontWeight:700,border:"none",cursor:"pointer"}} onClick={()=>{onSelectVendor&&onSelectVendor(vn.id);setExp(false);}}>✅ Accept Bid</button>:!allDecided?<span style={{fontSize:16,color:"#FBBF24",fontWeight:700,padding:"8px 14px",background:"#3B2F10",borderRadius:6,border:"1px solid #78590A"}}>👆 Accept or Decline each item to continue</span>:null;})()}
+{!vn.selected&&!vn.declined&&vn.bidLocked&&(task.vendors||[]).some(v2=>v2.selected)&&<div style={{padding:8,background:"#1A1A2E",borderRadius:6,border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:12,color:"#6B7280"}}>🔒 Another vendor accepted</span></div>}
+{!vn.declined&&!vn.selected&&task.status!=="complete"&&<button style={{padding:"6px 14px",borderRadius:6,background:"#7F1D1D",color:"#FCA5A5",fontSize:12,fontWeight:700,border:"1px solid #EF4444",cursor:"pointer"}} onClick={()=>{onUpdVendor(vn.id,{declined:true,declinedDate:new Date().toISOString().split("T")[0]});const others=(task.vendors||[]).filter(v2=>v2.id!==vn.id);const allDeclined=others.every(v2=>v2.declined);if(allDeclined){onUpdateTask({status:"declined"});}}}>❌ Decline</button>}
+{!vn.selected&&task.status!=="complete"&&task.status!=="started"&&<button style={{padding:"6px 14px",borderRadius:6,background:"transparent",color:"#6B7280",fontSize:12,fontWeight:700,border:"1px solid #4B5563",cursor:"pointer",marginLeft:6}} onClick={()=>{if(!confirm("Remove "+vn.name+" from this recon task? This cannot be undone."))return;const others=(task.vendors||[]).filter(v2=>v2.id!==vn.id);const newStatus=others.length===0?"unassigned":task.status;onUpdateTask({vendors:others,status:newStatus});}}>🗑 Remove</button>}
+</div>
+<div style={{padding:12,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E",marginBottom:8}}>
+{wt.map(w=>{const li=(vn.lineItems||[]).find(x=>x.id===w.id)||{};const isP=w.isPart;return <div key={w.id} style={{padding:"8px 0",borderBottom:"1px solid #2A2A3E"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span style={{fontSize:14,color:li.declined?"#FCA5A5":"#E5E7EB",fontWeight:600,textDecoration:li.declined?"line-through":"none"}}>{w.desc||"—"}{isP&&<span style={{...S.badge,background:"#1E3A5F",color:"#93C5FD",fontSize:9,marginLeft:6}}>PART</span>}{li.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:9,marginLeft:6}}>DECLINED</span>}</span>
+{vn.bidLocked?<div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+<span style={{fontWeight:700,color:li.declined?"#6B7280":"#FBBF24",textDecoration:li.declined?"line-through":"none"}}>${li.declined?0:Number(li.price)||0}</span>
+{!isVendor&&<>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.accepted?"2px solid #166534":"1px solid #2A2A3E",cursor:li.costType?"pointer":"not-allowed",fontWeight:700,background:li.accepted?"#166534":"transparent",color:li.accepted?"#6EE7B7":li.costType?"#6B7280":"#4B5563",opacity:li.costType?1:0.5}} onClick={()=>{if(!li.costType)return;const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],accepted:true,declined:false,acceptedDate:new Date().toISOString().split("T")[0]};onUpdVendor(vn.id,{lineItems:items});}}>✅ {li.accepted?"Accepted":"Accept"}</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.declined?"#7F1D1D":"transparent",color:li.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],declined:true,accepted:false};const allDeclined=items.every(x=>x.declined);if(allDeclined){onUpdateTask({status:"unassigned",vendors:[],vendorId:null,vendorName:null});if(typeof fireEmail==="function"&&vehicle)fireEmail("vendor_work_canceled",{vendor:{name:vn.name},vehicle:vData(vehicle),lineItems:items.map(x=>({desc:"❌ "+x.desc,price:0,costType:x.costType||"ws"})),totalRemaining:0});notify("❌ All items declined — "+vn.name+" removed and notified");}else{onUpdVendor(vn.id,{lineItems:items,cancellationSent:false});}}}>❌ Decline</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.costType!=="retail"?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.costType!=="retail"?"#1E3A5F":"transparent",color:li.costType!=="retail"?"#93C5FD":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],costType:"ws"};onUpdVendor(vn.id,{lineItems:items});}}>W/S</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.costType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.costType==="retail"?"#164E63":"transparent",color:li.costType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],costType:"retail"};onUpdVendor(vn.id,{lineItems:items});}}>🏪 Retail</button>
+</>}
+{isVendor&&li.costType&&<span style={{...S.badge,background:li.costType==="retail"?"#164E63":"#1E3A5F",color:li.costType==="retail"?"#67E8F9":"#93C5FD",fontSize:11}}>{li.costType==="retail"?"🏪 RETAIL":"W/S"}</span>}
+{isVendor&&li.accepted&&<span style={{...S.badge,background:"#166534",color:"#6EE7B7",fontSize:11}}>✅ Approved</span>}
+{isVendor&&li.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:11}}>❌ Declined</span>}
+</div>
+:(()=>{const ce=(currentUser?.email||"").toLowerCase();const cf=(currentUser?.first_name||currentUser?.firstName||"").toLowerCase();const cn=((currentUser?.first_name||currentUser?.firstName||"")+" "+(currentUser?.last_name||currentUser?.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();const myBid=isVendor&&currentUser&&((ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf)));return myBid?<div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontSize:14,color:"#6B7280"}}>$</span><input type="number" placeholder="0" value={li.price||""} style={{background:"#1A1A2E",border:"1px solid #3B82F6",borderRadius:6,padding:"6px 10px",color:"#FBBF24",fontSize:16,fontWeight:700,width:100,textAlign:"right"}} onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);const newPrice=Number(e.target.value)||0;if(ix>=0)items[ix]={...items[ix],price:newPrice};else items.push({id:w.id,desc:w.desc,price:newPrice,isPart:w.isPart});onUpdVendor(vn.id,{lineItems:items});}}/></div>:<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:13,color:"#6B7280",fontStyle:"italic"}}>Waiting on vendor...</span></div>;})()}
+</div>
+{(isP||cat.key==="parts")&&vn.selected&&li.accepted&&!li.declined&&<div style={{marginTop:6,padding:8,background:"#0D0D1A",borderRadius:6,border:"1px solid #1E3A5F"}}>
+<div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
+{!li.partApproved?<button style={{...S.btn,fontSize:11,padding:"4px 10px",background:"#1E3A5F"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partApproved:true,partApprovedDate:new Date().toISOString().split("T")[0],partPrice:items[ix].price||0};onUpdVendor(vn.id,{lineItems:items});}}>Approve Part</button>
+:<span style={{fontSize:12,color:"#34D399",fontWeight:600}}>\u2705 Approved {fmtDate(li.partApprovedDate)}</span>}
+</div>
+{li.partApproved&&<div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+<div style={{display:"flex",alignItems:"center",gap:4}}>
+<span style={{fontSize:12,color:li.partOrdered?"#93C5FD":"#6B7280",fontWeight:600}}>Ordered:</span>
+{li.partOrdered?<span style={{fontSize:12,color:"#93C5FD"}}>{fmtDate(li.partOrderedDate)}</span>
+:<input style={{...S.fi,fontSize:12,padding:"3px 6px",width:110}} type="date" onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partOrdered:true,partOrderedDate:e.target.value};onUpdVendor(vn.id,{lineItems:items});}}/>}
+</div>
+<div style={{display:"flex",alignItems:"center",gap:4}}>
+<span style={{fontSize:12,color:li.partArrived?"#34D399":"#6B7280",fontWeight:600}}>Arrived:</span>
+{li.partArrived?<span style={{fontSize:12,color:"#34D399"}}>{fmtDate(li.partArrivedDate)}</span>
+:li.partOrdered?<input style={{...S.fi,fontSize:12,padding:"3px 6px",width:110}} type="date" onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partArrived:true,partArrivedDate:e.target.value};onUpdVendor(vn.id,{lineItems:items});}}/>
+:<span style={{fontSize:12,color:"#4B5563"}}>--</span>}
+</div>
+<div style={{display:"flex",alignItems:"center",gap:4}}>
+<span style={{fontSize:12,color:li.partInstalled?"#34D399":"#6B7280",fontWeight:600}}>Installed:</span>
+{li.partInstalled?<span style={{fontSize:12,color:"#34D399"}}>{fmtDate(li.partInstalledDate)}</span>
+:li.partArrived?<input style={{...S.fi,fontSize:12,padding:"3px 6px",width:110}} type="date" onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partInstalled:true,partInstalledDate:e.target.value};onUpdVendor(vn.id,{lineItems:items});}}/>
+:<span style={{fontSize:12,color:"#4B5563"}}>--</span>}
+</div>
+</div>}
+</div>}
+</div>;})}
+{wt.length>0&&<div style={{marginTop:10,paddingTop:10,borderTop:"2px solid #2A2A3E"}}>
+<div style={{fontSize:16,fontWeight:800,color:"#E5E7EB"}}>Total: <span style={{color:vn.bidAdjustedDate?"#F59E0B":"#FBBF24",fontSize:20}}>${(lt+(vn.bidAdjustment||0)).toLocaleString()}</span>{vn.bidAdjustedDate&&<span style={{fontSize:12,color:"#9CA3AF",marginLeft:6}}>(original ${lt.toLocaleString()})</span>}</div>
+{(()=>{const items=vn.lineItems||[];const wsTotal=items.filter(x=>x.accepted&&x.costType!=="retail").reduce((s,x)=>s+(Number(x.price)||0),0);const retailTotal=items.filter(x=>x.accepted&&x.costType==="retail").reduce((s,x)=>s+(Number(x.price)||0),0);return (wsTotal>0||retailTotal>0)?<div style={{display:"flex",gap:12,marginTop:6}}>
+{wsTotal>0&&<span style={{fontSize:13,color:"#93C5FD",fontWeight:600}}>W/S: ${wsTotal.toLocaleString()}</span>}
+{retailTotal>0&&<span style={{fontSize:13,color:"#67E8F9",fontWeight:600}}>🏪 Retail: ${retailTotal.toLocaleString()}</span>}
+</div>:null;})()}
+</div>}</div>
+{editBid&&<div style={{padding:14,marginTop:8,borderRadius:8,background:"#3B2F10",border:"2px solid #F59E0B"}}>
+<div style={{fontSize:16,fontWeight:800,color:"#F59E0B",marginBottom:10}}>✏️ Adjust Bid</div>
+<div style={{fontSize:14,color:"#E5E7EB",marginBottom:8}}>Original Bid: <b style={{color:"#FBBF24",fontSize:18}}>${bidTotal.toLocaleString()}</b></div>
+<label style={{...S.fl,fontSize:14}}>Adjustment Amount (+/-)<input style={{...S.fi,fontSize:20,padding:"12px 14px",textAlign:"center",border:"2px solid #F59E0B",background:"#1A1A2E"}} type="number" placeholder="e.g. -200 or +300" value={vn.bidAdjustment===0?"":vn.bidAdjustment||""} onChange={e=>{const val=e.target.value===""?0:parseFloat(e.target.value);onUpdVendor(vn.id,{bidAdjustment:val});}}/></label>
+{vn.bidAdjustment&&<div style={{fontSize:18,fontWeight:800,textAlign:"center",padding:10,marginTop:6,borderRadius:6,background:vn.bidAdjustment>0?"#1E3A5F":"#3B1515",border:vn.bidAdjustment>0?"1px solid #3B82F6":"1px solid #7F1D1D"}}>
+<span style={{color:vn.bidAdjustment>0?"#60A5FA":"#F87171"}}>{vn.bidAdjustment>0?"+":""}{vn.bidAdjustment}</span>
+<span style={{color:"#E5E7EB",marginLeft:8}}>= New Total: <b style={{color:"#FBBF24"}}>${(bidTotal+(vn.bidAdjustment||0)).toLocaleString()}</b></span>
+</div>}
+<label style={{...S.fl,fontSize:14,marginTop:10}}>Reason for Adjustment *<textarea style={{...S.fi,fontSize:14,minHeight:60,resize:"vertical",width:"100%",boxSizing:"border-box"}} placeholder="Required — e.g. poor work, scope change, negotiated down, additional work needed..." value={vn.editReason||""} onChange={e=>onUpdVendor(vn.id,{editReason:e.target.value})}/></label>
+{vn.editReason?<button style={{...S.btn,fontSize:15,padding:"10px 18px",background:"#78590A",color:"#FDE68A",marginTop:8,width:"100%"}} onClick={()=>{const adj=vn.bidAdjustment||0;const newEst=bidTotal+adj;onUpdVendor(vn.id,{bidAdjustedDate:new Date().toISOString().split("T")[0],estimate:newEst,bidOriginal:vn.bidOriginal||bidTotal,bidAdjustment:adj});setEditBid(false);}}>💾 Save Adjustment</button>
+:<div style={{fontSize:13,color:"#F87171",marginTop:8,textAlign:"center"}}>⚠️ Reason required to save adjustment</div>}
+</div>}
+{vn.bidAdjustedDate&&!editBid&&<div style={{padding:10,marginTop:6,borderRadius:6,background:"#3B2F10",border:"1px solid #78590A"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span style={{color:"#F59E0B",fontWeight:700,fontSize:14}}>✏️ Bid Adjusted {fmtDate(vn.bidAdjustedDate)}</span>
+<span style={{fontSize:14,color:vn.bidAdjustment>0?"#60A5FA":"#F87171",fontWeight:700}}>{vn.bidAdjustment>0?"+":""}{vn.bidAdjustment||0}</span>
+</div>
+<div style={{fontSize:13,color:"#9CA3AF",marginTop:2}}>Original: ${vn.bidOriginal||bidTotal} → Adjusted: ${vn.estimate||bidTotal}</div>
+{vn.editReason&&<div style={{fontSize:13,color:"#FDE68A",marginTop:4,fontStyle:"italic"}}>"{vn.editReason}"</div>}
+</div>}
+{!vn.bidLocked&&<div style={{padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #3B82F6",marginBottom:8}}>
+{isVendor?<label style={{...S.fl,fontSize:15,fontWeight:700}}>📅 ETA Completion Date *<DateIn style={{fontSize:16,padding:"10px 12px",marginTop:4}} value={vn.etaDone||""} onChange={v2=>onUpdVendor(vn.id,{etaDone:v2})}/></label>:vn.etaDone?<div style={{...S.fl,fontSize:14}}><span style={{color:"#9CA3AF"}}>📅 Vendor ETA:</span> <b style={{color:"#60A5FA"}}>{fmtDate(vn.etaDone)}</b></div>:<div style={{...S.fl,fontSize:13,color:"#6B7280",fontStyle:"italic"}}>📅 Vendor will set completion date when bidding</div>}
+</div>}
+{((wt.filter(w=>w.isPart).length>0)||(cat.key==="parts"&&wt.length>0))&&vn.selected&&(()=>{const pts=(cat.key==="parts"?wt:wt.filter(w=>w.isPart)).filter(w=>{const li9=(vn.lineItems||[]).find(x=>x.id===w.id)||{};return !li9.declined&&li9.accepted;});if(pts.length===0)return null;const arrived=pts.filter(w=>{const li=(vn.lineItems||[]).find(x=>x.id===w.id)||{};return li.partArrived;}).length;const allIn=pts.length>0&&arrived===pts.length;return <div style={{padding:12,background:"#1A1A2E",borderRadius:8,marginBottom:8}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+<span style={{fontSize:14,fontWeight:700,color:"#93C5FD"}}>📦 Parts Tracking</span>
+<span style={{...S.badge,background:allIn?"#166534":"#78590A",color:allIn?"#34D399":"#FDE68A",fontSize:12,padding:"4px 10px"}}>{allIn?"✅ ALL PARTS DELIVERED":arrived+" of "+pts.length+" delivered"}</span>
+</div>
+{pts.map(w=>{const li=(vn.lineItems||[]).find(x=>x.id===w.id)||{};return <div key={w.id} style={{padding:10,marginBottom:6,borderRadius:6,background:"#0D0D1A",border:`1px solid ${li.partInstalled?"#166534":li.partArrived?"#3B82F6":"#2A2A3E"}`}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+<span style={{fontSize:14,fontWeight:700,color:"#E5E7EB"}}>{w.desc}</span>
+{li.partPrice>0&&<span style={{fontSize:14,fontWeight:700,color:"#FBBF24"}}>${li.partPrice}</span>}
+</div>
+<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+<label style={{...S.fl,fontSize:13,flex:1}}>Part Cost $<input style={{...S.fi,fontSize:14,padding:"6px 10px"}} type="number" placeholder="$" value={li.partPrice||li.price||""} onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partPrice:Number(e.target.value)};onUpdVendor(vn.id,{lineItems:items});}}/></label>
+{li.partPrice>0&&!li.partApproved&&<button style={{...S.btn,fontSize:12,background:"#1E3A5F",padding:"6px 12px",whiteSpace:"nowrap"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partApproved:true,partApprovedDate:new Date().toISOString().split("T")[0]};onUpdVendor(vn.id,{lineItems:items});}}>Approve</button>}
+{li.partApproved&&<span style={{...S.badge,background:"#166534",color:"#34D399",fontSize:11}}>✅ Approved {fmtDate(li.partApprovedDate)}</span>}
+{li.partApproved&&!li.partOrdered&&<button style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:"#7F1D1D",color:"#FCA5A5",border:"1px solid #EF4444",cursor:"pointer"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partApproved:false,partCanceled:true,partCanceledDate:new Date().toISOString().split("T")[0]};onUpdVendor(vn.id,{lineItems:items});}}>Cancel Part</button>}
+{li.partCanceled&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:10}}>❌ Canceled {fmtDate(li.partCanceledDate)}</span>}
+</div>
+<div style={{marginBottom:6}}>
+<label style={{...S.fl,fontSize:12}}>Install By<select style={{...S.fi,fontSize:13,padding:"6px 8px"}} value={li.partVendorId||""} onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);const sv2=vOpts.find(v2=>v2.id===e.target.value);if(ix>=0)items[ix]={...items[ix],partVendorId:e.target.value,partVendorName:sv2?.name||""};onUpdVendor(vn.id,{lineItems:items});}}><option value="">Same vendor</option>{vOpts.map(v2=><option key={v2.id} value={v2.id}>{v2.name}</option>)}</select></label>
+{li.partVendorName&&<div style={{fontSize:12,color:"#60A5FA",marginTop:2}}>🔧 {li.partVendorName}</div>}
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+<div style={{padding:6,borderRadius:4,background:li.partOrdered?"#1E3A5F":"transparent",border:`1px solid ${li.partOrdered?"#3B82F6":"#2A2A3E"}`,textAlign:"center"}}>
+<label style={{fontSize:12,color:li.partOrdered?"#93C5FD":"#6B7280",fontWeight:600,cursor:"pointer"}}><input type="checkbox" checked={li.partOrdered||false} onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partOrdered:e.target.checked,partOrderedDate:e.target.checked?new Date().toISOString().split("T")[0]:""};onUpdVendor(vn.id,{lineItems:items});}}/> Ordered</label>
+{li.partOrdered&&<div style={{fontSize:10,color:"#93C5FD"}}>{fmtDate(li.partOrderedDate)}</div>}
+</div>
+<div style={{padding:6,borderRadius:4,background:li.partArrived?"#0D3B1E":"transparent",border:`1px solid ${li.partArrived?"#166534":"#2A2A3E"}`,textAlign:"center"}}>
+<label style={{fontSize:12,color:li.partArrived?"#34D399":"#6B7280",fontWeight:600,cursor:"pointer"}}><input type="checkbox" checked={li.partArrived||false} onChange={e=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);const checked=e.target.checked;const today=new Date().toISOString().split("T")[0];if(ix>=0)items[ix]={...items[ix],partArrived:checked,partArrivedDate:checked?today:"",partStatus:checked?"received":items[ix].partStatus};onUpdVendor(vn.id,{lineItems:items});if(checked&&typeof fireEmail==="function"&&vehicle){const partsAll=items.filter(x=>x.isPart);const receivedNow=partsAll.filter(x=>x.partArrived);const remaining=partsAll.filter(x=>!x.partArrived);const allIn=remaining.length===0;if(allIn){fireEmail("all_parts_received",{vehicle:vData(vehicle),buyer:vehicle.buyingBroker,vendor:{name:vn.name,email:vn.email},seller:vehicle.sellingBroker,parts:partsAll,categoryKey:cat.key,recipientRole:"buyer",recipient:vehicle.buyingBroker});}else{fireEmail("part_received",{vehicle:vData(vehicle),buyer:vehicle.buyingBroker,vendor:{name:vn.name,email:vn.email},seller:vehicle.sellingBroker,partDesc:items[ix].desc,partReceivedDate:today,receivedCount:receivedNow.length,totalParts:partsAll.length,remainingParts:remaining,categoryKey:cat.key,recipient:vehicle.buyingBroker});}}}}/> Arrived</label>
+{li.partArrived&&<div style={{fontSize:10,color:"#34D399"}}>{fmtDate(li.partArrivedDate)}</div>}
+{!li.partArrived&&li.partOrdered&&<div style={{marginTop:4}}><button style={{fontSize:9,padding:"2px 6px",borderRadius:4,background:"#7F1D1D",color:"#FCA5A5",border:"1px solid #EF4444",cursor:"pointer",width:"100%"}} onClick={()=>{const reason=prompt("Why is this part being rejected?\\n\\n(Wrong part, damaged, doesn't fit, etc.)");if(!reason)return;const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partRejected:true,partRejectedReason:reason,partRejectedDate:new Date().toISOString().split("T")[0],partOrdered:false,partStatus:"rejected"};onUpdVendor(vn.id,{lineItems:items});if(typeof fireEmail==="function"&&vehicle){fireEmail("part_rejected",{vehicle:vData(vehicle),buyer:vehicle.buyingBroker,vendor:{name:vn.name,email:vn.email},seller:vehicle.sellingBroker,partDesc:items[ix].desc,rejectedReason:reason,rejectedDate:new Date().toISOString().split("T")[0],categoryKey:cat.key,recipient:vehicle.buyingBroker});}}}>❌ Reject</button></div>}
+{li.partRejected&&<div style={{fontSize:10,color:"#FCA5A5",marginTop:2}}>❌ {li.partRejectedReason}</div>}
+</div>
+<div style={{padding:6,borderRadius:4,background:li.partInstalled?"#166534":"transparent",border:`1px solid ${li.partInstalled?"#34D399":"#2A2A3E"}`,textAlign:"center"}}>
+{li.partInstalled?<div><div style={{fontSize:12,color:"#FFF",fontWeight:600}}>✅ Installed</div><div style={{fontSize:10,color:"#34D399"}}>{fmtDate(li.partInstalledDate)}</div></div>
+:li.partArrived?<button style={{fontSize:12,padding:"4px 8px",background:"#16A34A",color:"#FFF",border:"none",borderRadius:4,cursor:"pointer",width:"100%",fontWeight:700}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex(x=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partInstalled:true,partInstalledDate:new Date().toISOString().split("T")[0]};onUpdVendor(vn.id,{lineItems:items});}}>🔧 Install</button>
+:<span style={{fontSize:11,color:"#4B5563"}}>—</span>}
+</div>
+</div>
+</div>;})}</div>;})()} 
+<div style={{padding:10,background:"#1A1A2E",borderRadius:8,marginBottom:8}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+<span style={{fontSize:18,fontWeight:700,color:"#F97316"}}>🔍 Findings</span>
+<button style={{...S.btn,fontSize:14,padding:"8px 16px",background:"#92400E",color:"#FDE68A"}} onClick={()=>onUpdVendor(vn.id,{vendorFindings:[...(vn.vendorFindings||[]),{id:`vf${Date.now()}`,desc:"",price:0,notes:"",approved:false}],findingsSubmitted:false,findingsDecisionSent:false})}>+ Add</button></div>
+{(vn.vendorFindings||[]).map((vf,vfi)=><div key={vf.id} style={{padding:6,marginBottom:4,borderRadius:6,background:vf.approved?"#0D3B1E":"#3B2F10",border:`1px solid ${vf.approved?"#166534":"#78590A"}`}}>
+{vf.declined?<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.5}}><span style={{color:"#FCA5A5",fontSize:14,fontWeight:600,textDecoration:"line-through"}}>{vf.desc}</span><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:"#6B7280",fontWeight:700,fontSize:15}}>${vf.price||0}</span><span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:11}}>❌ DECLINED</span><button style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:"#1A1A2E",color:"#6B7280",border:"none",cursor:"pointer"}} onClick={()=>{const f2=[...(vn.vendorFindings||[])];f2[vfi]={...f2[vfi],declined:false};onUpdVendor(vn.id,{vendorFindings:f2});}}>Undo</button></div></div>
+:vf.approved?<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#E5E7EB",fontSize:14,fontWeight:600}}>{vf.desc}</span><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:"#FBBF24",fontWeight:700,fontSize:15}}>${vf.price||0}</span><span style={{...S.badge,background:vf.findingCostType==="retail"?"#164E63":"#1E3A5F",color:vf.findingCostType==="retail"?"#67E8F9":"#93C5FD",fontSize:10}}>{vf.findingCostType==="retail"?"🏪 Retail":"W/S"}</span><span style={{...S.badge,background:"#166534",color:"#34D399",fontSize:11}}>✅</span><button style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:"#7F1D1D",color:"#FCA5A5",border:"none",cursor:"pointer"}} onClick={()=>{const f2=[...(vn.vendorFindings||[])];f2[vfi]={...f2[vfi],approved:false};onUpdVendor(vn.id,{vendorFindings:f2});}}>Undo</button></div></div>
+:<div><div style={{display:"flex",gap:4,marginBottom:4}}>
+<input style={{...S.fi,fontSize:12,flex:1}} placeholder="Work found" value={vf.desc} onChange={e=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],desc:e.target.value};onUpdVendor(vn.id,{vendorFindings:f});}}/>
+<input style={{...S.fi,fontSize:12,width:70}} type="number" placeholder="$" value={vf.price||""} onChange={e=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],price:Number(e.target.value)};onUpdVendor(vn.id,{vendorFindings:f});}}/>
+<button style={{background:"none",border:"none",color:"#6B7280",cursor:"pointer",fontSize:12}} onClick={()=>onUpdVendor(vn.id,{vendorFindings:(vn.vendorFindings||[]).filter((_,j)=>j!==vfi)})}>🗑</button></div>
+{vf.desc&&vf.price>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}>
+{vn.findingsSubmitted?<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.approved?"2px solid #166534":"1px solid #2A2A3E",cursor:vf.findingCostType?"pointer":"not-allowed",fontWeight:700,background:vf.approved?"#166534":"transparent",color:vf.approved?"#6EE7B7":vf.findingCostType?"#6B7280":"#4B5563",opacity:vf.findingCostType?1:0.5}} onClick={()=>{if(!vf.findingCostType)return;const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],approved:true};onUpdVendor(vn.id,{vendorFindings:f});}}>✅ {vf.approved?"Accepted":"Accept"}</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.declined?"#7F1D1D":"transparent",color:vf.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],declined:true,approved:false};onUpdVendor(vn.id,{vendorFindings:f});}}>❌ Decline</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType!=="retail"&&vf.findingCostType?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType!=="retail"&&vf.findingCostType?"#1E3A5F":"transparent",color:vf.findingCostType!=="retail"&&vf.findingCostType?"#93C5FD":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"ws"};onUpdVendor(vn.id,{vendorFindings:f});}}>W/S</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType==="retail"?"#164E63":"transparent",color:vf.findingCostType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"retail"};onUpdVendor(vn.id,{vendorFindings:f});}}>🏪 Retail</button>
+</div>:<div style={{fontSize:11,color:"#6B7280",marginTop:4}}>Submit findings for buyer review</div>}
+</div>}
+{(!vf.desc||!vf.price)&&<div style={{fontSize:11,color:"#6B7280"}}>Enter description and cost first</div>}
+</div>}</div>)}</div>
+<div style={{padding:10,background:"#1A1A2E",borderRadius:8,marginBottom:8}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+<span style={{fontSize:13,fontWeight:700,color:"#60A5FA"}}>📷 Vendor Photos ({(vn.vendorPhotos||[]).length})</span>
+<label style={{...S.btn,fontSize:12,padding:"4px 10px",background:"#1E3A5F",cursor:"pointer"}}><input type="file" multiple style={{display:"none"}} onChange={e=>{const files=Array.from(e.target.files||[]);if(!files.length)return;const np=files.map(f=>{const isVid=f.type.startsWith("video");return {data:isVid?URL.createObjectURL(f):"pending",blob:isVid?null:f,name:f.name,type:isVid?"video":"image"};});const imgs=np.filter(x=>x.type==="image");const vids=np.filter(x=>x.type==="video");if(imgs.length===0){onUpdVendor(vn.id,{vendorPhotos:[...(vn.vendorPhotos||[]),...vids]});e.target.value="";return;}Promise.all(imgs.map(item=>new Promise(r=>{const rd=new FileReader();rd.onload=()=>{item.data=rd.result;r(item);};rd.readAsDataURL(item.blob);}))).then(done=>{onUpdVendor(vn.id,{vendorPhotos:[...(vn.vendorPhotos||[]),...done,...vids]});});e.target.value="";}}/> 📷 Upload Photo/Video</label></div>
+{(vn.vendorPhotos||[]).length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{(vn.vendorPhotos||[]).map((p,pi)=><div key={pi} style={{width:50,height:50,borderRadius:4,overflow:"hidden",border:"1px solid #2A2A3E",cursor:"pointer",position:"relative"}} onClick={()=>setLbImg(p)}>{p.type==="video"?<div style={{width:"100%",height:"100%",background:"#0D0D1A",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:18}}>🎬</span></div>:<img src={p.data} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>)}</div>}</div>
+
+{!vn.bidLocked&&ap&&vn.etaDone&&<div style={{background:"#78590A",borderRadius:8,overflow:"hidden"}}>
+<div style={{padding:"8px 12px"}}>{wt.map(w=>{const li2=(vn.lineItems||[]).find(x=>x.id===w.id);return <div key={w.id} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:13,color:"#FDE68A"}}><span>{w.desc}</span><span style={{fontWeight:700}}>${Number(li2?.price)||0}</span></div>;})}</div>
+<button style={{...S.btn,width:"100%",background:"#92700A",color:"#FDE68A",borderRadius:0,fontSize:16,padding:12}} onClick={()=>{onUpdVendor(vn.id,{bidLocked:true,estimate:bidTotal},{status:"estimated",estimate:bidTotal});
+if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws",isPart:x.isPart}));fireEmail("buyer_bid_submitted",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label,categoryKey:cat.key,lineItems:items,totalBid:bidTotal});}setExp(false);}}>Submit Bid — ${bidTotal.toLocaleString()}</button>
+</div>}
+{vn.bidLocked&&<div style={{marginTop:6}}><div style={{...S.badge,background:"#78590A",color:"#FDE68A",padding:"6px 12px",display:"inline-block"}}>🔒 BID ${(lt+(vn.bidAdjustment||0)).toLocaleString()}</div>
+{(()=>{const vfList=vn.vendorFindings||[];const allReady=vfList.length>0&&vfList.every(x=>x.desc&&x.price>0);return vfList.length>0&&!vn.findingsSubmitted?<button style={{...S.btn,width:"100%",background:"#92400E",color:"#FDE68A",padding:10,fontSize:14,marginTop:8,border:"2px solid #F59E0B",opacity:allReady?1:0.4}} disabled={!allReady} onClick={()=>{if(!allReady){notify("⚠️ All findings need description and price");return;}onUpdVendor(vn.id,{findingsSubmitted:true,findingsSubmittedDate:new Date().toISOString().split("T")[0]});if(typeof fireEmail==="function"&&vehicle){const origItems=(vn.lineItems||[]).filter(x=>x.accepted);const origTotal=origItems.reduce((s,x)=>s+(Number(x.price)||0),0);const findItems=vn.vendorFindings||[];const findTotal=findItems.reduce((s,x)=>s+(Number(x.price)||0),0);fireEmail("buyer_bid_submitted",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label+" — FINDINGS",categoryKey:cat.key,lineItems:[...origItems.map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...findItems.map(x=>({desc:"🔍 "+x.desc,price:x.price,costType:"ws"}))],totalBid:origTotal+findTotal});}setExp(false);}}>🔍 Submit Findings</button>:null;})()}
+{vn.findingsSubmitted&&<div style={{fontSize:12,color:"#F59E0B",marginTop:4}}>🔍 Findings submitted {fmtDate(vn.findingsSubmittedDate)}</div>}
+{(()=>{const declinedItems=(vn.lineItems||[]).filter(x=>x.declined);const activeItems=(vn.lineItems||[]).filter(x=>x.accepted&&!x.declined);if(declinedItems.length===0)return null;const alreadySent=vn.cancellationSent;if(alreadySent)return <div style={{fontSize:12,color:"#FCA5A5",marginTop:6}}>❌ Cancellation notice sent {fmtDate(vn.cancellationSentDate)} — {declinedItems.length} item{declinedItems.length>1?"s":""} canceled</div>;return <button style={{...S.btn,width:"100%",background:"#7F1D1D",color:"#FCA5A5",padding:10,fontSize:14,marginTop:8,border:"2px solid #EF4444"}} onClick={e=>{e.target.disabled=true;onUpdVendor(vn.id,{cancellationSent:true,cancellationSentDate:new Date().toISOString().split("T")[0]});if(typeof fireEmail==="function"&&vehicle){fireEmail("vendor_work_canceled",{vendor:{name:vn.name},vehicle:vData(vehicle),lineItems:[...activeItems.map(x=>({desc:"✅ ACTIVE: "+x.desc,price:x.price,costType:x.costType||"ws"})),...declinedItems.map(x=>({desc:"❌ CANCELED: "+x.desc,price:0,costType:x.costType||"ws"}))],totalRemaining:activeItems.reduce((s,x)=>s+(Number(x.price)||0),0)});}notify("❌ Cancellation notice sent to "+vn.name);}}>📩 Send Cancellation Notice to {vn.name} — {declinedItems.length} item{declinedItems.length>1?"s":""} canceled</button>;})()}
+{(vn.vendorFindings||[]).length>0&&!vn.findingsSubmitted&&!(vn.vendorFindings||[]).every(x=>x.desc&&x.price>0)&&<div style={{fontSize:12,color:"#F87171",marginTop:4}}>⚠️ Each finding needs: description + price</div>}
+{(vn.vendorFindings||[]).some(x=>x.approved)&&<div style={{marginTop:4,fontSize:14,color:"#F97316",fontWeight:700}}>+ Findings: ${(vn.vendorFindings||[]).filter(x=>x.approved).reduce((s,x)=>s+(Number(x.price)||0),0).toLocaleString()}</div>}
+{(vn.vendorFindings||[]).some(x=>x.approved)&&<div style={{fontSize:16,fontWeight:800,color:"#FBBF24",marginTop:2}}>Total: ${(lt+(vn.vendorFindings||[]).filter(x=>x.approved).reduce((s,x)=>s+(Number(x.price)||0),0)).toLocaleString()}</div>}
+{(()=>{const vf=vn.vendorFindings||[];if(vf.length===0||!vn.findingsSubmitted)return null;const allDecided=vf.every(x=>x.approved||x.declined);const alreadySent=vn.findingsDecisionSent;if(!allDecided)return <div style={{fontSize:12,color:"#F59E0B",marginTop:6}}>⚠️ Accept or decline all findings before sending decision</div>;if(alreadySent)return <div style={{fontSize:12,color:"#34D399",marginTop:6}}>✅ Decision sent to vendor {fmtDate(vn.findingsDecisionSentDate)}</div>;return <button style={{...S.btn,width:"100%",background:"#1E3A5F",color:"#93C5FD",padding:12,fontSize:15,marginTop:8,border:"2px solid #3B82F6",fontWeight:800}} onClick={e=>{e.target.disabled=true;const accF=vf.filter(x=>x.approved);const decF=vf.filter(x=>x.declined);const accTotal=accF.reduce((s,x)=>s+(Number(x.price)||0),0);const origItems=(vn.lineItems||[]).filter(x=>x.accepted&&!x.declined);const origTotal=origItems.reduce((s,x)=>s+(Number(x.price)||0),0);
+if(typeof fireEmail==="function"&&vehicle){fireEmail("vendor_bid_accepted",{vendor:{name:vn.name},vehicle:vData(vehicle),lineItems:[...origItems.map(x=>({desc:"✅ "+x.desc,price:x.price,costType:x.costType||"ws"})),...accF.map(x=>({desc:"✅ 🔍 "+x.desc,price:x.price,costType:x.findingCostType||"ws"})),...decF.map(x=>({desc:"❌ "+x.desc+" (DECLINED)",price:0,costType:x.findingCostType||"ws"}))],totalApproved:origTotal+accTotal,approvedBy:vehicle.buyingBroker||"Buyer",approvedDate:new Date().toISOString().split("T")[0]});}
+const newTasks=accF.map((f,fi)=>({id:"wf"+Date.now()+"_"+fi,desc:"🔍 "+f.desc,isPart:false,isFromFinding:true,findingPrice:Number(f.price)||0,findingCostType:f.findingCostType||"ws"}));if(newTasks.length>0){const curWt=[...(task.workTasks||[]),...newTasks];const updatedVn={...vn,findingsDecisionSent:true,findingsDecisionSentDate:new Date().toISOString().split("T")[0],lineItems:[...(vn.lineItems||[]),...newTasks.map(nt=>({id:nt.id,desc:nt.desc,price:nt.findingPrice,accepted:true,costType:nt.findingCostType,isPart:false}))],vendorFindings:[],findingsSubmitted:false};const updatedVendors=(task.vendors||[]).map(v2=>v2.id===vn.id?updatedVn:v2);const taskExtra={workTasks:curWt,vendors:updatedVendors};if(task.status==="complete"){const prevTasks=(task.workTasks||[]).map(w=>w.desc).join(", ");const prevCost=origTotal;taskExtra.status="started";taskExtra.dateStarted=new Date().toISOString().split("T")[0];taskExtra.dateCompleted=null;taskExtra.roundPhotoStart=(task.photos||[]).length;taskExtra.completedRounds=[...(task.completedRounds||[]),{tasks:prevTasks,cost:prevCost,date:task.dateCompleted||new Date().toISOString().split("T")[0],vendor:vn.name}];}else if(task.status==="started"){taskExtra.roundPhotoStart=(task.photos||[]).length;}onUpdateTask(taskExtra);}else{onUpdVendor(vn.id,{findingsDecisionSent:true,findingsDecisionSentDate:new Date().toISOString().split("T")[0]});}notify("📩 Decision sent"+(newTasks.length>0?" — "+newTasks.length+" findings added as tasks":""));}}>📩 Send Findings Decision to Vendor</button>;})()}
+</div>}
+{!vn.bidLocked&&ap&&!vn.etaDone&&<div style={{fontSize:12,color:"#F87171",padding:6}}>⚠️ Set ETA completion date to submit bid</div>}
+{!vn.declined&&!vn.selected&&task.status!=="complete"&&<div style={{marginTop:10,padding:2,background:"#3B1515",borderRadius:8,border:"1px solid #7F1D1D"}}><button style={{...S.btn,width:"100%",background:"#7F1D1D",color:"#FCA5A5",fontSize:14,padding:10,borderRadius:6}} onClick={()=>{onUpdVendor(vn.id,{declined:true,declinedDate:new Date().toISOString().split("T")[0]});const others=(task.vendors||[]).filter(v2=>v2.id!==vn.id);const allDeclined=others.every(v2=>v2.declined);if(allDeclined){onUpdateTask({status:"declined"});}
+if(typeof fireEmail==="function"&&vehicle)fireEmail("buyer_vendor_declined",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label,reason:"Vendor declined the job"});setExp(false);}}>❌ Decline Job</button></div>}
+{!vn.selected&&task.status!=="complete"&&task.status!=="started"&&<div style={{marginTop:8,textAlign:"center"}}><button style={{padding:"8px 16px",borderRadius:6,background:"transparent",color:"#6B7280",fontSize:12,fontWeight:700,border:"1px solid #4B5563",cursor:"pointer"}} onClick={()=>{if(!confirm("Remove "+vn.name+" from this recon task? This cannot be undone."))return;const others=(task.vendors||[]).filter(v2=>v2.id!==vn.id);const newStatus=others.length===0?"unassigned":task.status;onUpdateTask({vendors:others,status:newStatus});notify("🗑 "+vn.name+" removed");}}>🗑 Remove Vendor</button></div>}
+{vn.declined&&<div style={{padding:10,background:"#3B1515",borderRadius:6,border:"1px solid #7F1D1D",marginTop:8,textAlign:"center"}}><span style={{fontSize:14,fontWeight:700,color:"#FCA5A5"}}>❌ Vendor Declined — {fmtDate(vn.declinedDate)}</span>
+<button style={{...S.sm,color:"#6B7280",marginLeft:8,fontSize:12}} onClick={()=>{onUpdVendor(vn.id,{declined:false,declinedDate:""});if(task.status==="declined")onUpdateTask({status:"assigned"});}}>Undo</button></div>}
+</div>;})}
+{!isOEM&&(()=>{const hasTasks=(task.workTasks||[]).length>0&&(task.workTasks||[]).every(w=>w.desc&&w.desc.trim().length>0);const hasMedia=photos.length>0;const mediaSkipped=task.mediaSkipped===true;const mediaReady=hasMedia||mediaSkipped;const noVendorYet=(task.vendors||[]).length===0;
+return <>
+{noVendorYet&&hasTasks&&!mediaReady&&<div style={{padding:14,marginBottom:10,background:"#0F2940",border:"2px solid #1E3A5F",borderRadius:8}}>
+<div style={{fontSize:14,fontWeight:700,color:"#93C5FD",marginBottom:8}}>📸 Add photos/video to show issues to vendor?</div>
+<div style={{fontSize:12,color:"#9CA3AF",marginBottom:10}}>Vendor will see what they're bidding on. Recommended for body shop, paint, interior damage.</div>
+<div style={{display:"flex",gap:6}}>
+<label style={{...S.btn,flex:1,cursor:"pointer",textAlign:"center",background:"#1E3A5F",color:"#93C5FD"}}><input type="file" capture="environment" multiple style={{display:"none"}} onChange={hu}/> 📷 Add Photo / 🎬 Video</label>
+<button style={{...S.btn,flex:1,background:"#4C1D95",color:"#E9D5FF"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.multiple=true;inp.onchange=hu;inp.click();}}>📁 Browse Files</button>
+<button style={{...S.btn,padding:"10px 16px",background:"transparent",color:"#9CA3AF",border:"1px solid #4B5563"}} onClick={()=>onUpdateTask({mediaSkipped:true})}>Skip — No Media</button>
+</div></div>}
+{(hasMedia||mediaSkipped||(task.vendors||[]).length>0)&&photos.length>0&&<div style={{padding:8,marginBottom:10,background:"#0D0D1A",border:"1px solid #2A2A3E",borderRadius:6}}>
+<div style={{fontSize:11,color:"#6B7280",textTransform:"uppercase",fontWeight:700,marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span>📷 Media ({photos.length})</span>
+{noVendorYet&&<label style={{...S.sm,color:"#3B82F6",cursor:"pointer"}}><input type="file" multiple style={{display:"none"}} onChange={hu}/> + Add More</label>}
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",gap:4}}>{photos.map((p,i)=><div key={i} style={{position:"relative",aspectRatio:"1",borderRadius:4,overflow:"hidden",cursor:"pointer"}} onClick={()=>setLbImg(p)}>{p.type==="video"?<div style={{width:"100%",height:"100%",background:"#0D0D1A",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:24}}>🎬</span></div>:<img src={p.data} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}{noVendorYet&&<button style={{position:"absolute",top:1,right:1,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,0.8)",border:"none",color:"#F87171",fontSize:10,cursor:"pointer"}} onClick={e=>{e.stopPropagation();onPhotos(photos.filter((_,j)=>j!==i));}}>✕</button>}</div>)}</div></div>}
+{!isVendor&&(()=>{const canAdd=isGrounded&&hasTasks&&mediaReady;const existingVendorIds=(task.vendors||[]).map(x=>x.id);const availableVendors=vOpts.filter(v=>!existingVendorIds.includes(v.id));return <select style={{...S.sel,width:"100%",marginBottom:10,opacity:canAdd?1:0.5}} defaultValue="" disabled={!canAdd} onChange={e=>{if(e.target.value){onAssign(e.target.value);}e.target.value="";}}><option value="" disabled>{!isGrounded?"⚠️ Vehicle must be on ground":!hasTasks?"⚠️ Fill in all task descriptions first":!mediaReady?"⚠️ Add media or click Skip first":(task.vendors||[]).length>0?"+ Add Another Vendor for Bidding...":"+ Add Vendor..."}</option>{availableVendors.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select>;})()}
+{!isVendor&&(task.vendors||[]).length>0&&!(task.vendors||[]).some(v2=>v2.bidLocked)&&<button style={{...S.btn,width:"100%",background:"#166534",color:"#FFF",fontSize:15,padding:12,marginBottom:10,fontWeight:700}} onClick={()=>{setExp(false);notify("✅ Sent to "+(task.vendors||[]).length+" vendor"+((task.vendors||[]).length>1?"s":"")+" for bidding");}}>✅ Done — Awaiting Vendor Bid{(task.vendors||[]).length>1?"s":""}</button>}
+</>;
+})()}
+{!isOEM&&<div style={{marginBottom:8,borderRadius:6,border:`1px solid ${task.noteUnread?"#F59E0B":"#2A2A3E"}`}}><div style={{padding:"8px 10px",cursor:"pointer",background:task.noteUnread?"rgba(245,158,11,0.1)":"rgba(255,255,255,0.03)"}} onClick={()=>{setNo(!no);setNv(task.notes||"");if(task.noteUnread)onNotes(task.notes||"",true);}}><span style={{fontSize:13,fontWeight:700,color:task.noteUnread?"#F59E0B":"#9CA3AF"}}>{task.noteUnread?"🔔 NEW NOTE":"📝 NOTES"}</span></div>
+{no&&<div style={{padding:8,borderTop:"1px solid #2A2A3E"}}><textarea style={{...S.fi,width:"100%",minHeight:60,boxSizing:"border-box"}} value={nv} onChange={e=>setNv(e.target.value)}/>
+<button style={{...S.btn,fontSize:12,marginTop:4}} onClick={()=>{onNotes(nv,false,true);setNo(false);}}>Save</button></div>}</div>}
+{!isOEM&&task.status==="assigned"&&<div style={{padding:12,background:"#3B3510",borderRadius:8,border:"2px solid #6B5F0A"}}>
+<div style={{fontSize:16,fontWeight:700,color:"#EAB308",marginBottom:4}}>⏳ WAITING ON VENDOR</div>
+<div style={{fontSize:13,color:"#9CA3AF"}}>Vendor must price all tasks, set ETA, and submit bid</div></div>}
+{!isOEM&&task.status==="estimated"&&<div style={{padding:12,background:"#3B2F10",borderRadius:8,border:"2px solid #78590A"}}>
+<div style={{fontSize:16,fontWeight:700,color:"#FBBF24",marginBottom:6}}>💰 BID SUBMITTED</div>
+<div style={{fontSize:14,color:"#FDE68A"}}>Waiting for buyer to approve</div>
+<div style={{fontSize:13,color:"#9CA3AF",marginTop:4}}>Vendor ETA: {(()=>{const sv2=(task.vendors||[]).find(x=>x.bidLocked);return sv2?.etaDone?fmtDate(sv2.etaDone):"—";})()}</div>
+</div>}
+{!isOEM&&task.status==="approved"&&<div style={{padding:12,background:"#0D3B1E",borderRadius:8,border:"2px solid #16A34A"}}>
+<div style={{fontSize:16,fontWeight:700,color:"#34D399",marginBottom:6}}>✅ BUYER APPROVED</div>
+<div style={{fontSize:14,color:"#9CA3AF",marginBottom:8}}>{isVendor?"Click Start Work to begin":"Waiting for vendor to start work"}</div>
+{(()=>{const sv2=(task.vendors||[]).find(x=>x.selected);const vendorEta=sv2?.etaDone||"";return vendorEta?<div style={{fontSize:14,color:"#60A5FA",marginBottom:8}}>ETA Completion: <b>{fmtDate(vendorEta)}</b></div>:null;})()}
+{isVendor?<button style={{...S.btn,background:"#16A34A",width:"100%",padding:12,fontSize:16}} onClick={()=>{const sv2=(task.vendors||[]).find(x=>x.selected);onStart(sv2?.etaDone||new Date().toISOString().split("T")[0]);}}>🔧 Start Work</button>:<div style={{padding:10,background:"#0D0D1A",borderRadius:6,border:"1px dashed #166534",textAlign:"center",fontSize:13,color:"#6B7280"}}>⏳ Awaiting vendor to start work</div>}
+</div>}
+{!isOEM&&task.status==="started"&&<div style={{padding:12,background:"#3B2F10",borderRadius:8,border:"1px solid #78590A"}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:16,fontWeight:700,color:"#FBBF24"}}>🔧 WORK IN PROGRESS</span>{task.etaComplete&&<span style={{color:"#60A5FA"}}>ETA: {fmtDate(task.etaComplete)}</span>}</div>
+{task.dateStarted&&<div style={{fontSize:13,color:"#9CA3AF"}}>Started: {fmtDate(task.dateStarted)}</div>}
+{task.etaComplete&&(()=>{let d=new Date(task.etaComplete);if(d.getFullYear()<100)d.setFullYear(d.getFullYear()+2000);return d<new Date()?<div style={{color:"#F87171",fontWeight:700,marginBottom:4}}>⚠️ PAST DUE — {Math.max(1,~~((new Date()-d)/864e5))}d late</div>:null;})()}
+{cat.key!=="mechanical"&&<div style={{padding:10,background:"#0D0D1A",borderRadius:6,border:"1px solid #2A2A3E",marginBottom:8}}>
+<div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:6}}>📷 Finished Work Photos {photos.length>0&&<span style={{color:"#34D399"}}>({photos.length})</span>}</div>
+{photos.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>{photos.slice(0,6).map((p,i)=><div key={i} style={{width:44,height:44,borderRadius:3,overflow:"hidden",border:"1px solid #2A2A3E",cursor:"pointer"}} onClick={()=>setLbImg(p)}>{p.type==="video"?<div style={{width:"100%",height:"100%",background:"#0D0D1A",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:16}}>🎬</span></div>:<img src={p.data} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}</div>)}</div>}
+{isVendor?<label style={{...S.btn,fontSize:12,width:"100%",background:"#1E3A5F",cursor:"pointer",textAlign:"center",display:"block"}}><input type="file" multiple style={{display:"none"}} onChange={hu}/> 📷 Upload Finished Photos/Videos</label>:photos.length===0?<div style={{padding:8,fontSize:12,color:"#6B7280",fontStyle:"italic",textAlign:"center"}}>Vendor will upload finished photos when work is done</div>:null}</div>}
+{(()=>{const pts=(task.workTasks||[]).filter(w=>w.isPart);const sv2=(task.vendors||[]).find(x=>x.selected);const allPartsIn=pts.length===0||pts.every(w=>{const li2=(sv2?.lineItems||[]).find(x=>x.id===w.id)||{};return li2.declined||li2.partInstalled;});const noPhotosNeeded=cat.key==="mechanical"||cat.key==="oemdealer";const hasInspection=cat.key==="mechanical"&&(task.workTasks||[]).some(w=>w.isInspection);const hasFindings=sv2&&(sv2.vendorFindings||[]).length>0;const noIssues=task.noIssuesFound||false;const mechBlock=hasInspection&&!hasFindings&&!noIssues;const activeTasks=(task.workTasks||[]).filter(w=>{const li9=(sv2?.lineItems||[]).find(x=>x.id===w.id)||{};return !li9.declined;});const taskCount=activeTasks.length;const roundStart=task?.roundPhotoStart||0;const newPhotos=photos.length-roundStart;const photosOk=noPhotosNeeded||(taskCount>0&&newPhotos>=taskCount)||taskCount===0;const canComplete=photosOk&&allPartsIn&&!mechBlock;
+return <span style={{display:"contents"}}>{hasInspection&&<div style={{padding:10,marginBottom:8,borderRadius:6,background:noIssues?"#0D3B1E":"#1A1A2E",border:`1px solid ${noIssues?"#166534":"#2A2A3E"}`}}>
+<label style={{display:"flex",alignItems:"center",gap:8,fontSize:15,color:noIssues?"#34D399":"#E5E7EB",fontWeight:600,cursor:"pointer"}}><input type="checkbox" style={{width:18,height:18}} checked={noIssues} onChange={e=>onUpdateTask({noIssuesFound:e.target.checked})}/> ✅ No Issues Found — Vehicle Passed Inspection</label>
+</div>}
+{isVendor?<button style={{...S.btn,background:canComplete?"#166534":"#4B5563",width:"100%",padding:10,cursor:canComplete?"pointer":"not-allowed",opacity:canComplete?1:0.5}} onClick={e=>{if(!canComplete)return;e.target.disabled=true;onCmp();setExp(false);}}>✅ Mark Complete</button>:<div style={{padding:10,background:"#0D0D1A",borderRadius:6,border:"1px dashed #166534",textAlign:"center",fontSize:13,color:"#6B7280"}}>⏳ Awaiting vendor to mark complete</div>}
+{!photosOk&&!noPhotosNeeded&&<div style={{fontSize:12,color:"#F87171",marginTop:4}}>⚠️ Upload {taskCount} photo{taskCount>1?"s":""} (1 per task) — have {newPhotos} new</div>}
+{!allPartsIn&&<div style={{fontSize:12,color:"#F87171",marginTop:4}}>⚠️ All parts must be installed before completing</div>}
+{mechBlock&&<div style={{fontSize:12,color:"#F87171",marginTop:4}}>⚠️ Add findings or check "No Issues Found" before completing inspection</div>}</span>;})()}</div>}
+{task.status==="complete"&&!task.approvedForPayment&&!isVendor&&<div style={{padding:14,background:"#3B2F10",borderRadius:8,border:"2px solid #F59E0B",marginBottom:10}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+<div style={{fontSize:15,fontWeight:800,color:"#FDE68A"}}>⚠️ AWAITING APPROVAL TO PAY</div>
+<span style={{padding:"4px 10px",background:vehicle?.location==="Dallas"?"#4C1D95":"#1E3A5F",color:vehicle?.location==="Dallas"?"#C4B5FD":"#93C5FD",borderRadius:6,fontSize:11,fontWeight:700}}>📍 {vehicle?.location||"PHX"}</span>
+</div>
+<div style={{fontSize:12,color:"#FBBF24",marginBottom:10}}>Vendor marked complete{task.dateCompleted?" on "+fmtDate(task.dateCompleted):""} — review the work and approve to release for payment.</div>
+{(()=>{const winnerVn=(task.vendors||[]).find(v2=>v2.selected);if(!winnerVn)return null;const accLines=(winnerVn.lineItems||[]).filter(x=>x.accepted&&!x.declined);const total=accLines.reduce((s,x)=>s+(Number(x.price)||0),0);const ws=accLines.filter(x=>x.costType==="ws"||!x.costType).reduce((s,x)=>s+(Number(x.price)||0),0);const ret=accLines.filter(x=>x.costType==="retail").reduce((s,x)=>s+(Number(x.price)||0),0);return <div style={{background:"#0D0D1A",borderRadius:6,padding:10,marginBottom:10}}>
+{accLines.map((li,li_idx)=><div key={li_idx} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:12,color:"#E5E7EB",borderBottom:li_idx<accLines.length-1?"1px solid #1E1E32":"none"}}>
+<span>{li.desc}</span>
+<span><span style={{color:li.costType==="retail"?"#67E8F9":"#93C5FD",fontSize:11,marginRight:4}}>{li.costType==="retail"?"Retail":"W/S"}</span><span style={{color:"#FBBF24",fontWeight:700}}>${Number(li.price)||0}</span></span>
+</div>)}
+<div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",marginTop:6,borderTop:"1px solid #166534"}}>
+<span style={{color:"#34D399",fontWeight:700,fontSize:13}}>Vendor: {winnerVn.name}</span>
+<span style={{color:"#34D399",fontWeight:700,fontSize:16}}>${total.toLocaleString()}</span>
+</div>
+{(ws>0||ret>0)&&<div style={{fontSize:10,color:"#6B7280",textAlign:"right",marginTop:2}}>W/S: ${ws.toLocaleString()} • Retail: ${ret.toLocaleString()}</div>}
+</div>;})()}
+<div style={{display:"flex",gap:6}}>
+<button style={{...S.btn,flex:1,background:"#166534",color:"#FFF",padding:10,fontSize:14,fontWeight:700}} onClick={()=>{const winnerVn=(task.vendors||[]).find(v2=>v2.selected);if(!winnerVn){notify("⚠️ No vendor found");return;}const accLines=(winnerVn.lineItems||[]).filter(x=>x.accepted&&!x.declined);const lockedTotal=accLines.reduce((s,x)=>s+(Number(x.price)||0),0);const lockedWS=accLines.filter(x=>x.costType==="ws"||!x.costType).reduce((s,x)=>s+(Number(x.price)||0),0);const lockedRetail=accLines.filter(x=>x.costType==="retail").reduce((s,x)=>s+(Number(x.price)||0),0);onUpdateTask({approvedForPayment:true,approvedPaymentDate:new Date().toISOString().split("T")[0],approvedBy:currentUser?.first_name?currentUser.first_name+" "+(currentUser.last_name||""):"Buyer",lockedTotal:lockedTotal,lockedWS:lockedWS,lockedRetail:lockedRetail,lockedVendorName:winnerVn.name});if(typeof fireEmail==="function"&&vehicle){fireEmail("recon_approved_for_payment",{vehicle:vData(vehicle),buyer:vehicle.buyingBroker,vendor:{name:winnerVn.name,email:winnerVn.email},seller:vehicle.sellingBroker,category:cat.label,categoryKey:cat.key,lineItems:accLines.map(x=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),lockedTotal,lockedWS,lockedRetail,approvedBy:currentUser?.first_name?currentUser.first_name+" "+(currentUser.last_name||""):"Buyer",approvedDate:new Date().toISOString().split("T")[0],location:vehicle?.location||"PHX"});}notify("✅ Approved for payment — AP team notified");}}>✅ Approve for Payment</button>
+<button style={{...S.btn,background:"#7F1D1D",color:"#FCA5A5",padding:"10px 14px",fontSize:13,fontWeight:700}} onClick={()=>{const reason=prompt("Why are you disputing this work?\\n\\n(e.g. work incomplete, wrong color, photos don't show finished work)");if(!reason)return;const winnerVn=(task.vendors||[]).find(v2=>v2.selected);onUpdateTask({disputed:true,disputedDate:new Date().toISOString().split("T")[0],disputedReason:reason,disputedBy:currentUser?.first_name?currentUser.first_name+" "+(currentUser.last_name||""):"Buyer",status:"started",dateCompleted:null});if(typeof fireEmail==="function"&&vehicle&&winnerVn){fireEmail("recon_disputed",{vehicle:vData(vehicle),buyer:vehicle.buyingBroker,vendor:{name:winnerVn.name,email:winnerVn.email},seller:vehicle.sellingBroker,category:cat.label,categoryKey:cat.key,reason:reason,disputedBy:currentUser?.first_name?currentUser.first_name+" "+(currentUser.last_name||""):"Buyer",disputedDate:new Date().toISOString().split("T")[0]});}notify("⚠️ Work disputed — vendor notified");}}>⚠️ Dispute</button>
+</div>
+</div>}
+{task.status==="complete"&&task.approvedForPayment&&!task.paid&&!isVendor&&<div style={{padding:12,background:"#0D3B1E",borderRadius:8,border:"2px solid #166534",marginBottom:10}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div><div style={{fontSize:14,fontWeight:800,color:"#34D399"}}>✅ APPROVED FOR PAYMENT</div>
+<div style={{fontSize:11,color:"#6EE7B7",marginTop:2}}>Locked ${(task.lockedTotal||0).toLocaleString()} • Approved by {task.approvedBy} • {fmtDate(task.approvedPaymentDate)}</div></div>
+<span style={{padding:"4px 8px",background:"#3B2F10",color:"#FDE68A",borderRadius:6,fontSize:10,fontWeight:700}}>💸 Pending Check</span>
+</div>
+</div>}
+{task.status==="complete"&&task.paid&&!isVendor&&<div style={{padding:12,background:"#0D3B1E",borderRadius:8,border:"2px solid #166534",marginBottom:10}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div><div style={{fontSize:14,fontWeight:800,color:"#34D399"}}>💸 PAID</div>
+<div style={{fontSize:11,color:"#6EE7B7",marginTop:2}}>Check #{task.checkNumber} • Paid {fmtDate(task.paidDate)} • ${(task.lockedTotal||0).toLocaleString()}</div></div>
+<span style={{padding:"4px 8px",background:"#166534",color:"#6EE7B7",borderRadius:6,fontSize:10,fontWeight:700}}>✓ COMPLETE</span>
+</div>
+</div>}
+{task.status==="complete"&&<div style={{padding:12,background:"#0D3B1E",borderRadius:8}}>
+<div style={{textAlign:"center",marginBottom:8}}><span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>✅ COMPLETED</span>
+{task.dateStarted&&task.dateCompleted&&<span style={{fontSize:13,color:"#9CA3AF",marginLeft:8}}>({Math.max(1,~~((new Date(task.dateCompleted)-new Date(task.dateStarted))/864e5))}d to complete)</span>}</div>
+{(task.completedRounds||[]).length>0&&<div style={{marginBottom:8}}>
+{(task.completedRounds||[]).map((rd,ri)=><div key={ri} style={{fontSize:12,color:"#9CA3AF",padding:"4px 8px",background:"#0D0D1A",borderRadius:4,marginBottom:2}}>Round {ri+1}: ✅ {rd.tasks||"completed"} — ${rd.cost||0}{rd.vendor?" — "+rd.vendor:""} — Completed {rd.date?fmtDate(rd.date):""}</div>)}
+</div>}
+<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14}} onClick={()=>{onUpdateTask({status:"unassigned",dateCompleted:null,dateStarted:null,workTasks:[],vendors:[],roundPhotoStart:(task.photos||[]).length});
+notify("🔄 Reopened — add tasks and assign vendor");}}>🔄 Reopen — Add More Work</button>
+</div>}
+</div></div></div>}
+{lbImg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.98)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"pointer"}} onClick={()=>setLbImg(null)}>
+<div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.stopPropagation()}>
+{lbImg.type==="video"?<video src={lbImg.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={e=>e.stopPropagation()}/>:<img src={lbImg.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
+<button style={{position:"fixed",top:12,right:12,width:48,height:48,borderRadius:"50%",background:"#EF4444",border:"none",color:"#FFF",fontSize:24,cursor:"pointer"}} onClick={()=>setLbImg(null)}>✕</button></div></div>}
+</span>;
+}
+
+
+
+function PaymentQueue({vehicles,vendors,notify,fireEmail,currentUser,upd}){
+const [locFilter,setLocFilter]=useState("all");
+const [expandedVendor,setExpandedVendor]=useState(null);
+const [paymentForm,setPaymentForm]=useState({});
+// Find all approved-but-not-paid recon jobs across all vehicles
+const queue=useMemo(()=>{
+  const groups={};
+  vehicles.forEach(v=>{
+    if(!v.reconTasks)return;
+    VCAT.forEach(cat=>{
+      const task=v.reconTasks[cat.key];
+      if(!task||task.status!=="complete"||!task.approvedForPayment||task.paid)return;
+      if(locFilter!=="all"&&v.location!==locFilter)return;
+      const vendorName=task.lockedVendorName||"Unknown Vendor";
+      const winnerVn=(task.vendors||[]).find(x=>x.selected);
+      if(!groups[vendorName])groups[vendorName]={name:vendorName,location:v.location,vendorEmail:winnerVn?.email,jobs:[],total:0,totalWS:0,totalRetail:0};
+      const accLines=(winnerVn?.lineItems||[]).filter(x=>x.accepted&&!x.declined);
+      groups[vendorName].jobs.push({vehicleId:v.id,vehicle:v,categoryKey:cat.key,categoryLabel:cat.label,categoryIcon:cat.icon,lineItems:accLines,total:task.lockedTotal||0,ws:task.lockedWS||0,retail:task.lockedRetail||0,approvedBy:task.approvedBy,approvedDate:task.approvedPaymentDate});
+      groups[vendorName].total+=task.lockedTotal||0;
+      groups[vendorName].totalWS+=task.lockedWS||0;
+      groups[vendorName].totalRetail+=task.lockedRetail||0;
+    });
+  });
+  return Object.values(groups);
+},[vehicles,locFilter]);
+
+const phxCount=vehicles.filter(v=>{return VCAT.some(c=>{const t=v.reconTasks?.[c.key];return t?.status==="complete"&&t?.approvedForPayment&&!t?.paid&&v.location==="PHX";});}).length;
+const dallasCount=vehicles.filter(v=>{return VCAT.some(c=>{const t=v.reconTasks?.[c.key];return t?.status==="complete"&&t?.approvedForPayment&&!t?.paid&&v.location==="Dallas";});}).length;
+const grandTotal=queue.reduce((s,g)=>s+g.total,0);
+
+const markPaid=(group)=>{
+  const f=paymentForm[group.name]||{};
+  if(!f.checkNumber||!f.writtenDate){notify("⚠️ Enter check # and written date");return;}
+  const mailedDate=f.mailedDate||f.writtenDate;
+  const method=f.method||"USPS Mail";
+  const apName=currentUser?.first_name?currentUser.first_name+" "+(currentUser.last_name||""):"AP";
+  // Update each vehicle's task to paid
+  const paidJobs=[];
+  group.jobs.forEach(job=>{
+    const v=vehicles.find(x=>x.id===job.vehicleId);
+    if(!v)return;
+    const newTasks={...v.reconTasks};
+    newTasks[job.categoryKey]={...newTasks[job.categoryKey],paid:true,paidDate:f.writtenDate,checkNumber:f.checkNumber,mailedDate:mailedDate,deliveryMethod:method,paidBy:apName,paidNotes:f.notes||""};
+    upd(v.id,{reconTasks:newTasks});
+    paidJobs.push(job);
+  });
+  // Fire vendor receipt email
+  if(typeof fireEmail==="function"&&group.vendorEmail){
+    fireEmail("vendor_payment_receipt",{
+      vendor:{name:group.name,email:group.vendorEmail},
+      checkNumber:f.checkNumber,
+      checkWrittenDate:f.writtenDate,
+      checkMailedDate:mailedDate,
+      deliveryMethod:method,
+      totalPaid:group.total,
+      totalWS:group.totalWS,
+      totalRetail:group.totalRetail,
+      paidBy:apName,
+      jobs:paidJobs.map(j=>({
+        vehicleYear:j.vehicle.year,
+        vehicleMake:j.vehicle.make,
+        vehicleModel:j.vehicle.model,
+        vehicleTrim:j.vehicle.trim,
+        vin8:j.vehicle.vin8||j.vehicle.stockNumber,
+        categoryLabel:j.categoryLabel,
+        categoryIcon:j.categoryIcon,
+        lineItems:j.lineItems.map(li=>({desc:li.desc,price:li.price,costType:li.costType||"ws"})),
+        total:j.total,
+        approvedBy:j.approvedBy,
+        approvedDate:j.approvedDate
+      }))
+    });
+  }
+  notify("💸 Marked paid — "+group.name+" notified");
+  setExpandedVendor(null);
+  setPaymentForm(p=>{const np={...p};delete np[group.name];return np;});
+};
+
+const updateForm=(vendorName,field,value)=>{
+  setPaymentForm(p=>({...p,[vendorName]:{...(p[vendorName]||{}),[field]:value}}));
+};
+
+return <div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+<div>
+<div style={{fontSize:20,fontWeight:700,color:"#FFF"}}>💸 Payment Queue</div>
+<div style={{fontSize:13,color:"#9CA3AF"}}>{queue.length} vendor{queue.length===1?"":"s"} awaiting payment — ${grandTotal.toLocaleString()} total</div>
+</div>
+<div style={{display:"flex",gap:6}}>
+<button style={{padding:"6px 14px",background:locFilter==="all"?"#1E3A5F":"transparent",color:locFilter==="all"?"#93C5FD":"#9CA3AF",border:"1px solid "+(locFilter==="all"?"#3B82F6":"#2A2A3E"),borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}} onClick={()=>setLocFilter("all")}>All ({phxCount+dallasCount})</button>
+<button style={{padding:"6px 14px",background:locFilter==="PHX"?"#1E3A5F":"transparent",color:locFilter==="PHX"?"#93C5FD":"#9CA3AF",border:"1px solid "+(locFilter==="PHX"?"#3B82F6":"#2A2A3E"),borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}} onClick={()=>setLocFilter("PHX")}>📍 PHX ({phxCount})</button>
+<button style={{padding:"6px 14px",background:locFilter==="Dallas"?"#4C1D95":"transparent",color:locFilter==="Dallas"?"#C4B5FD":"#9CA3AF",border:"1px solid "+(locFilter==="Dallas"?"#7C3AED":"#2A2A3E"),borderRadius:6,fontSize:12,fontWeight:700,cursor:"pointer"}} onClick={()=>setLocFilter("Dallas")}>📍 Dallas ({dallasCount})</button>
+</div>
+</div>
+
+{queue.length===0&&<div style={{padding:40,textAlign:"center",background:"#0D3B1E",borderRadius:12,border:"1px solid #166534"}}>
+<div style={{fontSize:48,marginBottom:10}}>✅</div>
+<div style={{fontSize:16,fontWeight:700,color:"#34D399"}}>All caught up</div>
+<div style={{fontSize:12,color:"#6EE7B7",marginTop:4}}>No approved jobs awaiting payment{locFilter!=="all"?" in "+locFilter:""}</div>
+</div>}
+
+{queue.map((group,gi)=>{
+const isExp=expandedVendor===group.name;
+const f=paymentForm[group.name]||{};
+return <div key={gi} style={{background:"#12122A",border:"1px solid #2A2A3E",borderRadius:10,padding:16,marginBottom:12}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:isExp?12:0,paddingBottom:isExp?10:0,borderBottom:isExp?"1px solid #2A2A3E":"none",cursor:"pointer"}} onClick={()=>setExpandedVendor(isExp?null:group.name)}>
+<div>
+<div style={{fontSize:17,fontWeight:700,color:"#FFF"}}>{group.name}</div>
+<div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{group.jobs.length} approved job{group.jobs.length>1?"s":""} • <span style={{padding:"2px 8px",background:group.location==="Dallas"?"#4C1D95":"#1E3A5F",color:group.location==="Dallas"?"#C4B5FD":"#93C5FD",borderRadius:4,fontSize:10,fontWeight:700,marginLeft:4}}>📍 {group.location||"PHX"}</span></div>
+</div>
+<div style={{textAlign:"right"}}>
+<div style={{fontSize:10,color:"#6B7280"}}>Check total</div>
+<div style={{fontSize:24,fontWeight:700,color:"#34D399"}}>${group.total.toLocaleString()}</div>
+<div style={{fontSize:10,color:"#6B7280",marginTop:2}}>{isExp?"▼":"▶"} {isExp?"Hide details":"Click to expand"}</div>
+</div>
+</div>
+
+{isExp&&<div>
+{group.jobs.map((job,ji)=><div key={ji} style={{padding:12,background:"#0D0D1A",borderRadius:6,marginBottom:6,borderLeft:"3px solid #34D399"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+<div>
+<div style={{color:"#FFF",fontWeight:700,fontSize:13}}>{job.vehicle.year} {job.vehicle.make} {job.vehicle.model} {job.vehicle.trim||""}</div>
+<div style={{color:"#6B7280",fontSize:11,marginTop:2}}>VIN <span style={{fontFamily:"monospace",color:"#9CA3AF"}}>{job.vehicle.vin8||job.vehicle.stockNumber||"—"}</span></div>
+</div>
+<div style={{textAlign:"right"}}>
+<div style={{background:"#3B2F10",color:"#FDE68A",padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,display:"inline-block"}}>{job.categoryIcon} {job.categoryLabel.toUpperCase()}</div>
+<div style={{color:"#FBBF24",fontWeight:700,fontSize:16,marginTop:4}}>${job.total.toLocaleString()}</div>
+</div>
+</div>
+<div style={{background:"#1A1A2E",padding:8,borderRadius:4,marginBottom:6}}>
+<div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Work completed</div>
+{job.lineItems.map((li,lii)=><div key={lii} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",color:"#E5E7EB"}}>
+<span>{li.desc}</span>
+<span><span style={{color:li.costType==="retail"?"#67E8F9":"#93C5FD",fontSize:10}}>{li.costType==="retail"?"Retail":"W/S"}</span> <span style={{color:"#FBBF24",fontWeight:700,marginLeft:4}}>${Number(li.price)||0}</span></span>
+</div>)}
+</div>
+<div style={{padding:"6px 10px",background:"#0D3B1E",borderLeft:"2px solid #166534",borderRadius:4}}>
+<div style={{fontSize:10,color:"#34D399",textTransform:"uppercase",letterSpacing:1,fontWeight:700}}>✅ Approval audit</div>
+<div style={{fontSize:11,color:"#6EE7B7",marginTop:2}}>Approved <b>{fmtDate(job.approvedDate)}</b> by <b>{job.approvedBy||"Buyer"}</b></div>
+</div>
+</div>)}
+
+<div style={{padding:10,background:"#0D3B1E",borderLeft:"3px solid #166534",borderRadius:6,marginBottom:12,fontSize:11}}>
+<div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#93C5FD"}}>W/S liability</span><span style={{color:"#BFDBFE",fontWeight:700}}>${group.totalWS.toLocaleString()}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span style={{color:"#67E8F9"}}>Retail liability</span><span style={{color:"#A5F3FC",fontWeight:700}}>${group.totalRetail.toLocaleString()}</span></div>
+</div>
+
+<div style={{background:"#0D0D1A",borderRadius:8,padding:12,border:"1px dashed #166534"}}>
+<div style={{fontSize:11,color:"#34D399",textTransform:"uppercase",letterSpacing:1,fontWeight:700,marginBottom:8}}>✏️ Enter payment</div>
+<div style={{marginBottom:8}}>
+<div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Check #</div>
+<input type="text" placeholder="1234" value={f.checkNumber||""} onChange={e=>updateForm(group.name,"checkNumber",e.target.value)} style={{width:"100%",padding:8,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:6,color:"#FFF",fontSize:13,boxSizing:"border-box"}}/>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+<div><div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>📝 Check written</div><DateIn value={f.writtenDate||""} onChange={v=>updateForm(group.name,"writtenDate",v)}/></div>
+<div><div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>📬 Check mailed/delivered</div><DateIn value={f.mailedDate||""} onChange={v=>updateForm(group.name,"mailedDate",v)}/></div>
+</div>
+<div style={{marginBottom:8}}>
+<div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Delivery method</div>
+<select style={{...S.sel,width:"100%",fontSize:13}} value={f.method||"USPS Mail"} onChange={e=>updateForm(group.name,"method",e.target.value)}>
+<option>USPS Mail</option><option>Handed to vendor</option><option>Picked up at office</option><option>FedEx/UPS</option><option>Other</option>
+</select>
+</div>
+<div style={{marginBottom:10}}>
+<div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Notes (optional)</div>
+<input type="text" placeholder="Mailed first class" value={f.notes||""} onChange={e=>updateForm(group.name,"notes",e.target.value)} style={{width:"100%",padding:8,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:6,color:"#FFF",fontSize:13,boxSizing:"border-box"}}/>
+</div>
+<button style={{...S.btn,width:"100%",background:"#166534",color:"#FFF",padding:12,fontSize:14,fontWeight:700}} onClick={()=>markPaid(group)}>💸 Mark Paid ${group.total.toLocaleString()} → Notify {group.name}</button>
+</div>
+</div>}
+</div>;
+})}
+</div>;}
+
+function ReportsPanel({vehicles,vendors}){
+const [rTab,setRTab]=useState("overview");
+const all=vehicles;
+const sold=all.filter(v=>v.status==="sold");
+const delivered=all.filter(v=>v.status==="delivered");
+const active=all.filter(v=>v.status!=="delivered");
+const kicked=all.filter(v=>(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV));
+const inRecon=all.filter(v=>{const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const done=rc.filter(c=>v.reconTasks[c.key]?.status==="complete");return rc.length>0&&done.length<rc.length;});
+
+// Recon cost calculations
+const getReconCost=(v)=>{let total=0;VCAT.forEach(c=>{const t=v.reconTasks[c.key];if(t?.needed&&t.vendors){(t.vendors||[]).forEach(vn=>{(vn.lineItems||[]).forEach(li=>{if(li.accepted&&!li.declined)total+=Number(li.price)||0;});(vn.vendorFindings||[]).forEach(f=>{if(f.approved)total+=Number(f.price)||0;});});}});return total;};
+const totalReconSpend=all.reduce((s,v)=>s+getReconCost(v),0);
+const vehiclesWithRecon=all.filter(v=>getReconCost(v)>0);
+const avgReconPerVehicle=vehiclesWithRecon.length>0?Math.round(totalReconSpend/vehiclesWithRecon.length):0;
+
+// Vendor spend breakdown
+const vendorSpend={};
+all.forEach(v=>{VCAT.forEach(c=>{const t=v.reconTasks[c.key];if(t?.needed&&t.vendors){(t.vendors||[]).forEach(vn=>{const name=vn.name||"Unknown";if(!vendorSpend[name])vendorSpend[name]={total:0,jobs:0,complete:0,categories:{}};let cost=0;(vn.lineItems||[]).forEach(li=>{if(li.accepted&&!li.declined)cost+=Number(li.price)||0;});(vn.vendorFindings||[]).forEach(f=>{if(f.approved)cost+=Number(f.price)||0;});if(cost>0||vn.selected){vendorSpend[name].total+=cost;vendorSpend[name].jobs++;if(t.status==="complete")vendorSpend[name].complete++;if(!vendorSpend[name].categories[c.label])vendorSpend[name].categories[c.label]=0;vendorSpend[name].categories[c.label]+=cost;}});};});});
+const vendorList=Object.entries(vendorSpend).sort((a,b)=>b[1].total-a[1].total);
+
+// Category spend breakdown
+const categorySpend={};
+VCAT.forEach(c=>{categorySpend[c.label]={icon:c.icon,total:0,jobs:0,complete:0};});
+all.forEach(v=>{VCAT.forEach(c=>{const t=v.reconTasks[c.key];if(t?.needed){categorySpend[c.label].jobs++;if(t.status==="complete")categorySpend[c.label].complete++;if(t.vendors){(t.vendors||[]).forEach(vn=>{(vn.lineItems||[]).forEach(li=>{if(li.accepted&&!li.declined)categorySpend[c.label].total+=Number(li.price)||0;});(vn.vendorFindings||[]).forEach(f=>{if(f.approved)categorySpend[c.label].total+=Number(f.price)||0;});});}}});});
+const catList=Object.entries(categorySpend).filter(([,d])=>d.jobs>0).sort((a,b)=>b[1].total-a[1].total);
+
+// Days on ground
+const groundedVehicles=all.filter(v=>v.transport?.inbound?.delivered&&v.transport?.inbound?.dateDelivered&&v.status!=="delivered");
+const avgDaysOnGround=groundedVehicles.length>0?Math.round(groundedVehicles.reduce((s,v)=>{const d=Math.max(0,Math.floor((new Date()-new Date(v.transport.inbound.dateDelivered))/864e5));return s+d;},0)/groundedVehicles.length):0;
+
+// Transport costs
+const totalInboundCost=all.reduce((s,v)=>s+(Number(v.transport?.inbound?.cost)||0),0);
+const totalOutboundCost=all.reduce((s,v)=>s+(Number(v.transport?.outbound?.cost)||0),0);
+
+// Buyer breakdown
+const buyerStats={};
+all.forEach(v=>{const b=v.buyingBroker||"Unknown";if(!buyerStats[b])buyerStats[b]={bought:0,sold:0,kicked:0,reconSpend:0};buyerStats[b].bought++;if(v.status==="sold"||v.status==="delivered")buyerStats[b].sold++;if((v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV))buyerStats[b].kicked++;buyerStats[b].reconSpend+=getReconCost(v);});
+const buyerList=Object.entries(buyerStats).sort((a,b)=>b[1].bought-a[1].bought);
+
+// Seller breakdown
+const sellerStats={};
+all.forEach(v=>{const s=v.sellingBroker;if(!s)return;if(!sellerStats[s])sellerStats[s]={sold:0,kicked:0};sellerStats[s].sold++;if((v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV))sellerStats[s].kicked++;});
+const sellerList=Object.entries(sellerStats).sort((a,b)=>b[1].sold-a[1].sold);
+
+// Location breakdown
+const locStats={PHX:{total:0,sold:0,inbound:0,onGround:0,inRecon:0,r2ship:0,outSet:0,pickedUp:0,delivered:0,kicked:0,daysSum:0,daysCount:0,needsInbound:0,needsOutbound:0,inboundCost:0,outboundCost:0,reconSpend:0,reconVehicles:0},Dallas:{total:0,sold:0,inbound:0,onGround:0,inRecon:0,r2ship:0,outSet:0,pickedUp:0,delivered:0,kicked:0,daysSum:0,daysCount:0,needsInbound:0,needsOutbound:0,inboundCost:0,outboundCost:0,reconSpend:0,reconVehicles:0}};
+all.forEach(v=>{const loc=v.location||"PHX";if(!locStats[loc])locStats[loc]={total:0,sold:0,inbound:0,onGround:0,inRecon:0,r2ship:0,outSet:0,pickedUp:0,delivered:0,kicked:0,daysSum:0,daysCount:0,needsInbound:0,needsOutbound:0,inboundCost:0,outboundCost:0,reconSpend:0,reconVehicles:0};const ls=locStats[loc];ls.total++;
+if(v.status==="sold"||v.status==="delivered")ls.sold++;
+if(v.status==="delivered")ls.delivered++;
+if(v.transport?.inbound?.set&&!v.transport?.inbound?.delivered)ls.inbound++;
+if(v.transport?.inbound?.delivered&&v.status!=="delivered")ls.onGround++;
+const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const done=rc.filter(c=>v.reconTasks[c.key]?.status==="complete");
+if(rc.length>0&&done.length<rc.length)ls.inRecon++;
+if(v.noReconNeeded||(rc.length>0&&done.length===rc.length))ls.r2ship++;
+if(v.transport?.outbound?.set&&!v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered)ls.outSet++;
+if(v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered)ls.pickedUp++;
+if(((v.kicked||v.kickedFromCSV||v.kickedReturn)&&v.status!=="sold"&&v.status!=="delivered"))ls.kicked++;
+if(!v.transport?.inbound?.set&&v.status!=="delivered")ls.needsInbound++;
+if((v.status==="sold")&&!v.transport?.outbound?.set)ls.needsOutbound++;
+ls.inboundCost+=Number(v.transport?.inbound?.cost)||0;
+ls.outboundCost+=Number(v.transport?.outbound?.cost)||0;
+ls.reconSpend+=getReconCost(v);
+if(getReconCost(v)>0)ls.reconVehicles++;
+if(v.transport?.inbound?.delivered&&v.transport?.inbound?.dateDelivered){const days=Math.max(0,Math.floor((new Date()-new Date(v.transport.inbound.dateDelivered))/864e5));ls.daysSum+=days;ls.daysCount++;}
+});
+
+const RS={card:{background:"#12122A",border:"1px solid #1E1E32",borderRadius:12,padding:20},
+num:{fontSize:32,fontWeight:800,color:"#F1F5F9",lineHeight:1},
+label:{fontSize:12,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginTop:4},
+secTitle:{fontSize:16,fontWeight:700,color:"#E5E7EB",marginBottom:12},
+row:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:8,marginBottom:4,background:"#0D0D1A",border:"1px solid #1E1E32"},
+tabBtn:(active)=>({padding:"6px 14px",borderRadius:6,border:active?"1px solid #3B82F6":"1px solid #2A2A3E",background:active?"#1E3A5F":"transparent",color:active?"#93C5FD":"#6B7280",fontSize:13,cursor:"pointer",fontWeight:600}),
+bar:(pct,color)=>({height:8,borderRadius:4,background:color,width:pct+"%",minWidth:pct>0?4:0,transition:"width 0.3s"})};
+
+return <div style={{padding:10,maxHeight:"calc(100vh - 140px)",overflowY:"auto"}}>
+<div style={{display:"flex",gap:8,marginBottom:16}}>
+{[["overview","📊 Overview"],["vendors","🔧 Vendors"],["categories","📋 Categories"],["buyers","👤 Buyers"],["locations","📍 Locations"]].map(([k,l])=>
+<button key={k} style={RS.tabBtn(rTab===k)} onClick={()=>setRTab(k)}>{l}</button>)}
+</div>
+
+{rTab==="overview"&&<div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+{Object.entries(locStats).map(([loc,d])=><div key={loc} style={{...RS.card,borderTop:"3px solid #3B82F6"}}>
+<div style={{fontSize:22,fontWeight:800,color:"#F1F5F9",marginBottom:14}}>📍 {loc}</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:8}}>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#3B82F6"}}>{d.total}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Total</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#34D399"}}>{d.sold}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Sold</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#60A5FA"}}>{d.inbound}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Inbound</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#34D399"}}>{d.onGround}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>On Ground</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#FBBF24"}}>{d.inRecon}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>In Recon</div></div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:8}}>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#06B6D4"}}>{d.r2ship}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>R2-Ship</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#A78BFA"}}>{d.outSet}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Outbound</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#F97316"}}>{d.pickedUp}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Picked Up</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#F87171"}}>{d.kicked}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Kicked</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:22,fontWeight:800,color:"#06B6D4"}}>{d.daysCount>0?Math.round(d.daysSum/d.daysCount):0}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Avg Days</div></div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+<div style={{textAlign:"center",padding:10,background:d.needsInbound>0?"rgba(239,68,68,0.1)":"#0D0D1A",borderRadius:6,border:d.needsInbound>0?"1px solid #7F1D1D":"1px solid transparent"}}><div style={{fontSize:22,fontWeight:800,color:d.needsInbound>0?"#F87171":"#4B5563"}}>{d.needsInbound}</div><div style={{fontSize:9,color:d.needsInbound>0?"#FCA5A5":"#6B7280",textTransform:"uppercase"}}>Needs Inbound Trans</div></div>
+<div style={{textAlign:"center",padding:10,background:d.needsOutbound>0?"rgba(239,68,68,0.1)":"#0D0D1A",borderRadius:6,border:d.needsOutbound>0?"1px solid #7F1D1D":"1px solid transparent"}}><div style={{fontSize:22,fontWeight:800,color:d.needsOutbound>0?"#F87171":"#4B5563"}}>{d.needsOutbound}</div><div style={{fontSize:9,color:d.needsOutbound>0?"#FCA5A5":"#6B7280",textTransform:"uppercase"}}>Needs Outbound Trans</div></div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,borderTop:"1px solid #1E1E32",paddingTop:10}}>
+<div style={{textAlign:"center",padding:8,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:18,fontWeight:800,color:"#34D399"}}>${d.reconSpend.toLocaleString()}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Recon Spend</div>{d.reconVehicles>0&&<div style={{fontSize:10,color:"#4B5563"}}>${Math.round(d.reconSpend/d.reconVehicles).toLocaleString()} avg</div>}</div>
+<div style={{textAlign:"center",padding:8,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:18,fontWeight:800,color:"#60A5FA"}}>${d.inboundCost.toLocaleString()}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Inbound Cost</div></div>
+<div style={{textAlign:"center",padding:8,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:18,fontWeight:800,color:"#FBBF24"}}>${d.outboundCost.toLocaleString()}</div><div style={{fontSize:9,color:"#6B7280",textTransform:"uppercase"}}>Outbound Cost</div></div>
+</div>
+</div>)}
+</div>
+</div>}
+
+{rTab==="vendors"&&<div>
+<div style={RS.secTitle}>🔧 Vendor Spend Breakdown</div>
+{vendorList.length===0&&<div style={{color:"#4B5563",textAlign:"center",padding:40}}>No vendor spend data yet — assign vendors and approve bids to see data here</div>}
+{vendorList.map(([name,d])=><div key={name} style={{...RS.row,flexDirection:"column",alignItems:"stretch"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div><div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>{name}</div>
+<div style={{fontSize:12,color:"#6B7280"}}>{d.jobs} job{d.jobs!==1?"s":""} • {d.complete} complete</div></div>
+<div style={{fontSize:20,fontWeight:800,color:"#34D399"}}>${d.total.toLocaleString()}</div>
+</div>
+{Object.entries(d.categories).filter(([,v])=>v>0).length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
+{Object.entries(d.categories).filter(([,v])=>v>0).map(([cat,amt])=><span key={cat} style={{fontSize:11,padding:"3px 8px",borderRadius:4,background:"#1E3A5F",color:"#93C5FD"}}>{cat}: ${amt.toLocaleString()}</span>)}
+</div>}
+</div>)}
+</div>}
+
+{rTab==="categories"&&<div>
+<div style={RS.secTitle}>📋 Recon Category Breakdown</div>
+{catList.length===0&&<div style={{color:"#4B5563",textAlign:"center",padding:40}}>No recon data yet</div>}
+{catList.map(([name,d])=><div key={name} style={RS.row}>
+<div style={{display:"flex",alignItems:"center",gap:10}}>
+<span style={{fontSize:22}}>{d.icon}</span>
+<div><div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>{name}</div>
+<div style={{fontSize:12,color:"#6B7280"}}>{d.jobs} job{d.jobs!==1?"s":""} • {d.complete} complete</div>
+<div style={{width:120,height:6,background:"#1E1E32",borderRadius:3,marginTop:4}}>
+<div style={RS.bar(d.jobs>0?Math.round(d.complete/d.jobs*100):0,"#34D399")}/>
+</div></div>
+</div>
+<div style={{fontSize:20,fontWeight:800,color:"#FBBF24"}}>${d.total.toLocaleString()}</div>
+</div>)}
+</div>}
+
+{rTab==="buyers"&&<div>
+<div style={RS.secTitle}>👤 Buyer Performance</div>
+{buyerList.map(([name,d])=><div key={name} style={RS.row}>
+<div><div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>{name}</div>
+<div style={{fontSize:12,color:"#6B7280"}}>Recon: ${d.reconSpend.toLocaleString()}</div></div>
+<div style={{display:"flex",gap:16,alignItems:"center"}}>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:"#3B82F6"}}>{d.bought}</div><div style={{fontSize:10,color:"#6B7280"}}>Bought</div></div>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{d.sold}</div><div style={{fontSize:10,color:"#6B7280"}}>Sold</div></div>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:"#F87171"}}>{d.kicked}</div><div style={{fontSize:10,color:"#6B7280"}}>Kicked</div></div>
+</div></div>)}
+<div style={{...RS.secTitle,marginTop:20}}>👤 Seller Performance</div>
+{sellerList.map(([name,d])=><div key={name} style={RS.row}>
+<div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>{name}</div>
+<div style={{display:"flex",gap:16,alignItems:"center"}}>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{d.sold}</div><div style={{fontSize:10,color:"#6B7280"}}>Sold</div></div>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:"#F87171"}}>{d.kicked}</div><div style={{fontSize:10,color:"#6B7280"}}>Kicked</div></div>
+</div></div>)}
+</div>}
+
+{rTab==="locations"&&<div>
+<div style={RS.secTitle}>📍 Location Breakdown</div>
+{Object.entries(locStats).map(([loc,d])=><div key={loc} style={{...RS.card,marginBottom:12}}>
+<div style={{fontSize:20,fontWeight:700,color:"#E5E7EB",marginBottom:12}}>📍 {loc}</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:8}}>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#3B82F6"}}>{d.total}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Total</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#34D399"}}>{d.sold}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Sold</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#60A5FA"}}>{d.inbound}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Inbound</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#34D399"}}>{d.onGround}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>On Ground</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#FBBF24"}}>{d.inRecon}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>In Recon</div></div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#06B6D4"}}>{d.r2ship}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>R2-Ship</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#A78BFA"}}>{d.outSet}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Outbound</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#F97316"}}>{d.pickedUp}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Picked Up</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#F87171"}}>{d.kicked}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Kicked</div></div>
+<div style={{textAlign:"center",padding:10,background:"#0D0D1A",borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:"#06B6D4"}}>{d.daysCount>0?Math.round(d.daysSum/d.daysCount):0}</div><div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase"}}>Avg Days</div></div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginTop:8}}>
+<div style={{textAlign:"center",padding:10,background:d.needsInbound>0?"rgba(239,68,68,0.1)":"#0D0D1A",borderRadius:8,border:d.needsInbound>0?"1px solid #7F1D1D":"1px solid transparent"}}><div style={{fontSize:24,fontWeight:800,color:d.needsInbound>0?"#F87171":"#4B5563"}}>{d.needsInbound}</div><div style={{fontSize:10,color:d.needsInbound>0?"#FCA5A5":"#6B7280",textTransform:"uppercase"}}>Needs Inbound Trans</div></div>
+<div style={{textAlign:"center",padding:10,background:d.needsOutbound>0?"rgba(239,68,68,0.1)":"#0D0D1A",borderRadius:8,border:d.needsOutbound>0?"1px solid #7F1D1D":"1px solid transparent"}}><div style={{fontSize:24,fontWeight:800,color:d.needsOutbound>0?"#F87171":"#4B5563"}}>{d.needsOutbound}</div><div style={{fontSize:10,color:d.needsOutbound>0?"#FCA5A5":"#6B7280",textTransform:"uppercase"}}>Needs Outbound Trans</div></div>
+</div>
+</div>)}
+</div>}
+</div>;
+}
+
+function VPanel({vendors}){return <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>{VCAT.map(cat=><div key={cat.key} style={S.card}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontWeight:700,color:"#E5E7EB",fontSize:14}}>{cat.label}</span><span style={{color:"#6B7280",fontSize:12}}>({(vendors[cat.key]||[]).length})</span></div>{(vendors[cat.key]||[]).map(vn=><div key={vn.id} style={{padding:"4px 0",borderBottom:"1px solid #2A2A3E",fontSize:12}}><div style={{color:"#E5E7EB",fontWeight:600}}>{vn.name}</div><div style={{color:"#6B7280"}}>{vn.email} • {vn.phone}</div></div>)}</div>)}</div>;}
+function AddM({vendors,allUsers,onClose,onAdd}){
+const buyerList=((allUsers||[]).filter(u=>u.role==="buyer"||u.role==="admin"||u.is_buyer===1).map(u=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n,i,a)=>n&&a.indexOf(n)===i);
+const [f,setF]=useState({vin:"",purchaseDate:new Date().toISOString().split("T")[0],buyingBroker:buyerList[0]||"",source:SOURCES[0],year:"",make:"",model:"",trim:"",miles:"",color:COLORS[0],location:LOCATIONS[0]});
+const [recon,setRecon]=useState(()=>{const o={};VCAT.forEach(c=>{o[c.key]={on:false,vendorId:"",notes:""};});return o;});
+const [err,setErr]=useState("");
+const submit=()=>{
+if(!f.vin.trim()){setErr("VIN is required");return;}
+setErr("");
+const vi=f.vin.toUpperCase().trim(),fv=vi.length>8?vi:"",v8=vi.length>8?vi.slice(-8):vi;
+const rt={};VCAT.forEach(c=>{if(recon[c.key].on){const vl=vendors[c.key]||[],vn=recon[c.key].vendorId?vl.find(x=>x.id===recon[c.key].vendorId):null;
+rt[c.key]={needed:true,status:vn?"assigned":"unassigned",vendorId:vn?.id||null,vendorName:vn?.name||null,estimate:null,notes:recon[c.key].notes,photos:[],dateAssigned:vn?new Date().toISOString().split("T")[0]:null,dateCompleted:null};
+}else rt[c.key]={needed:false,status:"na"};});const{vin,...rest}=f;
+onAdd({id:`v${Date.now()}`,...rest,fullVin:fv,vin8:v8,sellingBroker:"",miles:Number(f.miles)||0,year:Number(f.year)||0,status:"in_recon",
+transport:{inbound:{set:false,destination:f.location,eta:"",cost:0,delivered:false},outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false}},reconTasks:rt,soldDate:null,deliveredDate:null,soldTo:""});
+};
+const F=(l,k,t="text",opts)=><label style={S.fl}>{l}{opts?<select style={S.fi} value={f[k]} onChange={e=>setF({...f,[k]:e.target.value})}>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>:<input style={S.fi} type={t} value={f[k]} onChange={e=>setF({...f,[k]:e.target.value})}/>}</label>;
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:1000,paddingTop:30,overflowY:"auto"}} onClick={onClose}>
+<div style={{...S.modal,maxWidth:620,marginBottom:30}} onClick={e=>e.stopPropagation()}>
+<h2 style={{color:"#E5E7EB",fontSize:18,marginBottom:12}}>Add New Vehicle</h2>
+<label style={S.fl}>VIN (Full or Last 8) *<input style={{...S.fi,fontSize:16,fontFamily:"monospace",letterSpacing:2,border:err?"1px solid #EF4444":"1px solid #2A2A3E"}} value={f.vin} onChange={e=>{setF({...f,vin:e.target.value.toUpperCase()});setErr("");}} placeholder="e.g. 1GNSKFKD8PR134404" maxLength={17}/></label>
+{err&&<div style={{fontSize:12,color:"#EF4444",marginTop:4}}>{err}</div>}
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>{F("Purchase Date","purchaseDate","date")}{F("Year","year","number")}{F("Make","make")}{F("Model","model")}{F("Trim","trim")}{F("Color","color","text",COLORS)}{F("Miles","miles","number")}{F("Location","location","text",LOCATIONS)}<label style={S.fl}>Buyer<select style={S.fi} value={f.buyingBroker} onChange={e=>setF({...f,buyingBroker:e.target.value})}>{buyerList.length?buyerList.map(o=><option key={o} value={o}>{o}</option>):<option value="">— No buyers registered —</option>}</select></label>{F("Source","source","text",SOURCES)}</div>
+<div style={{marginTop:12,padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}><div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Recon Services</div>
+{VCAT.map(c=>{const r=recon[c.key];return <div key={c.key} style={{borderRadius:6,border:`1px solid ${r.on?"#3B82F6":"#2A2A3E"}`,marginBottom:4,background:r.on?"#0F2940":"transparent"}}>
+<div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",cursor:"pointer"}} onClick={()=>setRecon(p=>({...p,[c.key]:{...p[c.key],on:!p[c.key].on}}))}><input type="checkbox" checked={r.on} onChange={()=>{}} style={{accentColor:"#3B82F6"}}/><span>{c.icon}</span><span style={{fontSize:12,color:r.on?"#93C5FD":"#6B7280",fontWeight:600}}>{c.label}</span></div>
+{r.on&&<div style={{padding:"0 8px 8px",display:"flex",gap:6}}><select style={{...S.fi,flex:1,fontSize:12}} value={r.vendorId} onChange={e=>setRecon(p=>({...p,[c.key]:{...p[c.key],vendorId:e.target.value}}))}><option value="">Assign later...</option>{(vendors[c.key]||[]).map(vn=><option key={vn.id} value={vn.id}>{vn.name}</option>)}</select>
+<input style={{...S.fi,flex:1,fontSize:12}} placeholder="Notes..." value={r.notes} onChange={e=>setRecon(p=>({...p,[c.key]:{...p[c.key],notes:e.target.value}}))}/></div>}</div>;})}</div>
+<div style={{display:"flex",gap:8,marginTop:12,position:"sticky",bottom:0,background:"#12122A",padding:"10px 0"}}><button style={{...S.btn,flex:1,fontSize:16,padding:"12px"}} onClick={submit}>✓ Add Vehicle</button><button style={{...S.sm,padding:"12px 20px"}} onClick={onClose}>Cancel</button></div>
+</div></div>;
+}
+function AddUserForm({onSave,onClose,initial}){
+const normRole=(r)=>{if(!r)return"Admin";const lc=String(r).toLowerCase();if(lc==="buyer/seller"||lc==="admin")return lc==="admin"?"Admin":"Buyer/Seller";if(lc==="buyer")return"Buyer";if(lc==="seller")return"Seller";return"Admin";};
+const [f,setF]=useState(initial?{...initial,role:normRole(initial.role),password:""}:{firstName:"",lastName:"",email:"",cell:"",role:"Admin",location:LOCATIONS[0],password:""});
+const isEdit=!!initial;
+return <div style={S.ov} onClick={onClose}><div style={{...S.modal,maxWidth:500}} onClick={e=>e.stopPropagation()}>
+<h2 style={{color:"#E5E7EB",fontSize:20,marginBottom:12}}>{isEdit?"✏️ Edit User":"👤 Register User / Admin"}</h2>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+<label style={S.fl}>First Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_first" value={f.firstName} onChange={e=>setF({...f,firstName:e.target.value})}/></label>
+<label style={S.fl}>Last Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_last" value={f.lastName} onChange={e=>setF({...f,lastName:e.target.value})}/></label>
+<label style={S.fl}>Email (Username) *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_email_reg" type="text" value={f.email} onChange={e=>setF({...f,email:e.target.value})} disabled={isEdit}/></label>
+<label style={S.fl}>Cell # *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_phone" type="tel" value={f.cell} onChange={e=>setF({...f,cell:e.target.value})}/></label>
+<label style={S.fl}>Password {isEdit?"(leave blank to keep current)":"*"}<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-password" name="fc_pw_reg" type="password" value={f.password||""} onChange={e=>setF({...f,password:e.target.value})} placeholder={isEdit?"Leave blank":"Login password"}/></label>
+<label style={S.fl}>Role<select style={{...S.fi,fontSize:16,padding:10}} value={f.role} onChange={e=>setF({...f,role:e.target.value})}><option>Admin</option><option>Buyer</option><option>Seller</option><option>Buyer/Seller</option><option>Accounts Payable</option></select></label>
+<label style={S.fl}>Location<select style={{...S.fi,fontSize:16,padding:10}} value={f.location} onChange={e=>setF({...f,location:e.target.value})}>{LOCATIONS.map(l=><option key={l}>{l}</option>)}</select></label></div>
+<div style={{display:"flex",gap:8,marginTop:14}}><button style={{...S.btn,flex:1,fontSize:16,padding:12}} onClick={()=>{
+  const missing=[];
+  if(!f.firstName||!f.firstName.trim())missing.push("First Name");
+  if(!f.lastName||!f.lastName.trim())missing.push("Last Name");
+  if(!f.email||!f.email.trim())missing.push("Email");
+  if(!f.cell||!f.cell.trim())missing.push("Cell #");
+  if(!isEdit&&(!f.password||!f.password.trim()))missing.push("Password");
+  if(missing.length){alert("Please fill in: "+missing.join(", "));return;}
+  onSave(f);
+}}>{isEdit?"Save Changes":"Register User"}</button><button style={{...S.sm,padding:12}} onClick={onClose}>Cancel</button></div>
+</div></div>;}
+
+function AddVendorForm({onSave,onClose,initial}){
+const [f,setF]=useState(initial||{company:"",contact:"",email:"",cell:"",address:"",categories:[],password:""});
+const isEdit=!!initial;
+return <div style={S.ov} onClick={onClose}><div style={{...S.modal,maxWidth:550}} onClick={e=>e.stopPropagation()}>
+<h2 style={{color:"#E5E7EB",fontSize:20,marginBottom:12}}>{isEdit?"✏️ Edit Recon Vendor":"🔧 Register Recon Vendor"}</h2>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+<label style={S.fl}>Company Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_vcompany" value={f.company} onChange={e=>setF({...f,company:e.target.value})}/></label>
+<label style={S.fl}>Contact Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_vcontact" value={f.contact} onChange={e=>setF({...f,contact:e.target.value})}/></label>
+<label style={S.fl}>Email (Username) *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_vemail" type="text" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label>
+<label style={S.fl}>Cell # *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_vphone" type="tel" value={f.cell} onChange={e=>setF({...f,cell:e.target.value})}/></label>
+<label style={S.fl}>Office Phone<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_voffice" type="tel" value={f.officePhone||""} onChange={e=>setF({...f,officePhone:e.target.value})}/></label>
+<label style={S.fl}>Password {isEdit?"(optional)":"*"}<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-password" name="fc_vpw" type="password" value={f.password||""} onChange={e=>setF({...f,password:e.target.value})} placeholder={isEdit?"Leave blank":"Login password"}/></label>
+<label style={{...S.fl,gridColumn:"1/3"}}>Address<input style={{...S.fi,fontSize:16,padding:10}} value={f.address} onChange={e=>setF({...f,address:e.target.value})} placeholder="Street, City, State ZIP"/></label></div>
+<div style={{marginTop:10,fontSize:14,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Assign to Recon Categories * <span style={{fontSize:11,color:"#6B7280",fontWeight:400}}>({(f.categories||[]).length} selected)</span></div>
+<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{VCAT.map(c=>{
+  const cats=Array.isArray(f.categories)?f.categories:[];
+  const isSelected=cats.includes(c.key);
+  return <button key={c.key} type="button" style={{padding:"8px 14px",borderRadius:6,fontSize:14,fontWeight:600,cursor:"pointer",border:isSelected?"2px solid #3B82F6":"2px solid #2A2A3E",background:isSelected?"#1E3A5F":"#0D0D1A",color:isSelected?"#93C5FD":"#6B7280"}} onClick={(e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    setF(prev=>{
+      const prevCats=Array.isArray(prev.categories)?[...prev.categories]:[];
+      const newCats=prevCats.includes(c.key)?prevCats.filter(k=>k!==c.key):[...prevCats,c.key];
+      return {...prev,categories:newCats};
+    });
+  }}>{c.icon} {c.label}</button>;
+})}</div>
+<div style={{marginTop:14,padding:12,background:"#0D3B1E",border:"1px solid #166534",borderRadius:8}}>
+<div style={{fontSize:13,fontWeight:700,color:"#34D399",marginBottom:10}}>💸 Payment Terms *</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+<button type="button" style={{padding:12,borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",border:(f.paymentTerms||"weekly")==="weekly"?"2px solid #34D399":"1px solid #2A2A3E",background:(f.paymentTerms||"weekly")==="weekly"?"#166534":"transparent",color:(f.paymentTerms||"weekly")==="weekly"?"#FFF":"#9CA3AF",textAlign:"center"}} onClick={e=>{e.preventDefault();setF({...f,paymentTerms:"weekly"});}}>📅 Weekly Batch<div style={{fontSize:10,fontWeight:400,marginTop:2,opacity:0.8}}>One check per week</div></button>
+<button type="button" style={{padding:12,borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer",border:f.paymentTerms==="completion"?"2px solid #34D399":"1px solid #2A2A3E",background:f.paymentTerms==="completion"?"#166534":"transparent",color:f.paymentTerms==="completion"?"#FFF":"#9CA3AF",textAlign:"center"}} onClick={e=>{e.preventDefault();setF({...f,paymentTerms:"completion"});}}>⚡ On Completion<div style={{fontSize:10,fontWeight:400,marginTop:2,opacity:0.8}}>Pay per job</div></button>
+</div>
+{(f.paymentTerms||"weekly")==="weekly"&&<div style={{background:"#0D0D1A",borderRadius:6,padding:10}}>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+<div><div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Cutoff day</div><select style={{...S.sel,width:"100%",fontSize:12,padding:6}} value={f.cutoffDay||"Friday"} onChange={e=>setF({...f,cutoffDay:e.target.value})}><option>Thursday</option><option>Friday</option><option>Monday</option></select></div>
+<div><div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Cutoff time (AZ)</div><select style={{...S.sel,width:"100%",fontSize:12,padding:6}} value={f.cutoffTime||"5 PM"} onChange={e=>setF({...f,cutoffTime:e.target.value})}><option>9 AM</option><option>12 PM</option><option>5 PM</option><option>6 PM</option></select></div>
+</div>
+<div><div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Default delivery method</div><select style={{...S.sel,width:"100%",fontSize:12,padding:6}} value={f.deliveryMethod||"USPS Mail"} onChange={e=>setF({...f,deliveryMethod:e.target.value})}><option>USPS Mail</option><option>Handed at PHX</option><option>Handed at Dallas</option><option>FedEx/UPS</option><option>Other</option></select></div>
+</div>}
+{f.paymentTerms==="completion"&&<div style={{padding:8,background:"#0D0D1A",borderRadius:6}}><div style={{fontSize:11,color:"#6EE7B7"}}>⚡ Vendor will be paid per approved job — no batching. AP gets immediate alert when buyer approves.</div></div>}
+<div style={{marginTop:8,fontSize:10,color:"#6B7280",fontStyle:"italic"}}>🔒 Vendor only paid for jobs the buyer has approved.</div>
+</div>
+<div style={{display:"flex",gap:8,marginTop:14}}><button style={{...S.btn,flex:1,fontSize:16,padding:12}} onClick={()=>{
+  const missing=[];
+  if(!f.company||!f.company.trim())missing.push("Company Name");
+  if(!f.contact||!f.contact.trim())missing.push("Contact Name");
+  if(!f.email||!f.email.trim())missing.push("Email");
+  if(!f.cell||!f.cell.trim())missing.push("Cell #");
+  if(!isEdit&&(!f.password||!f.password.trim()))missing.push("Password");
+  if(!f.categories||!f.categories.length)missing.push("at least one Recon Category");
+  if(missing.length){alert("Please fill in: "+missing.join(", "));return;}
+  onSave(f);
+}}>{isEdit?"Save Changes":"Register Vendor"}</button><button style={{...S.sm,padding:12}} onClick={onClose}>Cancel</button></div>
+</div></div>;}
+
+function AddTransportForm({onSave,onClose}){
+const [f,setF]=useState({company:"",contact:"",email:"",cell:"",address:""});
+return <div style={S.ov} onClick={onClose}><div style={{...S.modal,maxWidth:500}} onClick={e=>e.stopPropagation()}>
+<h2 style={{color:"#E5E7EB",fontSize:20,marginBottom:12}}>🚛 Register Transport Company</h2>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+<label style={S.fl}>Company Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-tcompany" name="fc_tcompany" value={f.company} onChange={e=>setF({...f,company:e.target.value})}/></label>
+<label style={S.fl}>Contact Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-tcontact" name="fc_tcontact" value={f.contact} onChange={e=>setF({...f,contact:e.target.value})}/></label>
+<label style={S.fl}>Email (Username) *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-temail" name="fc_temail" type="text" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></label>
+<label style={S.fl}>Cell # *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-tphone" name="fc_tphone" type="tel" value={f.cell} onChange={e=>setF({...f,cell:e.target.value})}/></label>
+<label style={S.fl}>Password *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-password" name="fc_tpw" type="password" value={f.password||""} onChange={e=>setF({...f,password:e.target.value})} placeholder="Login password"/></label>
+<label style={{...S.fl,gridColumn:"1/3"}}>Address<input style={{...S.fi,fontSize:16,padding:10}} value={f.address} onChange={e=>setF({...f,address:e.target.value})} placeholder="Street, City, State ZIP"/></label></div>
+<div style={{display:"flex",gap:8,marginTop:14}}><button style={{...S.btn,flex:1,fontSize:16,padding:12}} onClick={()=>{if(f.company&&f.contact&&f.email&&f.cell&&f.password)onSave(f);}}>Register Transport</button><button style={{...S.sm,padding:12}} onClick={onClose}>Cancel</button></div>
+</div></div>;}
+
+function RegPanel({users,setUsers,regVendors,setRegVendors,vendors,setVendors,notify,allUsers,setAllUsers}){
+const [tab,setTab]=useState("users");
+const [showAdd,setShowAdd]=useState(null);
+const [editUser,setEditUser]=useState(null);
+const [editVendor,setEditVendor]=useState(null);
+const [busy,setBusy]=useState(false);
+const ts=(t)=>({padding:"8px 16px",borderRadius:6,border:t===tab?"1px solid #3B82F6":"1px solid #2A2A3E",background:t===tab?"#1E3A5F":"transparent",color:t===tab?"#93C5FD":"#6B7280",fontSize:14,cursor:"pointer",fontWeight:600});
+
+const authHdrs=()=>({"Content-Type":"application/json","Authorization":"Bearer "+(localStorage.getItem("fc_token")||"")});
+
+// ============ USER CRUD ============
+const saveUser=async(f)=>{
+  setBusy(true);
+  try{
+    const payload={email:f.email.trim().toLowerCase(),phone:f.cell,first_name:f.firstName,last_name:f.lastName,role:f.role==="Buyer/Seller"?"admin":f.role==="Accounts Payable"?"ap":f.role.toLowerCase(),is_buyer:f.role==="Buyer"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_seller:f.role==="Seller"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_ap:f.role==="Accounts Payable"?1:0,location:f.location,password:f.password||""};
+    const res=await fetch(WORKER+"/api/users",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
+    await reloadUsers();
+    setShowAdd(null);
+    notify("✅ User registered");
+  }catch(e){notify("⚠️ "+e.message);}
+  setBusy(false);
+};
+
+const updateUser=async(f)=>{
+  setBusy(true);
+  try{
+    const payload={first_name:f.firstName,last_name:f.lastName,phone:f.cell,role:f.role==="Buyer/Seller"?"admin":f.role==="Accounts Payable"?"ap":f.role.toLowerCase(),is_buyer:f.role==="Buyer"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_seller:f.role==="Seller"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_ap:f.role==="Accounts Payable"?1:0,location:f.location};
+    if(f.password&&f.password.trim().length>0)payload.password=f.password.trim();
+    const res=await fetch(WORKER+"/api/users/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
+    await reloadUsers();
+    setEditUser(null);
+    notify("✅ User updated"+(f.password?" — password changed":""));
+  }catch(e){notify("⚠️ "+e.message);}
+  setBusy(false);
+};
+
+const deleteUser=async(u)=>{
+  if(!confirm("Remove "+u.firstName+" "+u.lastName+"?\n\nThey will no longer be able to log in. You can re-register them with the same email later."))return;
+  setBusy(true);
+  try{
+    const res=await fetch(WORKER+"/api/users/"+u.id,{method:"DELETE",headers:authHdrs()});
+    const data=await res.json();
+    if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
+    await reloadUsers();
+    notify("✅ User removed");
+  }catch(e){notify("⚠️ "+e.message);}
+  setBusy(false);
+};
+
+const reloadUsers=async()=>{
+  const res=await fetch(WORKER+"/api/users",{headers:authHdrs()});
+  const data=await res.json();
+  const mapped=(data.users||[]).map(u=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location}));
+  setUsers(mapped);
+  if(setAllUsers)setAllUsers(mapped);
+};
+
+// ============ VENDOR CRUD ============
+const saveVendor=async(f)=>{
+  setBusy(true);
+  try{
+    const payload={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:f.categories,password:f.password||""};
+    const res=await fetch(WORKER+"/api/vendors",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
+    const data=await res.json();
+    if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed to register vendor"));setBusy(false);return;}
+    await reloadVendors();
+    setShowAdd(null);
+    if(data.warning){notify("⚠️ "+data.warning);}
+    else if(data.updated){notify("✅ Vendor updated (was already in system)");}
+    else{notify("✅ Vendor registered");}
+  }catch(e){notify("⚠️ "+e.message);}
+  setBusy(false);
+};
+
+const updateVendor=async(f)=>{
+  setBusy(true);
+  try{
+    const cats=Array.isArray(f.categories)?f.categories:(f.categories?[f.categories]:[]);
+    const payload={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:cats};
+    if(f.password&&f.password.trim())payload.password=f.password.trim();
+    console.log("updateVendor payload:",JSON.stringify(payload));
+    const res=await fetch(WORKER+"/api/vendors/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
+    const data=await res.json();
+    console.log("updateVendor response:",JSON.stringify(data));
+    if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
+    await reloadVendors();
+    setEditVendor(null);
+    if(data.warning){notify("⚠️ "+data.warning);}
+    else{notify("✅ Vendor updated — saved "+cats.length+" categories");}
+  }catch(e){notify("⚠️ "+e.message);}
+  setBusy(false);
+};
+
+const deleteVendor=async(v)=>{
+  if(!confirm("Remove "+v.company+"?\n\nThey will be removed from vendor assignment dropdowns."))return;
+  setBusy(true);
+  try{
+    const res=await fetch(WORKER+"/api/vendors/"+v.id,{method:"DELETE",headers:authHdrs()});
+    const data=await res.json();
+    if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
+    await reloadVendors();
+    notify("✅ Vendor removed");
+  }catch(e){notify("⚠️ "+e.message);}
+  setBusy(false);
+};
+
+const reloadVendors=async()=>{
+  const res=await fetch(WORKER+"/api/vendors",{headers:authHdrs()});
+  const data=await res.json();
+  const vnMap={};
+  VCAT.forEach(c=>{vnMap[c.key]=[];});
+  const regVList=[];
+  (data.vendors||[]).forEach(vn=>{
+    const cats=vn.categories?tryParse(vn.categories,[]):[];
+    cats.forEach(ck=>{if(vnMap[ck])vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});});
+    regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
+  });
+  VCAT.forEach(c=>{
+    const defaults=VENDORS[c.key]||[];
+    const existingNames=new Set(vnMap[c.key].map(v=>v.name.toLowerCase()));
+    defaults.forEach(d=>{if(!existingNames.has(d.name.toLowerCase()))vnMap[c.key].push(d);});
+  });
+  setVendors(vnMap);
+  setRegVendors(regVList);
+};
+
+return <div style={{padding:10}}>
+<div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+<button style={ts("users")} onClick={()=>setTab("users")}>👤 Users/Admin ({users.length})</button>
+<button style={ts("vendors")} onClick={()=>setTab("vendors")}>🔧 Recon Vendors ({regVendors.length})</button>
+<button style={ts("transport")} onClick={()=>setTab("transport")}>🚛 Transport</button></div>
+
+{tab==="users"&&<div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+<h3 style={{color:"#E5E7EB",fontSize:18,margin:0}}>👤 Users / Admin</h3>
+<button style={{...S.btn,fontSize:14}} onClick={()=>setShowAdd("user")} disabled={busy}>+ Add User</button></div>
+{users.length===0&&<div style={{color:"#4B5563",textAlign:"center",padding:20}}>No users registered yet</div>}
+{users.map(u=><div key={u.id} style={{...S.card,display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+<div style={{flex:"1 1 200px"}}>
+<div style={{fontSize:16,fontWeight:700,color:"#E5E7EB"}}>{u.firstName} {u.lastName}</div>
+<div style={{fontSize:13,color:"#9CA3AF"}}>{u.email} • {u.cell}</div>
+<div style={{fontSize:12,color:"#6B7280"}}>{u.role} • {u.location}</div></div>
+<div style={{display:"flex",gap:6}}>
+<button style={{...S.sm,color:"#93C5FD"}} onClick={()=>setEditUser(u)} disabled={busy}>Edit</button>
+<button style={{...S.sm,color:"#F87171"}} onClick={()=>deleteUser(u)} disabled={busy}>Remove</button>
+</div></div>)}</div>}
+
+{tab==="vendors"&&<div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+<h3 style={{color:"#E5E7EB",fontSize:18,margin:0}}>🔧 Recon Vendors</h3>
+<button style={{...S.btn,fontSize:14}} onClick={()=>setShowAdd("vendor")} disabled={busy}>+ Add Vendor</button></div>
+{regVendors.length===0&&<div style={{color:"#4B5563",textAlign:"center",padding:20}}>No vendors registered yet</div>}
+{regVendors.map(v2=><div key={v2.id} style={{...S.card}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:8,flexWrap:"wrap"}}>
+<div style={{fontSize:16,fontWeight:700,color:"#E5E7EB"}}>{v2.company}</div>
+<div style={{display:"flex",gap:6}}>
+<button style={{...S.sm,color:"#93C5FD"}} onClick={()=>setEditVendor(v2)} disabled={busy}>Edit</button>
+<button style={{...S.sm,color:"#F87171"}} onClick={()=>deleteVendor(v2)} disabled={busy}>Remove</button>
+</div></div>
+<div style={{fontSize:13,color:"#9CA3AF"}}>{v2.contact} • {v2.email} • {v2.cell}</div>
+{v2.address&&<div style={{fontSize:12,color:"#6B7280"}}>{v2.address}</div>}
+<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{(v2.categories||[]).map(ck=>{const cat=VCAT.find(c=>c.key===ck);return cat?<span key={ck} style={{...S.badge,background:"#1E3A5F",color:"#93C5FD"}}>{cat.icon} {cat.label}</span>:null;})}</div></div>)}</div>}
+
+{tab==="transport"&&<div>
+<div style={{...S.card,textAlign:"center",padding:30}}>
+<div style={{fontSize:40,marginBottom:10}}>🚛</div>
+<h3 style={{color:"#E5E7EB",fontSize:18,margin:"0 0 8px"}}>Transport Registration</h3>
+<div style={{fontSize:14,color:"#9CA3AF",marginBottom:12}}>Coming soon — Central Dispatch integration</div>
+<div style={{fontSize:13,color:"#6B7280",maxWidth:400,margin:"0 auto",lineHeight:1.5}}>We'll pull transport companies directly from Central Dispatch and other third-party carrier networks via API. No manual registration needed.</div>
+</div></div>}
+
+{showAdd==="user"&&<AddUserForm onClose={()=>setShowAdd(null)} onSave={saveUser}/>}
+{showAdd==="vendor"&&<AddVendorForm onClose={()=>setShowAdd(null)} onSave={saveVendor}/>}
+{editUser&&<AddUserForm initial={editUser} onClose={()=>setEditUser(null)} onSave={updateUser}/>}
+{editVendor&&<AddVendorForm initial={editVendor} onClose={()=>setEditVendor(null)} onSave={updateVendor}/>}
+</div>;}
+
+const S={app:{fontFamily:"'DM Sans',sans-serif",background:"#0D0D1A",color:"#C9CDD3",minHeight:"100vh"},hdr:{padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1E1E32",background:"linear-gradient(180deg,#12122A,#0D0D1A)",flexWrap:"wrap",gap:10},logo:{width:40,height:40,borderRadius:10,background:"linear-gradient(135deg,#1E3A5F,#0F2940)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid #2A4A6E",fontSize:20},h1:{margin:0,fontSize:20,fontWeight:800,color:"#F1F5F9",letterSpacing:2},sub:{margin:0,fontSize:11,color:"#64748B",letterSpacing:1,textTransform:"uppercase"},pill:{padding:"4px 12px",borderRadius:20,background:"#1A1A2E",border:"1px solid #2A2A3E",fontSize:13,color:"#9CA3AF",display:"flex",gap:5,alignItems:"center",transition:"all 0.15s"},bar:{padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1E1E32",flexWrap:"wrap",gap:8},tOn:{padding:"7px 16px",borderRadius:6,border:"1px solid #3B82F6",background:"#1E3A5F",color:"#93C5FD",fontSize:14,cursor:"pointer",fontWeight:600},tOff:{padding:"7px 16px",borderRadius:6,border:"1px solid #2A2A3E",background:"transparent",color:"#6B7280",fontSize:14,cursor:"pointer",fontWeight:500},inp:{padding:"7px 12px",borderRadius:6,border:"1px solid #2A2A3E",background:"#12122A",color:"#E5E7EB",fontSize:14,outline:"none"},sel:{padding:"7px 10px",borderRadius:6,border:"1px solid #2A2A3E",background:"#12122A",color:"#E5E7EB",fontSize:14,outline:"none"},btn:{padding:"7px 16px",borderRadius:6,border:"none",background:"#3B82F6",color:"#FFF",fontSize:14,cursor:"pointer",fontWeight:600},sm:{padding:"5px 10px",borderRadius:4,border:"1px solid #2A2A3E",background:"transparent",color:"#9CA3AF",fontSize:12,cursor:"pointer"},th:{textAlign:"left",padding:"8px",color:"#E5E7EB",fontSize:11,textTransform:"uppercase",letterSpacing:1,borderBottom:"1px solid #1E1E32",fontWeight:600,whiteSpace:"nowrap"},td:{padding:"10px 8px",whiteSpace:"nowrap",color:"#E5E7EB",fontSize:13},badge:{padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:700,letterSpacing:0.5,whiteSpace:"nowrap"},card:{background:"#12122A",border:"1px solid #1E1E32",borderRadius:8,padding:14,marginBottom:8},ov:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},modal:{background:"#12122A",border:"1px solid #2A2A3E",borderRadius:12,padding:20,width:"95%"},fl:{display:"flex",flexDirection:"column",gap:3,fontSize:12,color:"#6B7280",fontWeight:500},fi:{padding:"7px 10px",borderRadius:4,border:"1px solid #2A2A3E",background:"#0D0D1A",color:"#E5E7EB",fontSize:14,outline:"none"},toast:{position:"fixed",top:14,right:14,background:"#166534",color:"#D1FAE5",padding:"10px 18px",borderRadius:8,fontSize:14,fontWeight:600,zIndex:9999,boxShadow:"0 4px 24px rgba(0,0,0,0.4)"},ib:{padding:10,background:"#0D0D1A",borderRadius:6,border:"1px solid #1E1E32"},il:{fontSize:11,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:3}};
+export default App;

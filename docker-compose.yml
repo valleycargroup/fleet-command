@@ -1,0 +1,82 @@
+services:
+  # --------------------
+  # 1. PostgreSQL Database
+  # --------------------
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      LANG: C.UTF-8
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      # Mount full db folder so init.sql can include sub-files
+      - ./db:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --------------------
+  # 2. Node.js/Express Backend
+  # --------------------
+  server:
+    build:
+      context: ./apps/server
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: db
+      DB_PORT: 5432
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${SERVER_PORT}
+      CLIENT_PORT: ${CLIENT_PORT}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      FROM_EMAIL: ${FROM_EMAIL}
+      APP_URL: ${APP_URL}
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "9231:9231"
+    command: >
+      sh -c "set -e;
+      if [ ! -f node_modules/.bin/ts-node-dev ]; then npm install; fi;
+      npm run dev"
+    volumes:
+      - ./apps/server:/usr/src/app
+      - /usr/src/app/node_modules
+
+  # --------------------
+  # 3. React Frontend (Vite)
+  # --------------------
+  client:
+    build:
+      context: ./apps/client
+    depends_on:
+      - server
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${CLIENT_PORT}:8080"
+    command: >
+      sh -c "if [ ! -d node_modules ] || [ -z \"$(ls -A node_modules)\" ];
+      then npm install;
+      fi;
+      npm run dev"
+    volumes:
+      - ./apps/client:/usr/src/app
+      - /usr/src/app/node_modules
+
+volumes:
+  postgres_data:

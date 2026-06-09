@@ -1,0 +1,656 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: S3 + CloudFront + Route53 + ALB/EC2 + Aurora — Fleet Command
+
+Parameters:
+    Environment:
+        Type: String
+        Default: "dev"
+        AllowedValues: ["dev", "staging", "prod"]
+        Description: Deployment environment
+
+    DomainRoot:
+        Type: String
+        Default: "fleetcommandrecon.net"
+        Description: Apex domain (no env prefix)
+
+    HostedZoneId:
+        Type: String
+        Default: "Z02340883RZMSPXLA92EL"
+        Description: Route53 public hosted zone ID for DomainRoot
+
+    AcmCertificateArnUsEast1:
+        Type: String
+        Default: "arn:aws:acm:us-east-1:590183676974:certificate/1b2b6468-dc54-4775-a3a2-8f52cc6e3b9a"
+        Description: CloudFront TLS certificate (must be in us-east-1)
+
+    AlbCertificateArn:
+        Type: String
+        Default: "arn:aws:acm:us-east-2:590183676974:certificate/50cf6a80-d8c6-438f-b21e-47bf837e8234"
+        Description: ALB TLS certificate in the app region (us-east-2)
+
+Conditions:
+    IsDev: !Equals [!Ref Environment, "dev"]
+    IsStaging: !Equals [!Ref Environment, "staging"]
+    IsProd: !Equals [!Ref Environment, "prod"]
+
+Mappings:
+    SubnetMappings:
+        dev:
+            Subnets:
+                - "subnet-0e664673d56a17967"
+                - "subnet-0723b5115fedda4da"
+                - "subnet-0fa61695a0ed79220"
+        staging:
+            Subnets:
+                - "subnet-stg1"
+                - "subnet-stg2"
+                - "subnet-stg3"
+        prod:
+            Subnets:
+                - "subnet-01dc5e935231203a4"
+                - "subnet-0cf1871e407cfaea8"
+                - "subnet-0a2da0e02985e8889"
+
+    VpcMappings:
+        dev:
+            VpcId: "vpc-0616514cef28684d9"
+        staging:
+            VpcId: "vpc-06a68517fc2ab5c7e"
+        prod:
+            VpcId: "vpc-009e13c65c43cc065"
+
+Resources:
+    # =========================
+    # Frontend (S3 + CloudFront)
+    # =========================
+    WebsiteBucket:
+        Type: AWS::S3::Bucket
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            BucketName: !Sub "${Environment}-fleet-command-website"
+            WebsiteConfiguration:
+                IndexDocument: index.html
+                ErrorDocument: index.html
+            PublicAccessBlockConfiguration:
+                BlockPublicAcls: true
+                IgnorePublicAcls: true
+                BlockPublicPolicy: true
+                RestrictPublicBuckets: true
+
+    WebsiteOAI:
+        Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+        Properties:
+            CloudFrontOriginAccessIdentityConfig:
+                Comment: !Sub "${Environment} fleet-command website OAI"
+
+    WebsiteBucketPolicy:
+        Type: AWS::S3::BucketPolicy
+        Properties:
+            Bucket: !Ref WebsiteBucket
+            PolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Sid: AllowCloudFrontOAI
+                      Effect: Allow
+                      Principal:
+                          AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${WebsiteOAI}"
+                      Action: "s3:GetObject"
+                      Resource: !Sub "${WebsiteBucket.Arn}/*"
+
+    ImageBucket:
+        Type: AWS::S3::Bucket
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            BucketName: !Sub "${Environment}-fleet-command-images"
+            PublicAccessBlockConfiguration:
+                BlockPublicAcls: true
+                IgnorePublicAcls: true
+                BlockPublicPolicy: true
+                RestrictPublicBuckets: true
+
+    ImageOAI:
+        Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+        Properties:
+            CloudFrontOriginAccessIdentityConfig:
+                Comment: !Sub "${Environment} fleet-command images OAI"
+
+    ImageBucketPolicy:
+        Type: AWS::S3::BucketPolicy
+        Properties:
+            Bucket: !Ref ImageBucket
+            PolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Sid: AllowCloudFrontReadOnly
+                      Effect: Allow
+                      Principal:
+                          AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ImageOAI}"
+                      Action: "s3:GetObject"
+                      Resource: !Sub "${ImageBucket.Arn}/*"
+                    - Sid: AllowEC2ReadWrite
+                      Effect: Allow
+                      Principal: "*"
+                      Action:
+                          - "s3:PutObject"
+                          - "s3:GetObject"
+                          - "s3:DeleteObject"
+                      Resource: !Sub "${ImageBucket.Arn}/*"
+                      Condition:
+                          StringEquals:
+                              aws:PrincipalAccount: !Ref AWS::AccountId
+
+    FilesBucket:
+        Type: AWS::S3::Bucket
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            BucketName: !Sub "${Environment}-fleet-command-files"
+            PublicAccessBlockConfiguration:
+                BlockPublicAcls: true
+                IgnorePublicAcls: true
+                BlockPublicPolicy: true
+                RestrictPublicBuckets: true
+            VersioningConfiguration:
+                Status: Enabled
+
+    FilesOAI:
+        Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+        Properties:
+            CloudFrontOriginAccessIdentityConfig:
+                Comment: !Sub "${Environment} fleet-command files OAI"
+
+    FilesBucketPolicy:
+        Type: AWS::S3::BucketPolicy
+        Properties:
+            Bucket: !Ref FilesBucket
+            PolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Sid: AllowCloudFrontReadOnly
+                      Effect: Allow
+                      Principal:
+                          AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${FilesOAI}"
+                      Action: "s3:GetObject"
+                      Resource: !Sub "${FilesBucket.Arn}/*"
+                    - Sid: AllowEC2ReadWrite
+                      Effect: Allow
+                      Principal: "*"
+                      Action:
+                          - "s3:PutObject"
+                          - "s3:GetObject"
+                      Resource: !Sub "${FilesBucket.Arn}/*"
+                      Condition:
+                          StringEquals:
+                              aws:PrincipalAccount: !Ref AWS::AccountId
+
+    WebsiteDistribution:
+        Type: AWS::CloudFront::Distribution
+        Properties:
+            DistributionConfig:
+                Enabled: true
+                PriceClass: PriceClass_100
+                DefaultRootObject: "index.html"
+
+                Origins:
+                    - Id: WebsiteS3
+                      DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+                      S3OriginConfig:
+                          OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${WebsiteOAI}"
+                    - Id: ImageS3
+                      DomainName: !GetAtt ImageBucket.RegionalDomainName
+                      S3OriginConfig:
+                          OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${ImageOAI}"
+                    - Id: FilesS3
+                      DomainName: !GetAtt FilesBucket.RegionalDomainName
+                      S3OriginConfig:
+                          OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${FilesOAI}"
+
+                Aliases: !If
+                    - IsProd
+                    - - !Ref DomainRoot
+                      - !Sub "www.${DomainRoot}"
+                    - !If
+                      - IsStaging
+                      - - !Sub "staging.${DomainRoot}"
+                      - - !Sub "dev.${DomainRoot}"
+
+                ViewerCertificate:
+                    AcmCertificateArn: !Ref AcmCertificateArnUsEast1
+                    SslSupportMethod: sni-only
+
+                DefaultCacheBehavior:
+                    TargetOriginId: WebsiteS3
+                    ViewerProtocolPolicy: redirect-to-https
+                    AllowedMethods:
+                        - GET
+                        - HEAD
+                    CachedMethods:
+                        - GET
+                        - HEAD
+                    Compress: true
+                    ForwardedValues:
+                        QueryString: true
+                        Cookies:
+                            Forward: none
+                    MinTTL: 0
+                    DefaultTTL: 0
+                    MaxTTL: 0
+
+                CacheBehaviors:
+                    - PathPattern: "/images/*"
+                      TargetOriginId: ImageS3
+                      ViewerProtocolPolicy: redirect-to-https
+                      AllowedMethods:
+                          - GET
+                          - HEAD
+                      CachedMethods:
+                          - GET
+                          - HEAD
+                      Compress: true
+                      ForwardedValues:
+                          QueryString: false
+                          Cookies:
+                              Forward: none
+                    - PathPattern: "/files/*"
+                      TargetOriginId: FilesS3
+                      ViewerProtocolPolicy: redirect-to-https
+                      AllowedMethods:
+                          - GET
+                          - HEAD
+                      CachedMethods:
+                          - GET
+                          - HEAD
+                      Compress: true
+                      ForwardedValues:
+                          QueryString: false
+                          Cookies:
+                              Forward: none
+
+                CustomErrorResponses:
+                    - ErrorCode: 404
+                      ResponsePagePath: /index.html
+                      ResponseCode: 200
+                      ErrorCachingMinTTL: 300
+                    - ErrorCode: 403
+                      ResponsePagePath: /index.html
+                      ResponseCode: 200
+                      ErrorCachingMinTTL: 300
+
+    # =========================
+    # Route53 — Frontend
+    # =========================
+    WebsiteProdApexRecord:
+        Condition: IsProd
+        Type: AWS::Route53::RecordSet
+        DeletionPolicy: Retain
+        Properties:
+            HostedZoneId: !Ref HostedZoneId
+            Name: !Ref DomainRoot
+            Type: A
+            AliasTarget:
+                DNSName: !GetAtt WebsiteDistribution.DomainName
+                HostedZoneId: "Z2FDTNDATAQYW2"
+                EvaluateTargetHealth: false
+
+    WebsiteProdWWWRecord:
+        Condition: IsProd
+        Type: AWS::Route53::RecordSet
+        DeletionPolicy: Retain
+        Properties:
+            HostedZoneId: !Ref HostedZoneId
+            Name: !Sub "www.${DomainRoot}"
+            Type: A
+            AliasTarget:
+                DNSName: !GetAtt WebsiteDistribution.DomainName
+                HostedZoneId: "Z2FDTNDATAQYW2"
+                EvaluateTargetHealth: false
+
+    WebsiteDevRecord:
+        Condition: IsDev
+        Type: AWS::Route53::RecordSet
+        DeletionPolicy: Retain
+        Properties:
+            HostedZoneId: !Ref HostedZoneId
+            Name: !Sub "dev.${DomainRoot}"
+            Type: A
+            AliasTarget:
+                DNSName: !GetAtt WebsiteDistribution.DomainName
+                HostedZoneId: "Z2FDTNDATAQYW2"
+                EvaluateTargetHealth: false
+
+    WebsiteStagingRecord:
+        Condition: IsStaging
+        Type: AWS::Route53::RecordSet
+        DeletionPolicy: Retain
+        Properties:
+            HostedZoneId: !Ref HostedZoneId
+            Name: !Sub "staging.${DomainRoot}"
+            Type: A
+            AliasTarget:
+                DNSName: !GetAtt WebsiteDistribution.DomainName
+                HostedZoneId: "Z2FDTNDATAQYW2"
+                EvaluateTargetHealth: false
+
+    # =========================
+    # Backend (EC2 + ALB)
+    # =========================
+    InstanceSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: "Fleet Command EC2 security group"
+            VpcId: !FindInMap [VpcMappings, !Ref Environment, VpcId]
+            SecurityGroupIngress:
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 5001,
+                      ToPort: 5001,
+                      CidrIp: 0.0.0.0/0,
+                  }
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 80,
+                      ToPort: 80,
+                      CidrIp: 0.0.0.0/0,
+                  }
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 443,
+                      ToPort: 443,
+                      CidrIp: 0.0.0.0/0,
+                  }
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 22,
+                      ToPort: 22,
+                      CidrIp: 0.0.0.0/0,
+                  }
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 5432,
+                      ToPort: 5432,
+                      CidrIp: 0.0.0.0/0,
+                  }
+
+    FleetInstanceRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: !Sub "${Environment}-fleet-command-instance-role"
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    - Effect: Allow
+                      Principal: { Service: ec2.amazonaws.com }
+                      Action: sts:AssumeRole
+            ManagedPolicyArns:
+                - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+                - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+            Policies:
+                - PolicyName: FleetS3Access
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - s3:GetObject
+                                - s3:PutObject
+                                - s3:DeleteObject
+                                - s3:ListBucket
+                            Resource:
+                                - !GetAtt ImageBucket.Arn
+                                - !Sub "${ImageBucket.Arn}/*"
+                                - !GetAtt FilesBucket.Arn
+                                - !Sub "${FilesBucket.Arn}/*"
+                - PolicyName: FleetSSMParameters
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Effect: Allow
+                            Action:
+                                - ssm:GetParameter
+                                - ssm:GetParameters
+                                - ssm:GetParametersByPath
+                            Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Environment}/fleet/*"
+
+    FleetInstanceProfile:
+        Type: AWS::IAM::InstanceProfile
+        Properties:
+            Roles: [!Ref FleetInstanceRole]
+
+    EC2Instance:
+        Type: AWS::EC2::Instance
+        Properties:
+            SubnetId:
+                !Select [
+                    0,
+                    !FindInMap [SubnetMappings, !Ref Environment, Subnets],
+                ]
+            ImageId: ami-0a9f08a6603f3338e
+            InstanceType: t4g.medium
+            KeyName: !Sub "${Environment}-fleet-key-pair"
+            SecurityGroupIds: [!GetAtt InstanceSecurityGroup.GroupId]
+            IamInstanceProfile: !Ref FleetInstanceProfile
+            Tags:
+                - { Key: Name, Value: !Sub "${Environment}-fleet-command-instance" }
+            BlockDeviceMappings:
+                - DeviceName: /dev/xvda
+                  Ebs: { VolumeSize: 30, VolumeType: gp3 }
+            UserData:
+                Fn::Base64: !Sub |
+                    #!/bin/bash
+                    yum update -y && yum upgrade -y
+                    ENV_FILE="/etc/profile.d/env_vars.sh"
+                    echo "#!/bin/bash" > $ENV_FILE
+                    case "${Environment}" in
+                      dev)     echo "export NODE_ENV=development" >> $ENV_FILE ;;
+                      staging) echo "export NODE_ENV=staging" >> $ENV_FILE ;;
+                      prod)    echo "export NODE_ENV=production" >> $ENV_FILE ;;
+                    esac
+
+    LoadBalancerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: Fleet Command Load Balancer security group
+            VpcId: !FindInMap [VpcMappings, !Ref Environment, VpcId]
+            SecurityGroupIngress:
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 80,
+                      ToPort: 80,
+                      CidrIp: 0.0.0.0/0,
+                      Description: "Allow HTTP",
+                  }
+                - {
+                      IpProtocol: tcp,
+                      FromPort: 443,
+                      ToPort: 443,
+                      CidrIp: 0.0.0.0/0,
+                      Description: "Allow HTTPS",
+                  }
+            Tags:
+                - { Key: Name, Value: FleetCommandLoadBalancerSG }
+
+    FleetLoadBalancer:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            Subnets:
+                - !Select [
+                      0,
+                      !FindInMap [SubnetMappings, !Ref Environment, Subnets],
+                  ]
+                - !Select [
+                      1,
+                      !FindInMap [SubnetMappings, !Ref Environment, Subnets],
+                  ]
+                - !Select [
+                      2,
+                      !FindInMap [SubnetMappings, !Ref Environment, Subnets],
+                  ]
+            SecurityGroups: [!Ref LoadBalancerSecurityGroup]
+            Scheme: internet-facing
+
+    HTTPListener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            DefaultActions:
+                - Type: redirect
+                  RedirectConfig:
+                      { Protocol: HTTPS, Port: 443, StatusCode: HTTP_301 }
+            LoadBalancerArn: !Ref FleetLoadBalancer
+            Port: 80
+            Protocol: HTTP
+
+    HTTPSListener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            DefaultActions:
+                - Type: forward
+                  TargetGroupArn: !Ref FleetTargetGroup
+            LoadBalancerArn: !Ref FleetLoadBalancer
+            Port: 443
+            Protocol: HTTPS
+            Certificates:
+                - CertificateArn: !Ref AlbCertificateArn
+            SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+
+    FleetTargetGroup:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            Port: 5001
+            Protocol: HTTP
+            VpcId: !FindInMap [VpcMappings, !Ref Environment, VpcId]
+            TargetType: instance
+            Targets:
+                - Id: !Ref EC2Instance
+            HealthCheckPath: /health
+            HealthCheckIntervalSeconds: 30
+            HealthyThresholdCount: 2
+            UnhealthyThresholdCount: 3
+
+    DevEIP:
+        Type: AWS::EC2::EIP
+        Condition: IsDev
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Domain: vpc
+            InstanceId: !Ref EC2Instance
+            Tags:
+                - Key: Name
+                  Value: dev-fleet-command-eip
+
+    ProdEIP:
+        Type: AWS::EC2::EIP
+        Condition: IsProd
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Domain: vpc
+            InstanceId: !Ref EC2Instance
+            Tags:
+                - Key: Name
+                  Value: prod-fleet-command-eip
+
+    ApiRecordSet:
+        Type: AWS::Route53::RecordSet
+        Properties:
+            HostedZoneId: !Ref HostedZoneId
+            Name: !If
+                - IsProd
+                - !Sub "api.${DomainRoot}"
+                - !Sub "${Environment}.api.${DomainRoot}"
+            Type: A
+            AliasTarget:
+                HostedZoneId: !GetAtt FleetLoadBalancer.CanonicalHostedZoneID
+                DNSName: !GetAtt FleetLoadBalancer.DNSName
+                EvaluateTargetHealth: false
+
+    # =========================
+    # Aurora PostgreSQL
+    # =========================
+    AuroraDBSubnetGroup:
+        Type: AWS::RDS::DBSubnetGroup
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            DBSubnetGroupDescription: "Fleet Command Aurora subnet group"
+            SubnetIds: !FindInMap [SubnetMappings, !Ref Environment, Subnets]
+
+    AuroraServerlessCluster:
+        Type: AWS::RDS::DBCluster
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            Engine: aurora-postgresql
+            DatabaseName: !Sub "${Environment}_fleet_command"
+            DBSubnetGroupName: !Ref AuroraDBSubnetGroup
+            VpcSecurityGroupIds: [!Ref InstanceSecurityGroup]
+            MasterUsername: fleetadmin
+            MasterUserPassword: !Sub "{{resolve:ssm:/${Environment}/fleet/db/password}}"
+            ServerlessV2ScalingConfiguration:
+                MinCapacity: 0.5
+                MaxCapacity: 8
+            DeletionProtection: true
+            BackupRetentionPeriod: 14
+            PreferredMaintenanceWindow: "sun:06:00-sun:06:30"
+            CopyTagsToSnapshot: true
+
+    AuroraDBInstance:
+        Type: AWS::RDS::DBInstance
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
+        Properties:
+            DBClusterIdentifier: !Ref AuroraServerlessCluster
+            DBInstanceIdentifier: !Sub "${Environment}-fleet-command-db"
+            Engine: aurora-postgresql
+            DBInstanceClass: db.serverless
+            PubliclyAccessible: true
+            Tags:
+                - {
+                      Key: Name,
+                      Value: !Sub "${Environment}-fleet-command-db",
+                  }
+
+
+Outputs:
+    WebsiteURL:
+        Description: Fleet Command CloudFront Distribution URL
+        Value: !GetAtt WebsiteDistribution.DomainName
+
+    WebsiteRecordSetName:
+        Description: Website Route53 Record
+        Value: !If
+            - IsProd
+            - !Ref DomainRoot
+            - !If
+              - IsStaging
+              - !Sub "staging.${DomainRoot}"
+              - !Sub "dev.${DomainRoot}"
+
+    WebsiteWWWRecordSetName:
+        Description: Website WWW Route53 Record (prod only)
+        Value: !If
+            - IsProd
+            - !Sub "www.${DomainRoot}"
+            - "N/A"
+
+    ApiDNS:
+        Description: Fleet Command API Load Balancer DNS
+        Value: !GetAtt FleetLoadBalancer.DNSName
+
+    ApiRecordSetName:
+        Description: Fleet Command API Route53 Record
+        Value: !If
+            - IsProd
+            - !Sub "api.${DomainRoot}"
+            - !Sub "${Environment}.api.${DomainRoot}"
+
+    ImageBucketName:
+        Description: S3 bucket for vehicle images
+        Value: !Ref ImageBucket
+
+    FilesBucketName:
+        Description: S3 bucket for vehicle documents
+        Value: !Ref FilesBucket

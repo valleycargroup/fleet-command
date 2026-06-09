@@ -1,0 +1,192 @@
+name: Deploy Fleet Command (dev)
+
+on:
+    push:
+        branches:
+            - develop
+
+concurrency:
+    group: fleet-command-dev
+    cancel-in-progress: true
+
+jobs:
+    deploy-fleet-command-dev:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Validate required secrets
+              run: |
+                  [ -n "${{ secrets.DEV_EC2_SSH_HOST_FLEET }}" ] || (echo "Missing DEV_EC2_SSH_HOST_FLEET" && exit 1)
+                  [ -n "${{ secrets.EC2_SSH_PRIVATE_KEY_FLEET }}" ] || (echo "Missing EC2_SSH_PRIVATE_KEY_FLEET" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_DB_USER }}" ] || (echo "Missing FLEET_DEV_DB_USER" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_DB_PASSWORD }}" ] || (echo "Missing FLEET_DEV_DB_PASSWORD" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_DB_NAME }}" ] || (echo "Missing FLEET_DEV_DB_NAME" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_DB_HOST }}" ] || (echo "Missing FLEET_DEV_DB_HOST" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}" ] || (echo "Missing FLEET_DEV_VITE_API_BASE_URL" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_S3_BUCKET }}" ] || (echo "Missing FLEET_DEV_S3_BUCKET" && exit 1)
+                  [ -n "${{ secrets.FLEET_DEV_CLOUDFRONT_DISTRIBUTION_ID }}" ] || (echo "Missing FLEET_DEV_CLOUDFRONT_DISTRIBUTION_ID" && exit 1)
+                  [ -n "${{ secrets.AWS_S3_ACCESS_KEY_ID }}" ] || (echo "Missing AWS_S3_ACCESS_KEY_ID" && exit 1)
+                  [ -n "${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}" ] || (echo "Missing AWS_S3_SECRET_ACCESS_KEY" && exit 1)
+
+            - name: Setup SSH
+              run: |
+                  mkdir -p ~/.ssh
+                  printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY_FLEET }}" > ~/.ssh/id_rsa
+                  chmod 600 ~/.ssh/id_rsa
+                  ssh-keyscan -H "${{ secrets.DEV_EC2_SSH_HOST_FLEET }}" >> ~/.ssh/known_hosts
+
+            - name: Test SSH connection
+              run: ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "echo Connected"
+
+            - name: Ensure Docker and Compose are available on EC2
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} 'bash -s' << 'SSH'
+                  set -e
+                  command -v docker >/dev/null 2>&1 || { echo "❌ Docker missing"; exit 1; }
+                  docker --version
+                  docker compose version >/dev/null 2>&1 || { echo "❌ Docker Compose v2 missing"; exit 1; }
+                  docker compose version
+                  SSH
+
+            - name: Rsync repository to EC2
+              run: |
+                  rsync -e "ssh -o StrictHostKeyChecking=no" -avz \
+                    --exclude ".git" \
+                    --exclude "node_modules" \
+                    --exclude ".env" \
+                    ./ ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }}:~/fleet-command/
+
+            - name: Write environment file (.env) on EC2
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "bash -lc '
+                  set -e
+                  cd ~/fleet-command
+
+                  cat > .env <<\"ENV\"
+                  NODE_ENV=development
+
+                  DB_USER=${{ secrets.FLEET_DEV_DB_USER }}
+                  DB_PASSWORD=${{ secrets.FLEET_DEV_DB_PASSWORD }}
+                  DB_NAME=${{ secrets.FLEET_DEV_DB_NAME }}
+                  DB_HOST=${{ secrets.FLEET_DEV_DB_HOST }}
+                  DB_PORT=5432
+                  DATABASE_URL=postgresql://${{ secrets.FLEET_DEV_DB_USER }}:${{ secrets.FLEET_DEV_DB_PASSWORD }}@${{ secrets.FLEET_DEV_DB_HOST }}:5432/${{ secrets.FLEET_DEV_DB_NAME }}
+
+                  SERVER_PORT=5001
+                  CLIENT_PORT=8080
+                  APP_URL=${{ secrets.FLEET_DEV_APP_URL }}
+
+                  VITE_API_BASE_URL=${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}
+                  VITE_APP_URL=${{ secrets.FLEET_DEV_APP_URL }}
+
+                  RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+                  FROM_EMAIL=${{ secrets.FLEET_FROM_EMAIL }}
+
+                  ENV
+                  '"
+
+            - name: Docker sanity check
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} 'bash -s' << 'SSH'
+                  set -e
+                  command -v docker >/dev/null 2>&1 || { echo "Docker missing"; exit 1; }
+                  echo "✅ Docker OK" && docker --version
+                  echo "✅ Docker Compose OK" && docker compose version
+                  cd ~/fleet-command
+                  echo "✅ Directory OK: $(pwd)"
+                  ls -la | head -n 20
+                  SSH
+
+            - name: Docker compose deploy
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "bash -lc '
+                  set -e
+                  cd ~/fleet-command
+
+                  if docker ps >/dev/null 2>&1; then
+                    COMPOSE=\"docker compose -f docker-compose.dev.yml\"
+                  else
+                    COMPOSE=\"sudo docker compose -f docker-compose.dev.yml\"
+                  fi
+
+                  \$COMPOSE down || true
+                  \$COMPOSE up -d --build --remove-orphans
+                  \$COMPOSE ps
+                  \$COMPOSE logs --tail=100 server || true
+                  '"
+
+            - name: Verify server container is running
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "bash -lc '
+                  set -e
+                  cd ~/fleet-command
+
+                  if docker ps >/dev/null 2>&1; then
+                    COMPOSE=\"docker compose -f docker-compose.dev.yml\"
+                  else
+                    COMPOSE=\"sudo docker compose -f docker-compose.dev.yml\"
+                  fi
+
+                  SERVER_STATUS=\$(\$COMPOSE ps --status running --services | grep -x server || true)
+                  if [ -z \"\$SERVER_STATUS\" ]; then
+                    echo \"❌ Server container is not running\"
+                    \$COMPOSE logs --tail=200 server || true
+                    exit 1
+                  fi
+                  echo \"✅ Server container is running\"
+                  '"
+
+            - name: Show container logs
+              if: always()
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "bash -lc '
+                  set +e
+                  cd ~/fleet-command
+
+                  if docker ps >/dev/null 2>&1; then
+                    COMPOSE=\"docker compose -f docker-compose.dev.yml\"
+                  else
+                    COMPOSE=\"sudo docker compose -f docker-compose.dev.yml\"
+                  fi
+
+                  echo \"---- SERVER LOGS ----\"
+                  \$COMPOSE logs --tail=100 server || true
+                  '"
+
+            # ── Frontend: build → S3 → CloudFront ──────────────────────────
+            - name: Build frontend (Vite)
+              env:
+                  VITE_API_BASE_URL: ${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}
+                  VITE_APP_URL: ${{ secrets.FLEET_DEV_APP_URL }}
+              run: |
+                  cd apps/client
+                  npm ci
+                  npm run build
+
+            - name: Verify VITE_API_BASE_URL baked into build
+              run: |
+                  grep -R "${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}" -n apps/client/dist || true
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_S3_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}
+                  aws-region: us-east-2
+
+            - name: Upload frontend to S3
+              run: |
+                  aws s3 sync apps/client/dist s3://${{ secrets.FLEET_DEV_S3_BUCKET }} --delete
+
+            - name: CloudFront invalidation
+              run: |
+                  if [ -n "${{ secrets.FLEET_DEV_CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+                    aws cloudfront create-invalidation \
+                      --distribution-id "${{ secrets.FLEET_DEV_CLOUDFRONT_DISTRIBUTION_ID }}" \
+                      --paths "/*"
+                  else
+                    echo "No CloudFront distribution ID set. Skipping."
+                  fi
