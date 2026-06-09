@@ -56,7 +56,12 @@ if (!fs.existsSync(sqlFile)) {
 }
 
 function parseFromEnv() {
-	const url = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
+	let url = null;
+	try {
+		url = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
+	} catch (_) {
+		url = null;
+	}
 	const user = url?.username || process.env.DB_USER;
 	const password = url?.password || process.env.DB_PASSWORD || '';
 	let host = url?.hostname || process.env.DB_HOST || 'localhost';
