@@ -15,8 +15,10 @@ function folderFromQuery(req: Request): 'images' | 'files' {
 }
 
 // POST /api/uploads — single file
-router.post('/', requireAuth, upload.single('file'), async (req: Request, res: Response) => {
+router.post('/', upload.single('file'), async (req: Request, res: Response) => {
   try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
     if (!req.file) return res.status(400).json({ error: 'No file provided' });
     const folder = folderFromQuery(req);
     const allowed = folder === 'files' ? ALLOWED_FILE_TYPES : ALLOWED_IMAGE_TYPES;
@@ -33,8 +35,10 @@ router.post('/', requireAuth, upload.single('file'), async (req: Request, res: R
 });
 
 // POST /api/uploads/many — up to 10 files
-router.post('/many', requireAuth, upload.array('files', 10), async (req: Request, res: Response) => {
+router.post('/many', upload.array('files', 10), async (req: Request, res: Response) => {
   try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
     const files = req.files as Express.Multer.File[];
     if (!files?.length) return res.status(400).json({ error: 'No files provided' });
     const folder = folderFromQuery(req);
@@ -55,8 +59,10 @@ router.post('/many', requireAuth, upload.array('files', 10), async (req: Request
 });
 
 // DELETE /api/uploads/:key — delete by key (e.g. images/uuid.jpg)
-router.delete('/:folder/:filename', requireAuth, async (req: Request, res: Response) => {
+router.delete('/:folder/:filename', async (req: Request, res: Response) => {
   try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
     const key = `${req.params.folder}/${req.params.filename}`;
     await deleteFromStorage(key);
     res.json({ ok: true });
