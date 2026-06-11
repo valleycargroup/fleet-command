@@ -3,11 +3,9 @@ import React from 'react';
 
 const WORKER = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 const LOCATIONS = ["PHX", "Dallas"];
-const BROKERS = ["Mike R.", "Sarah T.", "James W.", "Carlos M.", "Dana P.", "Tony L."];
 const SOURCES = ["Manheim Phoenix", "ADESA Dallas", "Copart", "IAAI", "OVE", "ACV Auctions", "Private Seller", "Trade-In"];
 const ARB_SOURCES = ["Manheim","ACV","Openlane","Copart","ADESA","OVE","IAAI"];
 const COLORS = ["White", "Black", "Silver", "Gray", "Red", "Blue", "Green", "Brown", "Gold", "Orange", "Beige"];
-const DEALERS = ["AutoMax Dealers", "Premier Motors", "Lone Star Auto Group", "Desert Sun Cars", "Valley Auto Sales", "Southwest Wholesale", "Prestige Motors LLC", "Fast Lane Auto", "Cactus Auto Group", "DFW Motor Co"];
 const VCAT = [
 { key: "detail", label: "Detail", icon: "🧽" }, { key: "touchup", label: "Touch Up", icon: "🖌️" },
 { key: "bodyshop", label: "Body Shop", icon: "🔧" }, { key: "pdr", label: "PDR", icon: "🔨" },
@@ -15,32 +13,6 @@ const VCAT = [
 { key: "interior", label: "Interior", icon: "💺" }, { key: "mechanical", label: "Mechanical", icon: "🏎️" },
 { key: "windshield", label: "Windshield", icon: "🪟" }, { key: "electronics", label: "Radio/Screens/Moonroofs", icon: "📻" }, { key: "oemdealer", label: "OEM Dealer", icon: "🏭" }, { key: "blackwidow", label: "Black Widow Pics", icon: "📸" }, { key: "cr", label: "Condition Report", icon: "📋" }, { key: "auction", label: "Send to Auction", icon: "🔨" }, { key: "parts", label: "Parts", icon: "📦" },
 ];
-const VENDORS = {};
-
-VCAT.forEach((c, i) => { VENDORS[c.key] = c.key==="electronics"?[
-{ id: `va${i}`, name: "AZ Auto Electronics PHX", email: "info@azautoelec.com", phone: "602-555-0190" },
-{ id: `vb${i}`, name: "DFW Car Audio & Tech", email: "info@dfwcaraudio.com", phone: "214-555-0190" },
-]:c.key==="cr"?[
-{ id: `va${i}`, name: "CR Writer PHX", email: "cr@vcg.com", phone: "602-555-0230" },
-{ id: `vb${i}`, name: "CR Writer DFW", email: "crdfw@vcg.com", phone: "214-555-0230" },
-]:c.key==="blackwidow"?[
-{ id: `va${i}`, name: "Black Widow Photo PHX", email: "photos@blackwidow.com", phone: "602-555-0210" },
-{ id: `vb${i}`, name: "Black Widow Photo DFW", email: "dfw@blackwidow.com", phone: "214-555-0210" },
-]:c.key==="auction"?[
-{ id: `va${i}`, name: "Auction Dept", email: "auction@vcg.com", phone: "602-555-0220" },
-]:c.key==="oemdealer"?[
-{ id: `va${i}`, name: "Larry H Miller Toyota PHX", email: "service@lhmtoyota.com", phone: "602-555-0200" },
-{ id: `vb${i}`, name: "AutoNation Ford Dallas", email: "service@anford.com", phone: "214-555-0200" },
-{ id: `vc${i}`, name: "Earnhardt Honda PHX", email: "service@earnhonda.com", phone: "480-555-0200" },
-]:[
-{ id: `va${i}`, name: `${c.label} Pro PHX`, email: `phx@${c.key}.com`, phone: "602-555-01" + String(i).padStart(2, "0") },
-{ id: `vb${i}`, name: `${c.label} Pro DFW`, email: `dfw@${c.key}.com`, phone: "214-555-01" + String(i).padStart(2, "0") },
-]; });
-const MAKES = [
-{ make: "Toyota", model: "Camry", trims: ["LE", "SE", "XLE"] }, { make: "Honda", model: "Accord", trims: ["LX", "Sport", "EX-L"] },
-{ make: "Ford", model: "F-150", trims: ["XL", "XLT", "Lariat", "Platinum"] }, { make: "Chevrolet", model: "Silverado", trims: ["WT", "LT", "High Country"] },
-{ make: "Hyundai", model: "Tucson", trims: ["SE", "SEL", "Limited"] }, ];
-const genVIN = () => "ABCDEFGHJKLMNPRSTUVWXYZ0123456789".split("").sort(() => Math.random() - 0.5).slice(0, 8).join("");
 const fmtDate = (d) => d ? d.slice(5,7)+"/"+d.slice(8,10)+"/"+d.slice(2,4) : "—";
 const smartDate = (val) => {
   if(!val) return "";
@@ -58,202 +30,6 @@ const smartDate = (val) => {
   }
   return val;
 };
-function genVehicles() {
-const v = [];
-const now="2026-03-20";
-const rt0={};VCAT.forEach(cat=>{rt0[cat.key]={needed:false,status:"na"};});
-const mkRt=()=>JSON.parse(JSON.stringify(rt0));
-
-// V0: SOLD not shipped - top priority
-const rt1=mkRt();
-rt1.detail={needed:true,status:"complete",dateCompleted:"2026-03-14",dateAssigned:"2026-03-10",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:350,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt1.touchup={needed:true,status:"complete",dateCompleted:"2026-03-16",dateAssigned:"2026-03-11",vendors:[{id:"va1",name:"Touch Up Pro PHX",selected:true,estimate:450,bidLocked:true,lineItems:[{id:"wt2",desc:"Front Bumper",price:250,accepted:true,costType:"ws"},{id:"wt3",desc:"Rear Quarter",price:200,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
-v.push({id:"v0",vin8:genVIN(),purchaseDate:"2026-03-05",buyingBroker:"Darren",sellingBroker:"Mike",source:"Auction",year:2024,make:"Toyota",model:"Camry",trim:"SE",miles:12500,color:"White",location:"PHX",status:"sold",soldDate:"2026-03-18",soldTo:"Premier Motors",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-08",cost:650,delivered:true,dateDelivered:"2026-03-09",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:true,destination:"Premier Motors",eta:"2026-03-22",readyDate:"2026-03-19",cost:800,company:"National Auto Shipping",phone:"800-555-9999",email:"ship@national.com"}},reconTasks:rt1,deliveredDate:null,kickedHistory:[]});
-
-// V1: SOLD retail delivery - shipped
-const rt2=mkRt();
-rt2.detail={needed:true,status:"complete",dateCompleted:"2026-03-12",dateAssigned:"2026-03-08",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:300,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:300,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
-v.push({id:"v1",vin8:genVIN(),purchaseDate:"2026-03-02",buyingBroker:"Darren",sellingBroker:"Darren",source:"Fleet/Lease",year:2023,make:"Honda",model:"Accord",trim:"Sport",miles:28400,color:"Black",location:"PHX",status:"sold",soldDate:"2026-03-15",soldTo:"John Smith (Retail)",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-05",cost:500,delivered:true,dateDelivered:"2026-03-06",company:"AZ Auto Transport",phone:"602-555-2222",email:"az@auto.com"},outbound:{set:true,isRetail:true,shippingFrom:"PHX",destination:"John Smith",customerName:"John Smith",customerPhone:"480-555-8888",customerEmail:"john@email.com",deliveryAddress:"1234 Main St, Scottsdale AZ 85251",cost:600,customerCharge:900,eta:"2026-03-23",readyDate:"2026-03-18",shipped:true,shippedDate:"2026-03-19",pickedUp:true,datePickedUp:"2026-03-19",company:"Express Auto Ship",phone:"800-555-7777",email:"express@ship.com"}},reconTasks:rt2,deliveredDate:null,kickedHistory:[]});
-
-// V2: Ready to ship - all recon done
-const rt3=mkRt();
-rt3.bodyshop={needed:true,status:"complete",dateCompleted:"2026-03-17",dateAssigned:"2026-03-10",dateStarted:"2026-03-12",vendors:[{id:"va2",name:"Body Shop Pro PHX",selected:true,estimate:1200,bidLocked:true,lineItems:[{id:"wt1",desc:"Front Bumper Replace",price:800,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-11",partOrdered:true,partOrderedDate:"2026-03-11",partArrived:true,partArrivedDate:"2026-03-14",partInstalled:true,partInstalledDate:"2026-03-16"},{id:"wt2",desc:"Blend Paint",price:400,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt3.tires={needed:true,status:"complete",dateCompleted:"2026-03-15",dateAssigned:"2026-03-10",vendors:[{id:"va4",name:"Tires Pro PHX",selected:true,estimate:600,bidLocked:true,lineItems:[{id:"wt1",desc:"4 New Tires",price:600,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-v.push({id:"v2",vin8:genVIN(),purchaseDate:"2026-03-03",buyingBroker:"Mike",sellingBroker:"",source:"Rental",year:2024,make:"Ford",model:"F-150",trim:"XLT",miles:8900,color:"Silver",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-06",cost:450,delivered:true,dateDelivered:"2026-03-07",company:"Southwest Haul",phone:"602-555-3333",email:"sw@haul.com"},outbound:{set:false}},reconTasks:rt3,deliveredDate:null,kickedHistory:[],buyerApprovedShip:true,buyerApprovedDate:"2026-03-18"});
-
-// V3: Recon in progress - vendor working
-const rt4=mkRt();
-rt4.detail={needed:true,status:"started",dateAssigned:"2026-03-12",dateStarted:"2026-03-14",dateApproved:"2026-03-13",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:400,bidLocked:true,etaDone:"2026-03-21",lineItems:[{id:"wt1",desc:"Full Detail",price:250,accepted:true,costType:"ws"},{id:"wt2",desc:"Engine Bay",price:150,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt4.touchup={needed:true,status:"started",dateAssigned:"2026-03-12",dateStarted:"2026-03-15",dateApproved:"2026-03-14",vendors:[{id:"va1",name:"Touch Up Pro PHX",selected:true,estimate:500,bidLocked:true,lineItems:[{id:"wt1",desc:"Hood Respray",price:300,accepted:true,costType:"ws"},{id:"wt2",desc:"Door Ding",price:200,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
-rt4.windshield={needed:true,status:"complete",dateCompleted:"2026-03-13",dateAssigned:"2026-03-10",vendors:[{id:"va8",name:"Windshield Pro PHX",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Replace Windshield",price:350,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-v.push({id:"v3",vin8:genVIN(),purchaseDate:"2026-03-06",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2022,make:"Chevrolet",model:"Silverado",trim:"LT",miles:45200,color:"Red",location:"Dallas",status:"in_recon",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-09",cost:700,delivered:true,dateDelivered:"2026-03-10",company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"},outbound:{set:false}},reconTasks:rt4,deliveredDate:null,kickedHistory:[]});
-
-// V4: Recon not started - bid accepted waiting
-const rt5=mkRt();
-rt5.bodyshop={needed:true,status:"approved",dateAssigned:"2026-03-15",dateApproved:"2026-03-17",vendors:[{id:"va2",name:"Body Shop Pro PHX",selected:true,estimate:900,bidLocked:true,lineItems:[{id:"wt1",desc:"Rear Bumper",price:500,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-17",partOrdered:true,partOrderedDate:"2026-03-17"},{id:"wt2",desc:"Paint Match",price:400,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt5.interior={needed:true,status:"approved",dateAssigned:"2026-03-15",dateApproved:"2026-03-17",vendors:[{id:"va6",name:"Interior Pro PHX",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Seat Repair",price:200,accepted:true,costType:"ws"},{id:"wt2",desc:"Carpet Dye",price:150,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
-v.push({id:"v4",vin8:genVIN(),purchaseDate:"2026-03-08",buyingBroker:"Mike",sellingBroker:"",source:"Dealer",year:2023,make:"BMW",model:"3 Series",trim:"330i",miles:19800,color:"Gray",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-11",cost:550,delivered:true,dateDelivered:"2026-03-12",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:false}},reconTasks:rt5,deliveredDate:null,kickedHistory:[]});
-
-// V5: Assigned waiting on bid
-const rt6=mkRt();
-rt6.mechanical={needed:true,status:"assigned",dateAssigned:"2026-03-18",vendors:[{id:"va7",name:"Mechanical Pro PHX",estimate:null,bidLocked:false,lineItems:[],vendorPhotos:[]}],workTasks:[{id:"wt1",desc:"Full Inspection",isPart:false}]};
-rt6.pdr={needed:true,status:"assigned",dateAssigned:"2026-03-18",vendors:[{id:"va3",name:"PDR Pro PHX",estimate:null,bidLocked:false,lineItems:[],vendorPhotos:[]}],workTasks:[{id:"wt1",desc:"Door Dings x5",isPart:false}]};
-v.push({id:"v5",vin8:genVIN(),purchaseDate:"2026-03-10",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2024,make:"Jeep",model:"Grand Cherokee",trim:"Limited",miles:5600,color:"Blue",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-13",cost:400,delivered:true,dateDelivered:"2026-03-14",company:"AZ Auto Transport",phone:"602-555-2222",email:"az@auto.com"},outbound:{set:false}},reconTasks:rt6,deliveredDate:null,kickedHistory:[]});
-
-// V6: In transport inbound
-v.push({id:"v6",vin8:genVIN(),purchaseDate:"2026-03-15",buyingBroker:"Mike",sellingBroker:"",source:"Rental",year:2023,make:"RAM",model:"1500",trim:"Big Horn",miles:32100,color:"White",location:"Dallas",status:"in_recon",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-22",cost:900,company:"National Auto Shipping",phone:"800-555-9999",email:"ship@national.com"},outbound:{set:false}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
-
-// V7: No recon needed - sold
-v.push({id:"v7",vin8:genVIN(),purchaseDate:"2026-03-12",buyingBroker:"Darren",sellingBroker:"Mike",source:"Fleet/Lease",year:2022,make:"Toyota",model:"Camry",trim:"XLE",miles:41000,color:"Black",location:"PHX",status:"sold",soldDate:"2026-03-17",soldTo:"AutoNation Dallas",noReconNeeded:true,noReconSetBy:"Darren",noReconSetDate:"2026-03-13",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-14",cost:350,delivered:true,dateDelivered:"2026-03-14",company:"Southwest Haul",phone:"602-555-3333",email:"sw@haul.com"},outbound:{set:true,destination:"AutoNation Dallas",eta:"2026-03-24",readyDate:"2026-03-18",cost:750,company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
-
-// V8: Kicked and re-sold with parts
-const rt8=mkRt();
-rt8.mechanical={needed:true,status:"started",dateAssigned:"2026-03-16",dateStarted:"2026-03-17",dateApproved:"2026-03-16",vendors:[{id:"va7",name:"Mechanical Pro PHX",selected:true,estimate:800,bidLocked:true,lineItems:[{id:"wt1",desc:"AC Compressor",price:500,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-16",partOrdered:true,partOrderedDate:"2026-03-16",partArrived:true,partArrivedDate:"2026-03-19"},{id:"wt2",desc:"Labor",price:300,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-v.push({id:"v8",vin8:genVIN(),purchaseDate:"2026-03-01",buyingBroker:"Mike",sellingBroker:"Darren",source:"Auction",year:2024,make:"Ford",model:"F-150",trim:"Lariat",miles:3200,color:"Silver",location:"PHX",status:"sold",soldDate:"2026-03-19",soldTo:"Carvana PHX",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-04",cost:500,delivered:true,dateDelivered:"2026-03-05",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:false}},reconTasks:rt8,deliveredDate:null,kickedHistory:[{dealer:"Larry H Miller",soldDate:"2026-03-10",kickedDate:"2026-03-14",sellingBroker:"Darren",reason:"Failed inspection - AC not working"}]});
-
-// V9: Driveway buy in transit
-v.push({id:"v9",vin8:genVIN(),purchaseDate:"2026-03-16",buyingBroker:"Darren",sellingBroker:"",source:"Driveway",year:2023,make:"Honda",model:"Accord",trim:"EX-L",miles:22700,color:"Gold",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",drivewayDest:"PHX",driverwayClearDate:"2026-03-17",drivewayEta:"2026-03-19",drivewayPickedUp:true,drivewayPickedUpDate:"2026-03-19",dwCompany:"DW Transport Co",dwPhone:"480-555-1111",dwEmail:"dw@transport.com",delivered:false},outbound:{set:false}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
-
-// V10: Parts in multiple stages
-const rt10=mkRt();
-rt10.bodyshop={needed:true,status:"started",dateAssigned:"2026-03-10",dateStarted:"2026-03-13",dateApproved:"2026-03-12",vendors:[{id:"va2",name:"Body Shop Pro PHX",selected:true,estimate:2200,bidLocked:true,lineItems:[{id:"wt1",desc:"Hood",price:600,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-12",partOrdered:true,partOrderedDate:"2026-03-12",partArrived:true,partArrivedDate:"2026-03-16",partInstalled:true,partInstalledDate:"2026-03-18"},{id:"wt2",desc:"Front Bumper",price:800,accepted:true,costType:"ws",isPart:true,partApproved:true,partApprovedDate:"2026-03-12",partOrdered:true,partOrderedDate:"2026-03-12",partArrived:true,partArrivedDate:"2026-03-18"},{id:"wt3",desc:"Tail Gate",price:500,accepted:true,costType:"retail",isPart:true,partApproved:true,partApprovedDate:"2026-03-12",partOrdered:true,partOrderedDate:"2026-03-13"},{id:"wt4",desc:"Paint All",price:300,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt10.electronics={needed:true,status:"assigned",dateAssigned:"2026-03-18",vendors:[{id:"va9",name:"AZ Auto Electronics PHX",estimate:null,bidLocked:false,lineItems:[],vendorPhotos:[]}],workTasks:[{id:"wt1",desc:"Replace Radio Unit",isPart:true},{id:"wt2",desc:"Fix Moonroof Motor",isPart:true}]};
-v.push({id:"v10",vin8:genVIN(),purchaseDate:"2026-03-04",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2022,make:"Chevrolet",model:"Silverado",trim:"High Country",miles:51300,color:"White",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-07",cost:600,delivered:true,dateDelivered:"2026-03-08",company:"AZ Auto Transport",phone:"602-555-2222",email:"az@auto.com"},outbound:{set:false}},reconTasks:rt10,deliveredDate:null,kickedHistory:[]});
-
-// V11: Delivered complete
-const rt11=mkRt();
-rt11.detail={needed:true,status:"complete",dateCompleted:"2026-03-08",dateAssigned:"2026-03-03",vendors:[{id:"vb0",name:"Detail Pro DFW",selected:true,estimate:300,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:300,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-v.push({id:"v11",vin8:genVIN(),purchaseDate:"2026-02-25",buyingBroker:"Mike",sellingBroker:"Darren",source:"Rental",year:2024,make:"BMW",model:"3 Series",trim:"M340i",miles:7400,color:"Black",location:"Dallas",status:"delivered",soldDate:"2026-03-10",soldTo:"Park Place Dallas",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-01",cost:400,delivered:true,dateDelivered:"2026-03-02",company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"},outbound:{set:true,destination:"Park Place Dallas",eta:"2026-03-14",readyDate:"2026-03-11",pickedUp:true,datePickedUp:"2026-03-12",delivered:true,dateDelivered:"2026-03-14",cost:350,company:"DFW Auto Move",phone:"214-555-5555",email:"dfw@move.com"}},reconTasks:rt11,deliveredDate:"2026-03-14",kickedHistory:[]});
-
-// V12: Dallas - multiple recon in various stages
-const rt12=mkRt();
-rt12.detail={needed:true,status:"complete",dateCompleted:"2026-03-16",dateAssigned:"2026-03-12",vendors:[{id:"vb0",name:"Detail Pro DFW",selected:true,estimate:350,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:350,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt12.wheels={needed:true,status:"started",dateAssigned:"2026-03-14",dateStarted:"2026-03-16",dateApproved:"2026-03-15",vendors:[{id:"vb5",name:"Wheels Pro DFW",selected:true,estimate:450,bidLocked:true,lineItems:[{id:"wt1",desc:"Refinish 4 Wheels",price:450,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-rt12.tires={needed:true,status:"approved",dateAssigned:"2026-03-14",dateApproved:"2026-03-16",vendors:[{id:"vb4",name:"Tires Pro DFW",selected:true,estimate:700,bidLocked:true,lineItems:[{id:"wt1",desc:"4 New Tires",price:700,accepted:true,costType:"ws"}],vendorPhotos:[]}]};
-v.push({id:"v12",vin8:genVIN(),purchaseDate:"2026-03-07",buyingBroker:"Mike",sellingBroker:"",source:"Dealer",year:2023,make:"Jeep",model:"Grand Cherokee",trim:"Laredo",miles:29600,color:"Green",location:"Dallas",status:"in_recon",transport:{inbound:{set:true,destination:"Dallas",eta:"2026-03-10",cost:300,delivered:true,dateDelivered:"2026-03-11",company:"Lone Star Transport",phone:"214-555-4444",email:"ls@transport.com"},outbound:{set:false}},reconTasks:rt12,deliveredDate:null,kickedHistory:[]});
-
-// V13: Fresh buy in transport
-v.push({id:"v13",vin8:genVIN(),purchaseDate:"2026-03-19",buyingBroker:"Darren",sellingBroker:"",source:"Auction",year:2024,make:"RAM",model:"1500",trim:"Laramie",miles:4100,color:"Gray",location:"PHX",status:"in_recon",transport:{inbound:{set:true,destination:"PHX",eta:"2026-03-24",cost:550,company:"National Auto Shipping",phone:"800-555-9999",email:"ship@national.com"},outbound:{set:false}},reconTasks:mkRt(),deliveredDate:null,kickedHistory:[]});
-
-// V14: Retail sold with driveway delivery
-const rt14=mkRt();
-rt14.detail={needed:true,status:"complete",dateCompleted:"2026-03-14",dateAssigned:"2026-03-10",vendors:[{id:"va0",name:"Detail Pro PHX",selected:true,estimate:400,bidLocked:true,lineItems:[{id:"wt1",desc:"Full Detail",price:400,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
-rt14.touchup={needed:true,status:"complete",dateCompleted:"2026-03-15",dateAssigned:"2026-03-10",vendors:[{id:"va1",name:"Touch Up Pro PHX",selected:true,estimate:300,bidLocked:true,lineItems:[{id:"wt1",desc:"Bumper Touch Up",price:300,accepted:true,costType:"retail"}],vendorPhotos:[]}]};
-v.push({id:"v14",vin8:genVIN(),purchaseDate:"2026-03-03",buyingBroker:"Darren",sellingBroker:"Darren",source:"Driveway",year:2023,make:"Toyota",model:"Camry",trim:"LE",miles:35800,color:"Blue",location:"PHX",status:"sold",soldDate:"2026-03-17",soldTo:"Sarah Johnson (Retail)",transport:{inbound:{set:true,destination:"PHX",drivewayDest:"PHX",driverwayClearDate:"2026-03-04",drivewayEta:"2026-03-05",drivewayPickedUp:true,drivewayPickedUpDate:"2026-03-05",dwCompany:"Quick Tow",dwPhone:"480-555-3333",dwEmail:"quick@tow.com",delivered:true,dateDelivered:"2026-03-06"},outbound:{set:true,isRetail:true,shippingFrom:"PHX",destination:"Sarah Johnson",customerName:"Sarah Johnson",customerPhone:"602-555-6666",customerEmail:"sarah@email.com",deliveryAddress:"5678 Elm St, Tempe AZ 85281",cost:400,customerCharge:650,readyDate:"2026-03-18",eta:"2026-03-21"}},reconTasks:rt14,deliveredDate:null,kickedHistory:[]});
-
-
-// V15-V24: Blank vehicles for testing
-const blanks=[
-{y:2024,mk:"Toyota",md:"RAV4",tr:"XLE",mi:8500,cl:"White"},
-{y:2023,mk:"Ford",md:"Explorer",tr:"XLT",mi:22000,cl:"Black"},
-{y:2024,mk:"Honda",md:"CR-V",tr:"EX-L",mi:5200,cl:"Silver"},
-{y:2022,mk:"Chevrolet",md:"Tahoe",tr:"LT",mi:38000,cl:"Gray"},
-{y:2023,mk:"BMW",md:"X5",tr:"xDrive40i",mi:18500,cl:"Blue"},
-{y:2024,mk:"Jeep",md:"Wrangler",tr:"Sahara",mi:3800,cl:"Red"},
-{y:2023,mk:"RAM",md:"2500",tr:"Tradesman",mi:27000,cl:"White"},
-{y:2024,mk:"Toyota",md:"Tacoma",tr:"TRD Sport",mi:6100,cl:"Black"},
-{y:2022,mk:"Honda",md:"Pilot",tr:"Touring",mi:42000,cl:"Green"},
-{y:2024,mk:"Ford",md:"Bronco",tr:"Big Bend",mi:4500,cl:"Orange"},
-{y:2023,mk:"Nissan",md:"Pathfinder",tr:"SL",mi:19200,cl:"Gray"},
-{y:2024,mk:"Toyota",md:"Tundra",tr:"SR5",mi:3100,cl:"White"},
-{y:2022,mk:"Chevrolet",md:"Traverse",tr:"RS",mi:34500,cl:"Black"},
-{y:2023,mk:"Ford",md:"Maverick",tr:"XLT",mi:15800,cl:"Blue"},
-{y:2024,mk:"Honda",md:"Civic",tr:"Sport",mi:4200,cl:"Red"},
-{y:2023,mk:"Hyundai",md:"Tucson",tr:"SEL",mi:21000,cl:"Silver"},
-{y:2022,mk:"Kia",md:"Telluride",tr:"SX",mi:29400,cl:"White"},
-{y:2024,mk:"Toyota",md:"4Runner",tr:"TRD Off-Road",mi:2800,cl:"Green"},
-{y:2023,mk:"GMC",md:"Sierra 1500",tr:"SLT",mi:16700,cl:"Black"},
-{y:2024,mk:"Chevrolet",md:"Equinox",tr:"LT",mi:5900,cl:"Gray"},
-{y:2022,mk:"Ford",md:"Mustang",tr:"GT",mi:18200,cl:"Red"},
-{y:2023,mk:"Tesla",md:"Model Y",tr:"Long Range",mi:12400,cl:"White"},
-{y:2024,mk:"RAM",md:"1500",tr:"Rebel",mi:3600,cl:"Orange"},
-{y:2023,mk:"Jeep",md:"Grand Cherokee L",tr:"Limited",mi:14800,cl:"Blue"},
-{y:2022,mk:"Toyota",md:"Highlander",tr:"XLE",mi:31200,cl:"Silver"},
-{y:2024,mk:"Honda",md:"HR-V",tr:"Sport",mi:6800,cl:"Black"},
-{y:2023,mk:"Ford",md:"Edge",tr:"SEL",mi:24100,cl:"Gray"},
-{y:2024,mk:"Chevrolet",md:"Colorado",tr:"Z71",mi:4400,cl:"White"},
-{y:2022,mk:"BMW",md:"X3",tr:"xDrive30i",mi:27600,cl:"Blue"},
-{y:2023,mk:"Nissan",md:"Frontier",tr:"PRO-4X",mi:11300,cl:"Red"},
-{y:2024,mk:"Lexus",md:"RX",tr:"350",mi:8900,cl:"White"},
-{y:2023,mk:"Audi",md:"Q5",tr:"Premium",mi:14200,cl:"Black"},
-{y:2022,mk:"Mercedes",md:"GLC",tr:"300",mi:22400,cl:"Silver"},
-{y:2024,mk:"Subaru",md:"Outback",tr:"Limited",mi:5100,cl:"Blue"},
-{y:2023,mk:"Mazda",md:"CX-5",tr:"Turbo",mi:11800,cl:"Red"},
-{y:2024,mk:"VW",md:"Atlas",tr:"SE",mi:3200,cl:"Gray"},
-{y:2022,mk:"Acura",md:"MDX",tr:"Type S",mi:19600,cl:"White"},
-{y:2023,mk:"Lincoln",md:"Aviator",tr:"Reserve",mi:16300,cl:"Black"},
-{y:2024,mk:"Genesis",md:"GV70",tr:"3.5T",mi:4700,cl:"Green"},
-{y:2022,mk:"Cadillac",md:"Escalade",tr:"Premium",mi:28500,cl:"Black"},
-{y:2024,mk:"Rivian",md:"R1S",tr:"Adventure",mi:6200,cl:"Blue"},
-{y:2023,mk:"Porsche",md:"Cayenne",tr:"Base",mi:13400,cl:"White"},
-{y:2022,mk:"Land Rover",md:"Defender",tr:"110 SE",mi:24800,cl:"Gray"},
-{y:2024,mk:"Volvo",md:"XC90",tr:"Ultimate",mi:3900,cl:"Silver"},
-{y:2023,mk:"Infiniti",md:"QX60",tr:"Luxe",mi:17200,cl:"Red"},
-{y:2024,mk:"Buick",md:"Enclave",tr:"Avenir",mi:5600,cl:"White"},
-{y:2022,mk:"Dodge",md:"Durango",tr:"RT",mi:21300,cl:"Orange"},
-{y:2023,mk:"Chrysler",md:"Pacifica",tr:"Touring",mi:15800,cl:"Blue"},
-{y:2024,mk:"Mitsubishi",md:"Outlander",tr:"SEL",mi:4100,cl:"Black"},
-{y:2022,mk:"Jaguar",md:"F-PACE",tr:"P250",mi:26700,cl:"Gray"}
-];
-for(let i=0;i<blanks.length;i++){const c=blanks[i];const rt99=mkRt();
-v.push({id:"v"+(15+i),vin8:genVIN(),purchaseDate:i<16?"2026-03-"+String(15+i).padStart(2,"0"):"2026-04-"+String(i-15).padStart(2,"0"),buyingBroker:["Darren","Mike"][i%2],sellingBroker:"",source:SOURCES[i%SOURCES.length],year:c.y,make:c.mk,model:c.md,trim:c.tr,miles:c.mi,color:c.cl,location:LOCATIONS[i%2],status:"in_recon",transport:{inbound:{set:false},outbound:{set:false}},reconTasks:rt99,deliveredDate:null,kickedHistory:[]});}
-// 15 PRE-GROUNDED vehicles for testing
-const groundedCars=[
-{y:2024,mk:"Toyota",md:"Supra",tr:"3.0",mi:2100,cl:"Yellow",dealer:"Southwest Auto Group"},
-{y:2023,mk:"Ford",md:"Raptor",tr:"37",mi:8700,cl:"Blue",dealer:"Camelback Ford"},
-{y:2024,mk:"Chevrolet",md:"Corvette",tr:"Stingray",mi:1200,cl:"Red",dealer:"Courtesy Chevrolet"},
-{y:2022,mk:"BMW",md:"M4",tr:"Competition",mi:15800,cl:"Black",dealer:"BMW North Scottsdale"},
-{y:2023,mk:"RAM",md:"TRX",tr:"6.2L",mi:9400,cl:"White",dealer:"Larry H Miller RAM"},
-{y:2024,mk:"Jeep",md:"Wagoneer",tr:"Series III",mi:3200,cl:"Gray",dealer:"AutoNation Dallas"},
-{y:2023,mk:"Tesla",md:"Model 3",tr:"Performance",mi:11600,cl:"White",dealer:"Premier Motors"},
-{y:2024,mk:"Honda",md:"Type R",tr:"FL5",mi:1800,cl:"Blue",dealer:"Bell Honda"},
-{y:2022,mk:"Audi",md:"RS6",tr:"Avant",mi:19200,cl:"Gray",dealer:"Audi Scottsdale"},
-{y:2023,mk:"Mercedes",md:"AMG GT",tr:"53",mi:7500,cl:"Silver",dealer:"Park Place Dallas"},
-{y:2024,mk:"Lexus",md:"LC",tr:"500",mi:2900,cl:"White",dealer:"Earnhardt Lexus"},
-{y:2023,mk:"Porsche",md:"911",tr:"Carrera S",mi:6100,cl:"Black",dealer:"Porsche Chandler"},
-{y:2024,mk:"Ford",md:"Lightning",tr:"Lariat",mi:4200,cl:"Blue",dealer:"Sanderson Ford"},
-{y:2022,mk:"Chevrolet",md:"Camaro",tr:"ZL1",mi:13400,cl:"Orange",dealer:"Van Chevrolet"},
-{y:2023,mk:"Dodge",md:"Charger",tr:"Scat Pack",mi:8800,cl:"Red",dealer:"Carvana PHX"},
-{y:2024,mk:"Toyota",md:"GR86",tr:"Premium",mi:1800,cl:"Blue",dealer:"Peoria Toyota"},
-{y:2023,mk:"Ford",md:"Bronco Sport",tr:"Badlands",mi:9200,cl:"Green",dealer:"Bill Luke Ford"},
-{y:2022,mk:"Chevrolet",md:"Tahoe",tr:"Z71",mi:22100,cl:"Black",dealer:"Courtesy Chevy"},
-{y:2024,mk:"Honda",md:"Accord",tr:"Sport",mi:3400,cl:"White",dealer:"Tempe Honda"},
-{y:2023,mk:"Hyundai",md:"Palisade",tr:"Calligraphy",mi:11500,cl:"Gray",dealer:"Chapman Hyundai"},
-{y:2024,mk:"Kia",md:"EV6",tr:"GT-Line",mi:4800,cl:"Red",dealer:"Mark Kia"},
-{y:2022,mk:"GMC",md:"Yukon",tr:"Denali",mi:19800,cl:"White",dealer:"Larry H Miller GMC"},
-{y:2023,mk:"Nissan",md:"Z",tr:"Performance",mi:7600,cl:"Yellow",dealer:"Pinnacle Nissan"},
-{y:2024,mk:"Subaru",md:"WRX",tr:"Limited",mi:2900,cl:"Blue",dealer:"Subaru Scottsdale"},
-{y:2022,mk:"Lexus",md:"GX",tr:"460",mi:24300,cl:"Silver",dealer:"Earnhardt Lexus"},
-{y:2023,mk:"Acura",md:"Integra",tr:"A-Spec",mi:10200,cl:"Red",dealer:"Acura North Scottsdale"},
-{y:2024,mk:"Mazda",md:"MX-5",tr:"Grand Touring",mi:1500,cl:"White",dealer:"Chapman Mazda"},
-{y:2022,mk:"Volvo",md:"XC60",tr:"T6",mi:21800,cl:"Black",dealer:"Volvo Scottsdale"},
-{y:2023,mk:"Lincoln",md:"Nautilus",tr:"Reserve",mi:13600,cl:"Gray",dealer:"Chapman Lincoln"},
-{y:2024,mk:"Genesis",md:"G70",tr:"3.3T",mi:5100,cl:"Blue",dealer:"Genesis Scottsdale"}
-];
-for(let g=0;g<groundedCars.length;g++){const gc=groundedCars[g];const grt=mkRt();const gid="vg"+g;const now="2026-04-08";
-v.push({id:gid,vin8:genVIN(),purchaseDate:"2026-04-0"+((g%9)+1),buyingBroker:["Darren","Mike","Darren"][g%3],sellingBroker:"",source:SOURCES[g%SOURCES.length],year:gc.y,make:gc.mk,model:gc.md,trim:gc.tr,miles:gc.mi,color:gc.cl,location:g%2===0?"PHX":"Dallas",status:"sold",soldDate:now,soldTo:gc.dealer,transport:{inbound:{set:true,destination:g%2===0?"PHX":"Dallas",eta:"2026-04-06",cost:450+g*50,delivered:true,dateDelivered:"2026-04-07",company:"Fast Auto Transport",phone:"602-555-1234",email:"fast@transport.com"},outbound:{set:false}},reconTasks:grt,deliveredDate:null,kickedHistory:[]});}
-// 15 FRESH grounded vehicles - no recon assigned
-const freshCars=[
-{y:2024,mk:"Toyota",md:"Camry",tr:"XSE",mi:1200,cl:"Pearl White",dealer:"Big Two Toyota"},
-{y:2023,mk:"Ford",md:"Explorer",tr:"ST",mi:14500,cl:"Rapid Red",dealer:"Larry H Miller Ford"},
-{y:2024,mk:"Chevrolet",md:"Suburban",tr:"RST",mi:3800,cl:"Black",dealer:"Earnhardt Chevy"},
-{y:2022,mk:"Honda",md:"Odyssey",tr:"Elite",mi:22100,cl:"Silver",dealer:"Autonation Honda"},
-{y:2023,mk:"RAM",md:"2500",tr:"Laramie",mi:11200,cl:"White",dealer:"Rodeo RAM"},
-{y:2024,mk:"BMW",md:"X5",tr:"xDrive40i",mi:2400,cl:"Mineral White",dealer:"BMW Chandler"},
-{y:2023,mk:"Tesla",md:"Model X",tr:"Plaid",mi:8900,cl:"Red",dealer:"Tesla Direct"},
-{y:2024,mk:"Jeep",md:"Gladiator",tr:"Rubicon",mi:1600,cl:"Sarge Green",dealer:"Airpark Jeep"},
-{y:2022,mk:"Audi",md:"Q7",tr:"Premium Plus",mi:19800,cl:"Navarra Blue",dealer:"Audi Phoenix"},
-{y:2023,mk:"GMC",md:"Canyon",tr:"AT4X",mi:7200,cl:"Summit White",dealer:"Earnhardt Buick GMC"},
-{y:2024,mk:"Hyundai",md:"Santa Cruz",tr:"Limited",mi:2100,cl:"Sage Gray",dealer:"Chapman Hyundai"},
-{y:2023,mk:"Lexus",md:"TX",tr:"500h",mi:5400,cl:"Eminent White",dealer:"Lexus of Chandler"},
-{y:2024,mk:"Ford",md:"Ranger",tr:"Raptor",mi:900,cl:"Code Orange",dealer:"Sanderson Ford"},
-{y:2022,mk:"Mercedes",md:"GLE",tr:"450",mi:18700,cl:"Obsidian Black",dealer:"Mercedes Scottsdale"},
-{y:2023,mk:"Rivian",md:"R1T",tr:"Adventure",mi:6300,cl:"Limestone",dealer:"Rivian Direct"}
-];
-for(let f=0;f<freshCars.length;f++){const fc=freshCars[f];const frt=mkRt();const fid="vf"+f;
-v.push({id:fid,vin8:genVIN(),purchaseDate:"2026-04-"+String(10+f).padStart(2,"0"),buyingBroker:["Darren","Mike"][f%2],sellingBroker:"",source:SOURCES[f%SOURCES.length],year:fc.y,make:fc.mk,model:fc.md,trim:fc.tr,miles:fc.mi,color:fc.cl,location:f%2===0?"PHX":"Dallas",status:"sold",soldDate:"2026-04-12",soldTo:fc.dealer,transport:{inbound:{set:true,destination:f%2===0?"PHX":"Dallas",eta:"2026-04-10",cost:500+f*25,delivered:true,dateDelivered:"2026-04-11",company:"Southwest Auto Haul",phone:"602-555-8888",email:"sw@autohaul.com"},outbound:{set:false}},reconTasks:frt,deliveredDate:null,kickedHistory:[]});}
-return v;
-}
 const stColor=(s)=>({complete:{bg:"#0D3B1E",text:"#34D399",bd:"#166534"},started:{bg:"#3B2F10",text:"#FBBF24",bd:"#78590A"},approved:{bg:"#1A2940",text:"#60A5FA",bd:"#1E3A5F"},estimated:{bg:"#3B2F10",text:"#FBBF24",bd:"#78590A"},assigned:{bg:"#3B3510",text:"#EAB308",bd:"#6B5F0A"},unassigned:{bg:"#3B1515",text:"#F87171",bd:"#7F1D1D"},declined:{bg:"#3B1515",text:"#FCA5A5",bd:"#7F1D1D"},na:{bg:"#1A1A2E",text:"#555",bd:"#2A2A3E"}}[s]||{bg:"#1A1A2E",text:"#888",bd:"#333"});
 const stLabel=(s)=>({complete:"DONE",started:"IN PROGRESS",approved:"APPROVED",bid_submitted:"BID SUBMITTED",estimated:"ESTIMATE IN",assigned:"ASSIGNED",unassigned:"NEEDS ASSIGN",declined:"VENDOR DECLINED",na:"N/A"}[s]||"—");
 const vData=(veh)=>{const c=(x)=>{if(!x)return"";const s=String(x).trim();return s.toLowerCase()==="null"||s.toLowerCase()==="undefined"?"":s;};return {id:veh.id,vin8:veh.vin8,year:veh.year,make:veh.make,model:veh.model,trim:veh.trim,miles:veh.miles,color:veh.color,location:veh.location,soldTo:c(veh.soldTo),soldDate:c(veh.soldDate),buyingBroker:c(veh.buyingBroker),sellingBroker:c(veh.sellingBroker)};};
@@ -568,7 +344,7 @@ useEffect(()=>{
 
 // ============ CORE STATE — API-BACKED WITH LOCALSTORAGE FALLBACK ============
 const [vehicles,setVehicles]=useState([]);
-const [vendors,setVendors]=useState(VENDORS);
+const [vendors,setVendors]=useState({});
 const [tab,setTab]=useState("active");const [selV,setSelV]=useState(null);
 const [showAdd,setShowAdd]=useState(false);const [fLoc,setFLoc]=useState("All");const [search,setSearch]=useState("");const [fSt,setFSt]=useState("All");const [note,setNote]=useState(null);
 const [apiReady,setApiReady]=useState(false);
@@ -627,12 +403,6 @@ useEffect(()=>{
         regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
       });
       setRegVendors(regVList);
-      // Merge with defaults — keep BOTH registered + defaults so test vendors stay available
-      VCAT.forEach(c=>{
-        const defaults=VENDORS[c.key]||[];
-        const existingNames=new Set(vnMap[c.key].map(v=>v.name.toLowerCase()));
-        defaults.forEach(d=>{if(!existingNames.has(d.name.toLowerCase()))vnMap[c.key].push(d);});
-      });
       setVendors(vnMap);
       // Users
       setUsers((uRes.users||[]).map(u=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location})));
@@ -2660,11 +2430,6 @@ const reloadVendors=async()=>{
     const cats=vn.categories?tryParse(vn.categories,[]):[];
     cats.forEach(ck=>{if(vnMap[ck])vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});});
     regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
-  });
-  VCAT.forEach(c=>{
-    const defaults=VENDORS[c.key]||[];
-    const existingNames=new Set(vnMap[c.key].map(v=>v.name.toLowerCase()));
-    defaults.forEach(d=>{if(!existingNames.has(d.name.toLowerCase()))vnMap[c.key].push(d);});
   });
   setVendors(vnMap);
   setRegVendors(regVList);
