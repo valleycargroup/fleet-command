@@ -30,6 +30,9 @@ jobs:
                   [ -n "${{ secrets.FLEET_PROD_CLOUDFRONT_DISTRIBUTION_ID }}" ] || (echo "Missing FLEET_PROD_CLOUDFRONT_DISTRIBUTION_ID" && exit 1)
                   [ -n "${{ secrets.AWS_S3_ACCESS_KEY_ID }}" ] || (echo "Missing AWS_S3_ACCESS_KEY_ID" && exit 1)
                   [ -n "${{ secrets.AWS_S3_SECRET_ACCESS_KEY }}" ] || (echo "Missing AWS_S3_SECRET_ACCESS_KEY" && exit 1)
+                  [ -n "${{ secrets.SENDGRID_API_KEY }}" ] || (echo "Missing SENDGRID_API_KEY" && exit 1)
+                  [ -n "${{ secrets.FLEET_FROM_EMAIL }}" ] || (echo "Missing FLEET_FROM_EMAIL" && exit 1)
+                  [ -n "${{ secrets.FLEET_PROD_APP_URL }}" ] || (echo "Missing FLEET_PROD_APP_URL" && exit 1)
 
             - name: Setup SSH
               run: |
@@ -97,22 +100,23 @@ jobs:
                   cat > .env <<\"ENV\"
                   NODE_ENV=production
 
-                  DB_USER=${{ secrets.FLEET_PROD_DB_USER }}
-                  DB_PASSWORD=${{ secrets.FLEET_PROD_DB_PASSWORD }}
-                  DB_NAME=${{ secrets.FLEET_PROD_DB_NAME }}
-                  DB_HOST=${{ secrets.FLEET_PROD_DB_HOST }}
+                  DB_USER="${{ secrets.FLEET_PROD_DB_USER }}"
+                  DB_PASSWORD="${{ secrets.FLEET_PROD_DB_PASSWORD }}"
+                  DB_NAME="${{ secrets.FLEET_PROD_DB_NAME }}"
+                  DB_HOST="${{ secrets.FLEET_PROD_DB_HOST }}"
                   DB_PORT=5432
-                  DATABASE_URL=postgresql://${{ secrets.FLEET_PROD_DB_USER }}:${{ secrets.FLEET_PROD_DB_PASSWORD }}@${{ secrets.FLEET_PROD_DB_HOST }}:5432/${{ secrets.FLEET_PROD_DB_NAME }}
+                  DATABASE_URL="postgresql://${{ secrets.FLEET_PROD_DB_USER }}:${{ secrets.FLEET_PROD_DB_PASSWORD }}@${{ secrets.FLEET_PROD_DB_HOST }}:5432/${{ secrets.FLEET_PROD_DB_NAME }}"
 
                   SERVER_PORT=5001
                   CLIENT_PORT=8080
-                  APP_URL=${{ secrets.FLEET_PROD_APP_URL }}
+                  APP_URL="${{ secrets.FLEET_PROD_APP_URL }}"
 
-                  VITE_API_BASE_URL=${{ secrets.FLEET_PROD_VITE_API_BASE_URL }}
-                  VITE_APP_URL=${{ secrets.FLEET_PROD_APP_URL }}
+                  VITE_API_BASE_URL="${{ secrets.FLEET_PROD_VITE_API_BASE_URL }}"
+                  VITE_APP_URL="${{ secrets.FLEET_PROD_APP_URL }}"
 
-                  RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-                  FROM_EMAIL=${{ secrets.FLEET_FROM_EMAIL }}
+                  SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}"
+                  SENDGRID_FROM_EMAIL="${{ secrets.FLEET_FROM_EMAIL }}"
+                  SENDGRID_FROM_NAME="Fleet Command"
 
                   ENV
                   '"

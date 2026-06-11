@@ -1,26 +1,52 @@
-import axios from 'axios';
+import https from 'https';
 import db from './db';
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Fleet Command <notifications@fleetcommandrecon.com>';
-const APP_URL = process.env.APP_URL || 'https://fleetcommandrecon.com';
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || process.env.FROM_EMAIL || 'notifications@fleetcommandrecon.net';
+const FROM_NAME = process.env.SENDGRID_FROM_NAME || 'Fleet Command';
+const APP_URL = process.env.APP_URL || 'https://fleetcommandrecon.net';
 
-export async function sendEmail(to: string, subject: string, html: string) {
-  const apiKey = process.env.RESEND_API_KEY;
+export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
-    console.warn('[email] RESEND_API_KEY not set — skipping send');
-    return { ok: false, error: 'RESEND_API_KEY not configured' };
+    console.warn('[email] SENDGRID_API_KEY not set — skipping send');
+    return { ok: false, error: 'SENDGRID_API_KEY not configured' };
   }
-  try {
-    const res = await axios.post(
-      'https://api.resend.com/emails',
-      { from: FROM_EMAIL, to: [to], subject, html },
-      { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+
+  const payload = JSON.stringify({
+    personalizations: [{ to: [{ email: to }] }],
+    from: { email: FROM_EMAIL, name: FROM_NAME },
+    subject,
+    content: [{ type: 'text/html', value: html }],
+  });
+
+  return new Promise((resolve) => {
+    const req = https.request(
+      {
+        hostname: 'api.sendgrid.com',
+        path: '/v3/mail/send',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        const ok = res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300;
+        if (!ok) console.error('[email] SendGrid responded with status', res.statusCode);
+        res.resume();
+        resolve({ ok });
+      }
     );
-    return { ok: true, data: res.data };
-  } catch (e: any) {
-    console.error('[email] send failed:', e?.response?.data || e.message);
-    return { ok: false, error: e?.response?.data || e.message };
-  }
+
+    req.on('error', (err) => {
+      console.error('[email] SendGrid request failed:', err.message);
+      resolve({ ok: false, error: err.message });
+    });
+
+    req.write(payload);
+    req.end();
+  });
 }
 
 export async function logEmail(
@@ -42,7 +68,6 @@ export async function logEmail(
 }
 
 // ── Email Templates ──────────────────────────────────────────────────────────
-// Migrated from worker.js. See worker.js for the full 47-template library.
 
 function baseLayout(title: string, body: string) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
