@@ -163,3 +163,20 @@ CREATE TABLE IF NOT EXISTS arb_claims (
   filed_by      TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── Indexes ──────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_sessions_token       ON sessions(token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id     ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at  ON sessions(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_recon_tasks_vehicle_id   ON recon_tasks(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_transport_vehicle_id     ON transport(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_email_log_vehicle_id     ON email_log(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_parts_requests_vehicle_id ON parts_requests(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_arb_claims_vehicle_id    ON arb_claims(vehicle_id);
+
+CREATE INDEX IF NOT EXISTS idx_vehicles_status      ON vehicles(status);
+CREATE INDEX IF NOT EXISTS idx_vehicles_location    ON vehicles(location);
+CREATE INDEX IF NOT EXISTS idx_vehicles_buyer       ON vehicles(buyer);
+CREATE INDEX IF NOT EXISTS idx_vehicles_purchase_date ON vehicles(purchase_date);
