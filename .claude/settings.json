@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(node -e ' *)",
+      "Bash(docker exec *)",
+      "Bash(docker restart *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node_modules/.bin/vite build *)",
+      "Bash(node -e \"require\\('child_process'\\).execSync\\('tsc --version', {stdio:'inherit'}\\)\")",
+      "Bash(docker compose *)"
+    ]
+  }
+}
