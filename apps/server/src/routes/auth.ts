@@ -1,7 +1,16 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import db from '../lib/db';
 import { hashPassword, verifyPassword, upgradePasswordHash, generateToken, requireAuth } from '../lib/auth';
 import { sendEmail, logEmail, passwordResetEmail } from '../lib/email';
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts — try again in 15 minutes' },
+});
 
 const router = Router();
 
@@ -30,7 +39,7 @@ router.post('/setup', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -86,7 +95,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/forgot-password
-router.post('/forgot-password', async (req: Request, res: Response) => {
+router.post('/forgot-password', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email required' });
@@ -111,7 +120,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/reset-password
-router.post('/reset-password', async (req: Request, res: Response) => {
+router.post('/reset-password', authLimiter, async (req: Request, res: Response) => {
   try {
     const { token, new_password } = req.body;
     if (!token || !new_password) return res.status(400).json({ error: 'Token and new password required' });
