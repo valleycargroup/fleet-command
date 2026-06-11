@@ -117,6 +117,7 @@ jobs:
                   SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}"
                   SENDGRID_FROM_EMAIL="${{ secrets.FLEET_FROM_EMAIL }}"
                   SENDGRID_FROM_NAME="Fleet Command"
+                  SERVER_PUBLIC_URL="${{ secrets.FLEET_PROD_VITE_API_BASE_URL }}"
 
                   ENV
                   '"

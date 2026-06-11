@@ -11,7 +11,6 @@ const app = express();
 
 const allowedOrigins = [
   `http://localhost:${CLIENT_PORT}`,
-  'http://host.docker.internal',
   'https://dev.fleetcommandrecon.net',
   'https://fleetcommandrecon.net',
   'https://www.fleetcommandrecon.net',
@@ -29,7 +28,8 @@ const corsOptions: CorsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+  exposedHeaders: ['Accept-Ranges', 'Content-Range', 'Content-Length'],
 };
 
 app.use(cors(corsOptions));
