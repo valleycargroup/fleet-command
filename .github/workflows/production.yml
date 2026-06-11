@@ -119,6 +119,11 @@ jobs:
                   SENDGRID_FROM_NAME="Fleet Command"
                   SERVER_PUBLIC_URL="${{ secrets.FLEET_PROD_VITE_API_BASE_URL }}"
 
+                  S3_IMAGE_BUCKET="prod-fleet-command-images"
+                  S3_FILES_BUCKET="prod-fleet-command-files"
+                  S3_IMAGE_PUBLIC_BASE_URL="${{ secrets.FLEET_PROD_APP_URL }}"
+                  S3_FILES_PUBLIC_BASE_URL="${{ secrets.FLEET_PROD_APP_URL }}"
+
                   ENV
                   '"
 
