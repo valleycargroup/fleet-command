@@ -1400,7 +1400,7 @@ if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.se
 </div></div>}
 {lbImg2&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.98)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"pointer"}} onClick={()=>setLbImg2(null)}>
 <div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.stopPropagation()}>
-{lbImg2.type==="video"?<video src={lbImg2.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={e=>e.stopPropagation()}/>:<img src={lbImg2.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
+{lbImg2.type==="video"?<video key={lbImg2.data} src={lbImg2.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={e=>e.stopPropagation()}/>:<img src={lbImg2.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
 <button style={{position:"fixed",top:12,right:12,width:48,height:48,borderRadius:"50%",background:"#EF4444",border:"none",color:"#FFF",fontSize:24,cursor:"pointer"}} onClick={()=>setLbImg2(null)}>✕</button></div></div>}
 </div>;
 }
@@ -1814,7 +1814,7 @@ notify("🔄 Reopened — add tasks and assign vendor");}}>🔄 Reopen — Add M
 </div></div></div>}
 {lbImg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.98)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"pointer"}} onClick={()=>setLbImg(null)}>
 <div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={e=>e.stopPropagation()}>
-{lbImg.type==="video"?<video src={lbImg.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={e=>e.stopPropagation()}/>:<img src={lbImg.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
+{lbImg.type==="video"?<video key={lbImg.data} src={lbImg.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={e=>e.stopPropagation()}/>:<img src={lbImg.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
 <button style={{position:"fixed",top:12,right:12,width:48,height:48,borderRadius:"50%",background:"#EF4444",border:"none",color:"#FFF",fontSize:24,cursor:"pointer"}} onClick={()=>setLbImg(null)}>✕</button></div></div>}
 </span>;
 }
