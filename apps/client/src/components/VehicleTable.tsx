@@ -1,0 +1,203 @@
+import { useState, useMemo } from 'react';
+import { VCAT } from '../lib/constants';
+import { fmtDate, stColor, stLabel } from '../lib/utils';
+import { S } from '../lib/styles';
+import { useStore, selectRoles } from '../lib/store';
+
+export function VehicleTable() {
+const vehicles = useStore((s: any) => s.vehicles);
+const tab = useStore((s: any) => s.tab);
+const fLoc = useStore((s: any) => s.fLoc);
+const search = useStore((s: any) => s.search);
+const currentUser = useStore((s: any) => s.currentUser);
+const setSelV = useStore((s: any) => s.setSelV);
+const { isVendor } = useStore(selectRoles);
+const onSelect = setSelV;
+
+const list = useMemo(() => {
+  let l = [...vehicles];
+  if (tab === "delivered") l = l.filter((v: any) => v.status === "delivered");
+  else l = l.filter((v: any) => v.status !== "delivered");
+  if (isVendor && currentUser) {
+    l = l.filter((v: any) => {
+      const myTasks = VCAT.filter(c => {
+        const t = v.reconTasks[c.key];
+        return t?.needed && (t.vendors||[]).some((vn: any) => {
+          const ce = (currentUser.email||"").toLowerCase();
+          const cf = (currentUser.first_name||currentUser.firstName||"").toLowerCase();
+          const cn = ((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();
+          const ve = (vn.email||"").toLowerCase();
+          const vname = (vn.name||"").toLowerCase();
+          return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));
+        });
+      });
+      if (!myTasks.length) return false;
+      return myTasks.some(c => v.reconTasks[c.key].status !== "complete");
+    });
+  }
+  if (currentUser?.role === "Buyer") l = l.filter((v: any) => v.buyingBroker === currentUser.firstName||v.buyingBroker === currentUser.name||(currentUser.firstName&&currentUser.lastName&&v.buyingBroker===(currentUser.firstName+" "+currentUser.lastName).trim()));
+  if (currentUser?.role === "Seller") l = l.filter((v: any) => v.sellingBroker === currentUser.firstName||v.sellingBroker === currentUser.name||(currentUser.firstName&&currentUser.lastName&&v.sellingBroker===(currentUser.firstName+" "+currentUser.lastName).trim()));
+  if (currentUser?.role === "Buyer/Seller") l = l.filter((v: any) => { const names=[currentUser.firstName,currentUser.name,(currentUser.firstName&&currentUser.lastName?(currentUser.firstName+" "+currentUser.lastName).trim():"")].filter(Boolean);return names.some((n: any)=>v.buyingBroker===n||v.sellingBroker===n);});
+  if (fLoc !== "All") l = l.filter((v: any) => v.location === fLoc);
+  if (search) { const q = search.toLowerCase(); l = l.filter((v: any) => (v.fullVin||v.vin8||"").toLowerCase().includes(q)||v.vin8.toLowerCase().includes(q)||`${v.year} ${v.make} ${v.model}`.toLowerCase().includes(q)||v.buyingBroker.toLowerCase().includes(q)||(v.sellingBroker||"").toLowerCase().includes(q)||(v.soldTo||"").toLowerCase().includes(q)); }
+  l.sort((a: any, b: any) => {
+    if (tab === "delivered") { const da=a.deliveredDate||"",db=b.deliveredDate||""; return da>db?-1:da<db?1:0; }
+    const ak=(a.kickedHistory||[]).length>0&&a.status!=="sold"&&a.status!=="delivered";
+    const bk=(b.kickedHistory||[]).length>0&&b.status!=="sold"&&b.status!=="delivered";
+    if(ak&&!bk)return -1; if(!ak&&bk)return 1;
+    if(ak&&bk){const ka=(a.kickedHistory||[]).slice(-1)[0]?.kickedDate||"",kb=(b.kickedHistory||[]).slice(-1)[0]?.kickedDate||"";return ka>kb?-1:ka<kb?1:0;}
+    const as2=a.status==="sold",bs2=b.status==="sold";
+    if(as2&&!bs2)return -1; if(!as2&&bs2)return 1;
+    if(as2&&bs2){const sa=a.soldDate||"9999",sb2=b.soldDate||"9999";return sa<sb2?-1:sa>sb2?1:0;}
+    const ag=a.transport?.inbound?.delivered&&a.status!=="sold";
+    const bg=b.transport?.inbound?.delivered&&b.status!=="sold";
+    if(ag&&!bg)return -1; if(!ag&&bg)return 1;
+    if(ag&&bg){const da=a.purchaseDate||"9999",db=b.purchaseDate||"9999";return da<db?-1:da>db?1:0;}
+    const ae=a.transport?.inbound?.set&&!a.transport?.inbound?.delivered;
+    const be=b.transport?.inbound?.set&&!b.transport?.inbound?.delivered;
+    if(ae&&!be)return -1; if(!ae&&be)return 1;
+    if(ae&&be){const ea=a.transport?.inbound?.eta||"9999",eb=b.transport?.inbound?.eta||"9999";return ea<eb?-1:ea>eb?1:0;}
+    const da=a.purchaseDate||"",db=b.purchaseDate||"";
+    return da>db?-1:da<db?1:0;
+  });
+  return l;
+}, [vehicles, tab, fLoc, search, currentUser]);
+const [sortCol,setSortCol]=useState("");const [sortDir,setSortDir]=useState("asc");
+const toggleSort=(col: any)=>{if(sortCol===col)setSortDir(sortDir==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("asc");}};
+if(!list.length)return <div style={{textAlign:"center",padding:60,color:"#4B5563",fontSize:17}}>No vehicles found.</div>;
+const soldCount=list.filter((v: any)=>v.status==="sold"||v.status==="delivered").length;
+const reconCount=list.filter((v: any)=>{const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);return rc2.length>0&&rc2.some(c=>v.reconTasks[c.key]?.status!=="complete");}).length;
+const r2sCount=list.filter((v: any)=>{const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const dn2=rc2.filter(c=>v.reconTasks[c.key]?.status==="complete");return v.noReconNeeded||(rc2.length>0&&dn2.length===rc2.length);}).length;
+const inboundCount=list.filter((v: any)=>v.transport?.inbound?.set&&!v.transport?.inbound?.delivered).length;
+const onGroundCount=list.filter((v: any)=>v.transport?.inbound?.delivered&&v.status!=="delivered").length;
+const outSetCount=list.filter((v: any)=>v.transport?.outbound?.set&&!v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
+const pickedUpCount=list.filter((v: any)=>v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
+const getPriority=(v: any)=>{const isKicked=(v.kickedReturn||(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV))&&v.status!=="sold"&&v.status!=="delivered";if(isKicked)return -1;const sold=v.status==="sold"||v.status==="delivered";const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const pastDue=rc.some(c=>{const t=v.reconTasks[c.key];if(!t||t.status==="complete")return false;const sv2=(t.vendors||[]).find((x: any)=>x.selected);const eta=sv2?.etaDone||t.etaComplete;if(!eta)return false;let d=new Date(eta);if(d.getFullYear()<100)d.setFullYear(d.getFullYear()+2000);return d<new Date();});if(sold&&pastDue)return 0;if(sold&&rc.some(c=>v.reconTasks[c.key]?.status!=="complete"))return 1;if(pastDue)return 2;return 3;};
+const isMyVendorRecord=(vn: any)=>{if(!isVendor||!currentUser)return false;const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));};
+const getVendorStatus=(v: any)=>{if(!isVendor||!currentUser)return null;const myTasks=VCAT.filter(c=>{const t=v.reconTasks[c.key];return t?.needed&&(t.vendors||[]).some(isMyVendorRecord);});if(!myTasks.length)return null;let bidPending=false,working=false,done=true;for(const c of myTasks){const t=v.reconTasks[c.key];const me=(t.vendors||[]).find(isMyVendorRecord);if(!me)continue;if(t.status==="complete"){continue;}done=false;if(me.bidLocked&&me.selected){working=true;}else if(!me.bidLocked){bidPending=true;}}if(bidPending)return{key:"bid_pending",label:"⏳ BID PENDING",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};if(working)return{key:"working",label:"🔧 WORKING",bg:"#1E3A5F",color:"#93C5FD",border:"#3B82F6"};if(done)return{key:"done",label:"✅ DONE",bg:"#0D3B1E",color:"#6EE7B7",border:"#166534"};return{key:"awaiting",label:"⏳ AWAITING BUYER",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};};
+const sorted2=[...list].sort((a: any,b: any)=>{const pa=getPriority(a),pb=getPriority(b);if(pa!==pb)return pa-pb;if(sortCol){let av: any,bv: any;
+if(sortCol==="Vehicle")av=a.year+" "+a.make+" "+a.model,bv=b.year+" "+b.make+" "+b.model;
+else if(sortCol==="Purchased")av=a.purchaseDate||"",bv=b.purchaseDate||"";
+else if(sortCol==="Buyer")av=a.buyingBroker||"",bv=b.buyingBroker||"";
+else if(sortCol==="Seller")av=a.sellingBroker||"",bv=b.sellingBroker||"";
+else if(sortCol==="Location")av=a.location||"",bv=b.location||"";
+else if(sortCol==="Miles")av=a.miles||0,bv=b.miles||0;
+else if(sortCol==="Sold To")av=a.soldTo||"",bv=b.soldTo||"";
+else if(sortCol==="Color")av=a.color||"",bv=b.color||"";
+else if(sortCol==="Source")av=a.source||"",bv=b.source||"";
+else if(sortCol==="Sold")av=a.soldDate||"",bv=b.soldDate||"";
+else if(sortCol==="VIN#")av=a.vin8||"",bv=b.vin8||"";
+else return 0;
+if(typeof av==="number")return sortDir==="asc"?av-bv:bv-av;
+return sortDir==="asc"?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av));}
+const sa=a.soldDate||"9999",sb2=b.soldDate||"9999";
+if(a.status==="sold"&&b.status==="sold")return sa<sb2?-1:sa>sb2?1:0;
+const da=a.purchaseDate||"9999",db=b.purchaseDate||"9999";
+return da<db?-1:da>db?1:0;});
+return <span style={{display:"contents"}}><div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+{isVendor?<>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:11,color:"#9CA3AF"}}>Total Active</span> <span style={{fontSize:18,fontWeight:800,color:"#E5E7EB"}}>{list.length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#3B2F10",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>Bid Pending</span> <span style={{fontSize:18,fontWeight:800,color:"#FDE68A"}}>{list.filter((v: any)=>getVendorStatus(v)?.key==="bid_pending").length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#1E3A5F",border:"1px solid #3B82F6",textAlign:"center"}}><span style={{fontSize:11,color:"#93C5FD"}}>Working</span> <span style={{fontSize:18,fontWeight:800,color:"#BFDBFE"}}>{list.filter((v: any)=>getVendorStatus(v)?.key==="working").length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#3B2F10",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>Awaiting Buyer</span> <span style={{fontSize:18,fontWeight:800,color:"#FDE68A"}}>{list.filter((v: any)=>getVendorStatus(v)?.key==="awaiting").length}</span></div>
+</>:<>
+<div style={{padding:"8px 16px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:11,color:"#9CA3AF"}}>Total</span> <span style={{fontSize:18,fontWeight:800,color:"#E5E7EB"}}>{list.length}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #166534",textAlign:"center"}}><span style={{fontSize:11,color:"#34D399"}}>Sold</span> <span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{soldCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(96,165,250,0.1)",border:"1px solid #1E3A5F",textAlign:"center"}}><span style={{fontSize:11,color:"#60A5FA"}}>Inbound</span> <span style={{fontSize:18,fontWeight:800,color:"#60A5FA"}}>{inboundCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #0D3B1E",textAlign:"center"}}><span style={{fontSize:11,color:"#34D399"}}>On Ground</span> <span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{onGroundCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(251,191,36,0.1)",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>In Recon</span> <span style={{fontSize:18,fontWeight:800,color:"#FBBF24"}}>{reconCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(6,182,212,0.1)",border:"1px solid #06B6D4",textAlign:"center"}}><span style={{fontSize:11,color:"#06B6D4"}}>R2-Ship</span> <span style={{fontSize:18,fontWeight:800,color:"#06B6D4"}}>{r2sCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(168,85,247,0.1)",border:"1px solid #7C3AED",textAlign:"center"}}><span style={{fontSize:11,color:"#A78BFA"}}>Outbound Set</span> <span style={{fontSize:18,fontWeight:800,color:"#A78BFA"}}>{outSetCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(249,115,22,0.1)",border:"1px solid #C2410C",textAlign:"center"}}><span style={{fontSize:11,color:"#F97316"}}>Picked Up</span> <span style={{fontSize:18,fontWeight:800,color:"#F97316"}}>{pickedUpCount}</span></div>
+<div style={{padding:"8px 16px",borderRadius:8,background:"rgba(239,68,68,0.1)",border:"1px solid #7F1D1D",textAlign:"center"}}><span style={{fontSize:11,color:"#F87171"}}>Kicked</span> <span style={{fontSize:18,fontWeight:800,color:"#F87171"}}>{list.filter((v: any)=>((v.kicked||v.kickedFromCSV||v.kickedReturn)&&v.status!=="sold"&&v.status!=="delivered")).length}</span></div>
+</>}
+</div>
+<div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}><table style={{width:"100%",minWidth:isVendor?700:1400,borderCollapse:"collapse",fontSize:14}}><thead><tr>
+{(isVendor?["VIN#","Vehicle","Color","Miles","Location","Days on Ground","Sold","Status"]:["Buyer","Source","Inbound","Location","VIN#","Purchased","Vehicle","Miles","Color","Days on Ground","Sold","Sold To","Seller","R2-Ship","Outbound","Recon"]).map((h: any)=><th key={h} style={{...S.th,cursor:"pointer",userSelect:"none"}} onClick={()=>toggleSort(h)}>{h}{sortCol===h?sortDir==="asc"?" ▲":" ▼":""}</th>)}
+</tr></thead><tbody>{sorted2.map((v: any)=>{const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed),dn=rc.filter(c=>v.reconTasks[c.key]?.status==="complete"),sold=v.status==="sold"||v.status==="delivered";const inb=v.transport?.inbound,outb=v.transport?.outbound;
+const allDone=rc.length>0&&dn.length===rc.length;
+const allApproved=rc.length>0&&rc.every(c=>{const s=v.reconTasks[c.key]?.status;return s==="complete"||s==="approved";});
+const readyToShip=allDone&&allApproved;
+const noReconOnGround=v.noReconNeeded&&inb?.delivered;
+const lastComplete=readyToShip?rc.reduce((latest: any,c: any)=>{const d=v.reconTasks[c.key]?.dateCompleted;return d&&d>latest?d:latest;},""):null;
+const outbReady=outb?.readyDate;
+const rowIdx=sorted2.indexOf(v);const vPriority=getPriority(v);const stripe=rowIdx%2===0?"rgba(255,255,255,0.02)":"transparent";const borderClr=v.arb?.open?"#EF4444":vPriority===0?"#EF4444":vPriority===1?"#F59E0B":sold?"#34D399":readyToShip||v.noReconNeeded?"#06B6D4":rc.length>0&&rc.some(c=>v.reconTasks[c.key]?.status==="started")?"#FBBF24":rc.length>0?"#F97316":"#4B5563";
+return <tr key={v.id} style={{borderBottom:"1px solid #1A1A2E",cursor:"pointer",borderLeft:"4px solid "+borderClr,background:sold?"rgba(52,211,153,0.06)":stripe}}
+onClick={()=>onSelect(v)} onMouseEnter={(e: any)=>e.currentTarget.style.background="rgba(255,255,255,0.05)"} onMouseLeave={(e: any)=>e.currentTarget.style.background=sold?"rgba(52,211,153,0.06)":stripe}>
+{isVendor?<>
+<td style={{...S.td,fontFamily:"monospace",letterSpacing:1}}>{v.fullVin?<span style={{display:"contents"}}>{v.fullVin.slice(0,-8)}<b>{v.fullVin.slice(-8)}</b></span>:v.vin8}</td>
+<td style={{...S.td,fontWeight:600}}>{v.year} {v.make} {v.model} {v.trim}</td>
+<td style={S.td}>{v.color}</td>
+<td style={S.td}>{v.miles.toLocaleString()}</td>
+<td style={S.td}>{v.location}</td>
+<td style={S.td}>{(()=>{const gDate=v.transport?.inbound?.dateDelivered;if(!gDate||!v.transport?.inbound?.delivered)return "—";const d=Math.max(0,Math.floor((new Date() as any-new Date(gDate) as any)/864e5));return <span style={{fontWeight:700,color:d>14?"#F87171":d>7?"#FBBF24":"#34D399"}}>{d}d</span>;})()}</td>
+<td style={S.td}>{sold?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>SOLD {fmtDate(v.soldDate)}</span>:"—"}</td>
+<td style={S.td}>{(()=>{const st=getVendorStatus(v);return st?<span style={{...S.badge,background:st.bg,color:st.color,border:"1px solid "+st.border,fontWeight:700}}>{st.label}</span>:"—";})()}</td>
+</>:<>
+<td style={S.td}>{v.buyingBroker}</td><td style={S.td}>{v.source}</td>
+<td style={S.td}><div style={{display:"flex",flexDirection:"column",gap:3}}>
+{inb?.drivewayPickedUp?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>🏠 PICKED UP {inb.drivewayPickedUpDate?fmtDate(inb.drivewayPickedUpDate):""}</span>
+:inb?.drivewayDest?<span style={{...S.badge,background:"#7C3AED",color:"#DDD6FE"}}>🏠 DW→{inb.drivewayDest}{inb.driverwayClearDate?" Clear to P/U "+fmtDate(inb.driverwayClearDate):""}{inb.drivewayEta?" ETA "+fmtDate(inb.drivewayEta):""}</span>
+:inb?.drivewayEta?<span style={{...S.badge,background:"#4C1D95",color:"#C4B5FD"}}>🏠 DW ETA {fmtDate(inb.drivewayEta)}</span>
+:inb?.delivered?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>ON GROUND {inb.dateDelivered?fmtDate(inb.dateDelivered):""}</span>
+:inb?.eta?<span style={{...S.badge,background:"#78590A",color:"#FDE68A"}}>ETA {inb.destination||""} {fmtDate(inb.eta)}</span>
+:<span style={{...S.badge,background:"#3B1515",color:"#F87171"}}>NOT SET</span>}
+</div></td>
+<td style={S.td}>{v.location}</td>
+<td style={{...S.td,fontFamily:"monospace",letterSpacing:1}}>{v.fullVin?<span style={{display:"contents"}}>{v.fullVin.slice(0,-8)}<b>{v.fullVin.slice(-8)}</b></span>:v.vin8}</td>
+<td style={S.td}>{fmtDate(v.purchaseDate)}</td><td style={{...S.td,fontWeight:600}}>{v.year} {v.make} {v.model} {v.trim}</td>
+<td style={S.td}>{v.miles.toLocaleString()}</td><td style={S.td}>{v.color}</td>
+<td style={S.td}>{(()=>{const gDate=v.transport?.inbound?.dateDelivered;if(!gDate||!v.transport?.inbound?.delivered)return "—";const d=Math.max(0,Math.floor((new Date() as any-new Date(gDate) as any)/864e5));return <span style={{fontWeight:700,color:d>14?"#F87171":d>7?"#FBBF24":"#34D399"}}>{d}d</span>;})()}</td>
+<td style={S.td}><div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+{(v.kickedHistory||[]).length>0&&<span style={{...S.badge,background:"#7C2D12",color:"#FDBA74",fontSize:10}}>🔄 KICKED {fmtDate((v.kickedHistory||[]).slice(-1)[0]?.kickedDate)}</span>}
+{(v.kicked||v.kickedFromCSV)&&(v.kickedHistory||[]).length===0&&v.status!=="sold"&&<span style={{...S.badge,background:"#7C2D12",color:"#FDBA74",fontSize:10}}>🔄 KICKED</span>}
+{v.arb?.open&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:10}}>🔴 IN ARB — {v.arb.source||"?"} {fmtDate(v.arb.openDate)}</span>}
+{v.arb?.resolved&&!v.arb?.open&&<span style={{...S.badge,background:"#166534",color:"#6EE7B7",fontSize:10}}>✅ ARB RESOLVED {fmtDate(v.arb.resolvedDate)}</span>}
+{(v.kicked||v.kickedFromCSV)&&v.status!=="sold"?<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5"}}>KICKED</span>:v.status==="sold"||v.status==="delivered"?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>{(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV)?"RE-SOLD":"SOLD"} {fmtDate(v.soldDate)}</span>:"—"}
+</div></td>
+<td style={S.td}>{(v.soldTo&&v.soldTo!=="null")?v.soldTo:v.kickedFromDealer||(v.kickedHistory||[]).slice(-1)[0]?.dealer||"—"}</td><td style={S.td}>{v.sellingBroker||"—"}</td>
+<td style={S.td}>{outbReady?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {fmtDate(outbReady)}</span>
+:readyToShip?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {lastComplete?fmtDate(lastComplete):""}</span>
+:noReconOnGround?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {inb.dateDelivered?fmtDate(inb.dateDelivered):""}</span>
+:v.noReconNeeded?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:11}}>🚀 R2-SHIP {v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+:sold&&(allDone||v.noReconNeeded)&&!v.buyerApprovedShip&&!outb?.readyDate?<span style={{...S.badge,background:"#78590A",color:"#FDE68A",fontWeight:800,fontSize:11}}>⏳ WAITING ON BUYER {allDone&&lastComplete?fmtDate(lastComplete):v.noReconNeeded&&v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+:"—"}</td>
+<td style={S.td}><div style={{display:"flex",flexDirection:"column",gap:3}}>
+{outb?.delivered?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>{outb.isRetail?"🏪 RETAIL DELIVERED":outb.isDriveway?"🏠 DELIVERED":"DELIVERED"} {outb.dateDelivered?fmtDate(outb.dateDelivered):""}</span>
+:outb?.pickedUp?<span style={{...S.badge,background:outb.isRetail?"#164E63":"#1E3A5F",color:outb.isRetail?"#67E8F9":"#93C5FD"}}>{outb.isRetail?"🏪 RETAIL SHIPPED":outb.isDriveway?"🏠 SHIPPED":"P/U"} {outb.datePickedUp?fmtDate(outb.datePickedUp):""}</span>
+:outb?.eta?<span style={{...S.badge,background:outb.isRetail?"#164E63":outb.isDriveway?"#4C1D95":"#78590A",color:outb.isRetail?"#67E8F9":outb.isDriveway?"#DDD6FE":"#FDE68A"}}>{outb.isRetail?"🏪 RETAIL ETA P/U "+(outb.shippingFrom||""):outb.isDriveway?"🏠 ETA DW":"ETA"} {fmtDate(outb.eta)}</span>
+:outb?.readyDate?<span style={{...S.badge,background:outb.isRetail?"#164E63":"#78590A",color:outb.isRetail?"#67E8F9":"#FDE68A"}}>{outb.isRetail?"🏪 RETAIL READY TO SHIP":outb.isDriveway?"🏠 CLEAR P/U":"TRANS SET"} {fmtDate(outb.readyDate)}</span>
+:outb?.isRetail?<span style={{...S.badge,background:"#164E63",color:"#67E8F9"}}>🏪 RETAIL DELIVERY</span>
+:outb?.set||outb?.isDriveway?<span style={{...S.badge,background:"#78590A",color:"#FDE68A"}}>{outb.isDriveway?"🏠 DW":"TRANS"} → SET</span>
+:sold?<span style={{...S.badge,background:"#3B1515",color:"#F87171"}}>NOT SET</span>
+:<span style={{color:"#4B5563"}}>—</span>}
+</div></td>
+<td style={{...S.td,whiteSpace:"normal",minWidth:240}}>{v.noReconNeeded?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:12}}>✅ NO RECON {v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+:<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[...rc].sort((a: any,b: any)=>{const ao=v.reconTasks[a.key]?.order;const bo=v.reconTasks[b.key]?.order;if(ao&&bo)return ao-bo;if(ao&&!bo)return -1;if(!ao&&bo)return 1;return 0;}).map((c: any)=>{const t=v.reconTasks[c.key],cl=stColor(t.status);return <div key={c.key} title={`#${t.order||"—"} ${c.label}: ${stLabel(t.status)}`}
+onClick={(e: any)=>{e.stopPropagation();onSelect(v);}}
+style={{padding:"2px 6px",borderRadius:4,background:cl.bg,border:`1px solid ${cl.bd}`,fontSize:11,fontWeight:600,color:cl.text,cursor:"pointer",transition:"transform 0.1s"}}
+onMouseEnter={(e: any)=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={(e: any)=>e.currentTarget.style.transform="scale(1)"}>
+<span style={{color:"#FFF",background:"rgba(255,255,255,0.15)",borderRadius:3,padding:"0 3px",marginRight:3,fontSize:10}}>{t.order||"—"}</span>{t.status==="complete"?"✓ ":""}{c.label}
+{c.key==="oemdealer"&&t.oemDropDate&&t.status!=="complete"&&<span style={{fontSize:9,display:"block",color:"#FDE68A"}}>AT OEM {fmtDate(t.oemDropDate)}</span>}
+{c.key==="oemdealer"&&t.oemWorkStarted&&t.status!=="complete"&&<span style={{fontSize:8,display:"block",color:"#FBBF24"}}>WORK STARTED {t.oemWorkStartedDate?fmtDate(t.oemWorkStartedDate):""}</span>}
+{c.key==="oemdealer"&&t.oemPickedUp&&<span style={{fontSize:9,display:"block",color:"#34D399"}}>PICKED UP {t.oemPickedUpDate?fmtDate(t.oemPickedUpDate):""} ✅ COMPLETED {t.dateCompleted?fmtDate(t.dateCompleted):""}</span>}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status!=="complete"&&<span style={{fontSize:9,display:"block",color:"#F97316"}}>🔄 Round {(t.completedRounds||[]).length+1}</span>}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status==="complete"&&<span style={{fontSize:9,display:"block",color:"#34D399"}}>✅ {(t.completedRounds||[]).length+1} rounds done</span>}
+{c.key!=="oemdealer"&&!(t.completedRounds||[]).length&&t.status==="approved"&&<span style={{fontSize:9,display:"block",color:"#FDE68A"}}>RECON NOT STARTED {t.dateApproved?fmtDate(t.dateApproved):""}</span>}
+{c.key!=="oemdealer"&&!(t.completedRounds||[]).length&&t.status==="started"&&<span style={{fontSize:9,display:"block",color:"#FBBF24"}}>{c.key==="cr"?"REQUESTED":c.key==="blackwidow"?"PICS REQUESTED":"WORK STARTED"} {t.dateStarted?fmtDate(t.dateStarted):""}</span>}
+{c.key!=="oemdealer"&&!(t.completedRounds||[]).length&&t.status==="complete"&&<span style={{fontSize:9,display:"block"}}>{fmtDate(t.dateCompleted)}</span>}
+{t.status==="declined"&&<span style={{fontSize:9,display:"block",color:"#FCA5A5"}}>DECLINED {(t.vendors||[]).filter((v2: any)=>v2.declined).map((v2: any)=>fmtDate(v2.declinedDate)).pop()||""}</span>}
+{c.key==="parts"&&t.vendors&&(()=>{const sv2=(t.vendors||[]).find((x: any)=>x.selected);if(!sv2)return null;const wt2=t.workTasks||[];const pts2=wt2.filter((w: any)=>{const li9=(sv2.lineItems||[]).find((x: any)=>x.id===w.id)||{};return (w.isPart||c.key==="parts")&&!li9.declined&&li9.accepted;});if(!pts2.length)return null;const allInstalled=pts2.every((w: any)=>{const li2=(sv2.lineItems||[]).find((x: any)=>x.id===w.id)||{};return li2.partInstalled;});if(allInstalled)return <span style={{fontSize:8,display:"block",color:"#34D399"}}>ALL INSTALLED</span>;return pts2.map((w: any)=>{const li2=(sv2.lineItems||[]).find((x: any)=>x.id===w.id)||{};const st=li2.partInstalled?"✅":li2.partArrived?"📦":li2.partOrdered?"🔄":"⏳";const dt=li2.partInstalled?li2.partInstalledDate:li2.partArrived?li2.partArrivedDate:li2.partOrdered?li2.partOrderedDate:"";const lbl=li2.partInstalled?"Done":li2.partArrived?"Arrived":li2.partOrdered?"Ordered":"Pending";return <span key={w.id} style={{fontSize:8,display:"block",color:li2.partInstalled?"#34D399":li2.partArrived?"#60A5FA":li2.partOrdered?"#FBBF24":"#6B7280"}}>{st} {w.desc}: {lbl}{dt?" "+fmtDate(dt):""}</span>;});})()}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status!=="complete"&&t.status==="approved"&&<span style={{fontSize:8,display:"block",color:"#FDE68A"}}>NOT STARTED</span>}
+{c.key!=="oemdealer"&&(t.completedRounds||[]).length>0&&t.status!=="complete"&&t.status==="started"&&<span style={{fontSize:8,display:"block",color:"#FBBF24"}}>STARTED {t.dateStarted?fmtDate(t.dateStarted):""}</span>}
+</div>;})}
+{vPriority===0&&<span style={{...S.badge,background:"#EF4444",color:"#FFF",fontSize:9,padding:"2px 5px"}}>🔴 PAST DUE</span>}
+{vPriority===1&&<span style={{...S.badge,background:"#F59E0B",color:"#000",fontSize:9,padding:"2px 5px"}}>⚡ SOLD</span>}
+{rc.length>0&&<span style={{color:"#E5E7EB",fontSize:11,alignSelf:"center"}}>{dn.length}/{rc.length}</span>}
+{rc.length===0&&<span style={{color:"#4B5563",fontSize:11}}>None</span>}</div>}
+</td>
+</>}
+</tr>;})}
+</tbody></table></div>
+</span>;
+}
