@@ -1,18 +1,28 @@
 import { randomBytes, createHash } from 'crypto';
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import db from './db';
 
 export async function hashPassword(pw: string): Promise<string> {
-  const saltHex = randomBytes(16).toString('hex');
-  const hashHex = createHash('sha256').update(saltHex + pw).digest('hex');
-  return `${saltHex}:${hashHex}`;
+  return bcrypt.hash(pw, 12);
 }
 
 export async function verifyPassword(pw: string, stored: string): Promise<boolean> {
+  // bcrypt hashes start with $2b$ — new format
+  if (stored.startsWith('$2')) {
+    return bcrypt.compare(pw, stored);
+  }
+  // Legacy SHA-256 format (salt:hash) — verify then transparently rehash
   const [saltHex, hashHex] = stored.split(':');
   if (!saltHex || !hashHex) return false;
   const check = createHash('sha256').update(saltHex + pw).digest('hex');
   return check === hashHex;
+}
+
+// Called after a legacy SHA-256 login succeeds — upgrades the stored hash to bcrypt
+export async function upgradePasswordHash(userId: number, pw: string): Promise<void> {
+  const hash = await hashPassword(pw);
+  await db.raw('UPDATE users SET password_hash = ? WHERE id = ?', [hash, userId]);
 }
 
 export function generateToken(): string {

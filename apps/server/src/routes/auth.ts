@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../lib/db';
-import { hashPassword, verifyPassword, generateToken, requireAuth } from '../lib/auth';
+import { hashPassword, verifyPassword, upgradePasswordHash, generateToken, requireAuth } from '../lib/auth';
 import { sendEmail, logEmail, passwordResetEmail } from '../lib/email';
 
 const router = Router();
@@ -40,6 +40,11 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+
+    // Silently upgrade legacy SHA-256 hashes to bcrypt on successful login
+    if (!user.password_hash.startsWith('$2')) {
+      upgradePasswordHash(user.id, password).catch(() => {});
+    }
 
     const token = generateToken();
     const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
