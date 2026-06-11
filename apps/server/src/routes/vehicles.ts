@@ -133,7 +133,6 @@ router.post('/:id/vendor-bid', async (req: Request, res: Response) => {
       const vnName = (vn.name || '').toLowerCase();
       if (vnEmail && userEmail && vnEmail === userEmail) return true;
       if (vnName && userFull && vnName === userFull) return true;
-      if (vnName && userFirst && vnName.includes(userFirst)) return true;
       return false;
     });
     if (myVendorIdx < 0) return res.status(403).json({ error: 'You are not assigned to this recon task' });
