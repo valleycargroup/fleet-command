@@ -86,7 +86,7 @@ const doLogin=async()=>{
     if(!r.ok){setLoginErr(d.error||"Login failed");setLoading(false);return;}
     setPendingToken(d.token);setPendingUser(d.user);
     if(d.user.must_change_password){setShowChangePw(true);setShowLogin(false);setLoading(false);return;}
-    localStorage.setItem("fc_token",d.token);localStorage.setItem("fc_user",JSON.stringify(d.user));
+    sessionStorage.setItem("fc_token",d.token);sessionStorage.setItem("fc_user",JSON.stringify(d.user));
     onLogin(d.user,d.token);
   }catch(e){setLoginErr("Network error — check connection");setLoading(false);}
   setLoading(false);
@@ -101,7 +101,7 @@ const doChangePw=async()=>{
   try{
     const r=await fetch(WORKER+"/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+pendingToken},body:JSON.stringify({new_password:newPw})});
     if(!r.ok){const d=await r.json();setPwErr(d.error||"Failed");setLoading(false);return;}
-    localStorage.setItem("fc_token",pendingToken);localStorage.setItem("fc_user",JSON.stringify(pendingUser));
+    sessionStorage.setItem("fc_token",pendingToken);sessionStorage.setItem("fc_user",JSON.stringify(pendingUser));
     onLogin(pendingUser,pendingToken);
   }catch(e){setPwErr("Network error");}
   setLoading(false);
@@ -298,12 +298,12 @@ function App() {
 // ============ AUTH SYSTEM — API BASED ============
 const [allUsers,setAllUsers]=useState([]);
 const [currentUser,setCurrentUser]=useState(()=>{
-  try{const saved=localStorage.getItem("fc_user");if(saved)return JSON.parse(saved);}catch(e){}
+  try{const saved=sessionStorage.getItem("fc_user");if(saved)return JSON.parse(saved);}catch(e){}
   return null;
 });
-const [authToken,setAuthToken]=useState(()=>localStorage.getItem("fc_token")||null);
+const [authToken,setAuthToken]=useState(()=>sessionStorage.getItem("fc_token")||null);
 const handleLogin=(user,token)=>{setCurrentUser(user);setAuthToken(token);};
-const handleLogout=()=>{setCurrentUser(null);setAuthToken(null);localStorage.removeItem("fc_token");localStorage.removeItem("fc_user");};
+const handleLogout=()=>{setCurrentUser(null);setAuthToken(null);sessionStorage.removeItem("fc_token");sessionStorage.removeItem("fc_user");};
 
 // ============ IDLE TIMEOUT — auto-logout after 4 hours of inactivity ============
 useEffect(()=>{
@@ -332,8 +332,8 @@ useEffect(()=>{
     const params=new URLSearchParams(window.location.search);
     if(params.get("login")==="true"){
       // Force logout — clears any stale session so the login screen shows
-      localStorage.removeItem("fc_token");
-      localStorage.removeItem("fc_user");
+      sessionStorage.removeItem("fc_token");
+      sessionStorage.removeItem("fc_user");
       setCurrentUser(null);
       setAuthToken(null);
       // Clean up the URL so it doesn't keep logging out on refresh
@@ -356,7 +356,7 @@ const [regVendors,setRegVendors]=useState([]);
 
 // ============ API HELPER ============
 const api=async(path,method="GET",body=null)=>{
-  const token=localStorage.getItem("fc_token");
+  const token=sessionStorage.getItem("fc_token");
   const opts={method,headers:{"Content-Type":"application/json"}};
   if(token)opts.headers["Authorization"]="Bearer "+token;
   if(body)opts.body=JSON.stringify(body);
@@ -373,7 +373,7 @@ const api=async(path,method="GET",body=null)=>{
 // Helper used in API loader and mapVehicle — must be defined before useEffect
 useEffect(()=>{
   if(!currentUser)return;
-  const token=localStorage.getItem("fc_token");
+  const token=sessionStorage.getItem("fc_token");
   if(!token)return;
   let mounted=true;
   const loadAll=async()=>{
@@ -533,7 +533,7 @@ useEffect(()=>{
   if(!apiReady||!currentUser)return;
   const interval=setInterval(async()=>{
     try{
-      const token=localStorage.getItem("fc_token");
+      const token=sessionStorage.getItem("fc_token");
       if(!token)return;
       const r=await fetch(WORKER+"/api/vehicles",{headers:{"Content-Type":"application/json","Authorization":"Bearer "+token}});
       if(!r.ok)return;
@@ -2318,7 +2318,7 @@ const [editVendor,setEditVendor]=useState(null);
 const [busy,setBusy]=useState(false);
 const ts=(t)=>({padding:"8px 16px",borderRadius:6,border:t===tab?"1px solid #3B82F6":"1px solid #2A2A3E",background:t===tab?"#1E3A5F":"transparent",color:t===tab?"#93C5FD":"#6B7280",fontSize:14,cursor:"pointer",fontWeight:600});
 
-const authHdrs=()=>({"Content-Type":"application/json","Authorization":"Bearer "+(localStorage.getItem("fc_token")||"")});
+const authHdrs=()=>({"Content-Type":"application/json","Authorization":"Bearer "+(sessionStorage.getItem("fc_token")||"")});
 
 // ============ USER CRUD ============
 const saveUser=async(f)=>{
