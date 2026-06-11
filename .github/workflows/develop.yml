@@ -173,6 +173,7 @@ jobs:
                   VITE_APP_URL: ${{ secrets.FLEET_DEV_APP_URL }}
               run: |
                   cd apps/client
+                  rm -f package-lock.json
                   npm install
                   npm run build
 
