@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import helmet from 'helmet';
 import cors, { CorsOptions } from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -32,6 +33,7 @@ const corsOptions: CorsOptions = {
   exposedHeaders: ['Accept-Ranges', 'Content-Range', 'Content-Length'],
 };
 
+app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
@@ -53,10 +55,10 @@ app.use((_req, res) => {
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+  const isDev = process.env.NODE_ENV === 'development';
   res.status(statusCode).json({
     error: 'Internal Server Error',
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    ...(isDev && { message: err.message, stack: err.stack }),
   });
 });
 

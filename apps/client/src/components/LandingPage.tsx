@@ -92,7 +92,7 @@ err:{fontSize:11,color:"#F87171",textAlign:"center",marginBottom:10,padding:"6px
 if(showLogin&&!showChangePw)return <div style={LS.overlay}><div style={LS.card}>
   <div style={LS.title}>Sign in to Fleet Command</div><div style={LS.sub}>Enter your credentials</div>
   {loginErr&&<div style={LS.err}>{loginErr}</div>}
-  <label style={LS.label}>Email</label><input style={LS.input} type="email" value={email} onChange={(e: any)=>setEmail(e.target.value)} placeholder="darren@valleycargroup.com" onKeyDown={(e: any)=>{if(e.key==="Enter")doLogin();}}/>
+  <label style={LS.label}>Email</label><input style={LS.input} type="email" autoComplete="username" value={email} onChange={(e: any)=>setEmail(e.target.value)} placeholder="your@email.com" onKeyDown={(e: any)=>{if(e.key==="Enter")doLogin();}}/>
   <label style={LS.label}>Password</label>
   <div style={{position:"relative",marginBottom:10}}><input style={{...LS.input,marginBottom:0,paddingRight:36}} type={showLoginPw?"text":"password"} value={pw} onChange={(e: any)=>setPw(e.target.value)} placeholder="Enter password" onKeyDown={(e: any)=>{if(e.key==="Enter")doLogin();}}/><span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",cursor:"pointer",color:"#6B7280",fontSize:14,userSelect:"none"}} onClick={()=>setShowLoginPw(!showLoginPw)}>{showLoginPw?"🙈":"👁"}</span></div>
   <button style={LS.btn} onClick={doLogin} disabled={loading}>{loading?"Signing in...":"Sign in"}</button>
@@ -142,7 +142,7 @@ if(showReset)return <div style={LS.overlay}><div style={LS.card}>
 if(showForgot)return <div style={LS.overlay}><div style={LS.card}>
   <div style={LS.title}>{forgotSent?"Check your email":"Reset password"}</div>
   <div style={LS.sub}>{forgotSent?"If that email exists, a reset link was sent.":"Enter your email and we'll send a reset link"}</div>
-  {!forgotSent&&<><label style={LS.label}>Email</label><input style={LS.input} type="email" value={forgotEmail} onChange={(e: any)=>setForgotEmail(e.target.value)} placeholder="darren@valleycargroup.com"/>
+  {!forgotSent&&<><label style={LS.label}>Email</label><input style={LS.input} type="email" value={forgotEmail} onChange={(e: any)=>setForgotEmail(e.target.value)} placeholder="your@email.com"/>
   <button style={LS.btn} onClick={doForgot}>Send reset link</button></>}
   {forgotSent&&<button style={LS.btn} onClick={()=>{setShowForgot(false);setShowLogin(true);setForgotSent(false);}}>Back to sign in</button>}
   {!forgotSent&&<span style={LS.link} onClick={()=>{setShowForgot(false);setShowLogin(true);}}>Back to sign in</span>}

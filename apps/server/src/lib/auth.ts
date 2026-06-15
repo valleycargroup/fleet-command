@@ -49,7 +49,7 @@ export async function requireAuth(req: Request, res: Response, roles?: string[])
     res.status(401).json({ error: 'Unauthorized' });
     return null;
   }
-  if (roles && !roles.includes(user.role)) {
+  if (roles && !roles.map((r: string) => r.toLowerCase()).includes(user.role?.toLowerCase())) {
     res.status(403).json({ error: 'Forbidden' });
     return null;
   }

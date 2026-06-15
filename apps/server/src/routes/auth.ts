@@ -34,7 +34,8 @@ router.post('/setup', async (req: Request, res: Response) => {
 
     res.json({ ok: true, message: 'Admin account created. Log in with your email and phone number as password.' });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -70,7 +71,8 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
       },
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -90,7 +92,8 @@ router.post('/change-password', async (req: Request, res: Response) => {
 
     res.json({ ok: true, message: 'Password changed' });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -115,7 +118,8 @@ router.post('/forgot-password', authLimiter, async (req: Request, res: Response)
 
     res.json({ ok: true, message: 'If that email exists, a reset link was sent.' });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -135,7 +139,8 @@ router.post('/reset-password', authLimiter, async (req: Request, res: Response) 
 
     res.json({ ok: true, message: 'Password reset successful' });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -152,7 +157,8 @@ router.get('/me', async (req: Request, res: Response) => {
       must_change_password: user.must_change_password,
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -168,7 +174,8 @@ router.get('/db-status', async (_req: Request, res: Response) => {
       counts: { users: Number(users), vehicles: Number(vehicles), vendors: Number(vendors) },
     });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

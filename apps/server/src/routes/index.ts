@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import authRouter from './auth';
 import usersRouter from './users';
 import vehiclesRouter from './vehicles';
@@ -9,8 +10,17 @@ import emailLogRouter from './email-log';
 import reportsRouter from './reports';
 import uploadsRouter from './uploads';
 
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests — try again in 15 minutes' },
+});
+
 const router = Router();
 
+router.use(apiLimiter);
 router.use('/auth', authRouter);
 router.use('/users', usersRouter);
 router.use('/vehicles', vehiclesRouter);

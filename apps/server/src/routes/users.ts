@@ -10,7 +10,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (!user.is_buyer && !user.is_seller && user.role !== 'admin')
+    if (!user.is_buyer && !user.is_seller && user.role?.toLowerCase() !== 'admin')
       return res.status(403).json({ error: 'Forbidden' });
 
     const users = (await db.raw(
@@ -21,7 +21,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json({ users });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -30,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (!user.is_buyer && !user.is_seller && user.role !== 'admin')
+    if (!user.is_buyer && !user.is_seller && user.role?.toLowerCase() !== 'admin')
       return res.status(403).json({ error: 'Only admins can register users' });
 
     const body = req.body;
@@ -93,7 +94,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.json({ ok: true, message: existing ? 'User reactivated' : 'User registered', id: userId });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -104,7 +106,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (!user) return;
 
     const userId = req.params.id;
-    if (String(user.id) !== userId && user.role !== 'admin' && !user.is_buyer && !user.is_seller)
+    if (String(user.id) !== userId && user.role?.toLowerCase() !== 'admin' && !user.is_buyer && !user.is_seller)
       return res.status(403).json({ error: 'Forbidden' });
 
     const body = req.body;
@@ -127,7 +129,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     if (body.password !== undefined && typeof body.password === 'string' && body.password.trim().length > 0) {
       const newPw = body.password.trim();
-      if (newPw.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      if (newPw.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      if (!/[A-Z]/.test(newPw)) return res.status(400).json({ error: 'Password must contain an uppercase letter' });
+      if (!/[0-9]/.test(newPw)) return res.status(400).json({ error: 'Password must contain a number' });
       const hash = await hashPassword(newPw);
       fields.push('password_hash = ?');
       values.push(hash);
@@ -141,7 +145,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     await db.raw(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -150,7 +155,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'admin' && !user.is_buyer && !user.is_seller)
+    if (user.role?.toLowerCase() !== 'admin' && !user.is_buyer && !user.is_seller)
       return res.status(403).json({ error: 'Forbidden' });
 
     const userId = req.params.id;
@@ -159,7 +164,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await db.raw('UPDATE users SET active = FALSE, updated_at = NOW() WHERE id = ?', [userId]);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

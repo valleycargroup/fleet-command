@@ -14,7 +14,8 @@ router.get('/', async (req: Request, res: Response) => {
     const emails = (await db.raw('SELECT * FROM email_log ORDER BY created_at DESC LIMIT ?', [limit])).rows;
     res.json({ emails });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -13,7 +13,8 @@ router.get('/', async (req: Request, res: Response) => {
     const vendors = (await db.raw('SELECT * FROM vendors WHERE active = TRUE ORDER BY name')).rows;
     res.json({ vendors });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -85,7 +86,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.json({ ok: true, id: vendorId, updated: !!existing, warning });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -150,7 +152,8 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     res.json({ ok: true, warning });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -165,7 +168,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await db.raw('UPDATE vendors SET active = FALSE WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

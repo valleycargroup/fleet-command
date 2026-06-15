@@ -18,7 +18,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json({ vehicles });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -43,7 +44,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     res.json({ ok: true, id: result.rows[0].id });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -87,7 +89,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     await db.raw(`UPDATE vehicles SET ${fields.join(', ')} WHERE id = ?`, values);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -101,7 +104,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await db.raw('DELETE FROM vehicles WHERE id = ?', [req.params.id]);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -165,7 +169,8 @@ router.post('/:id/vendor-bid', async (req: Request, res: Response) => {
     await db.raw('UPDATE vehicles SET recon_data = ?, updated_at = NOW() WHERE id = ?', [JSON.stringify(reconData), vehicleId]);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -221,7 +226,8 @@ router.put('/:id/parts-update', async (req: Request, res: Response) => {
     const partItems = lineItems.filter((li: any) => li.isPart);
     res.json({ ok: true, partStatus: safe.partStatus, totalParts: partItems.length });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -306,7 +312,8 @@ router.post('/upload-csv', async (req: Request, res: Response) => {
 
     res.json({ ok: true, imported, updated, skipped, kicked: kickedCount, errors, total: imported + updated });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

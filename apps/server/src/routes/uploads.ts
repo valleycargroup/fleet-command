@@ -30,7 +30,8 @@ router.post('/', upload.single('file'), async (req: Request, res: Response) => {
     const result = await uploadBufferToStorage({ key, body: req.file.buffer, contentType: req.file.mimetype });
     res.json({ ok: true, data: { key: result.key, url: result.url, size: req.file.size, mimetype: req.file.mimetype } });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -54,7 +55,8 @@ router.post('/many', upload.array('files', 10), async (req: Request, res: Respon
     );
     res.json({ ok: true, data: results });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -67,7 +69,8 @@ router.delete('/:folder/:filename', async (req: Request, res: Response) => {
     await deleteFromStorage(key);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

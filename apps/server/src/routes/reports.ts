@@ -22,7 +22,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     res.json({ message: `Report type: ${type}` });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

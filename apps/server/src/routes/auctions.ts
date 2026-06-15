@@ -11,7 +11,8 @@ router.get('/', async (req: Request, res: Response) => {
     const auctions = (await db.raw('SELECT * FROM auctions WHERE active = TRUE ORDER BY name')).rows;
     res.json({ auctions });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -24,7 +25,8 @@ router.post('/', async (req: Request, res: Response) => {
     await db.raw('INSERT INTO auctions (name) VALUES (?)', [name]);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

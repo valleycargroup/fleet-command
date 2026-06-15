@@ -15,7 +15,8 @@ router.get('/', async (req: Request, res: Response) => {
     )).rows;
     res.json({ parts });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -33,7 +34,8 @@ router.post('/', async (req: Request, res: Response) => {
     );
     res.json({ ok: true, id: result.rows[0].id });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -58,7 +60,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     await db.raw(`UPDATE parts_requests SET ${fields.join(', ')} WHERE id = ?`, values);
     res.json({ ok: true });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
