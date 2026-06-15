@@ -1,0 +1,12 @@
+{
+  "name": "fleet-command",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test":          "npm --prefix apps/server test",
+    "test:auth":     "npm --prefix apps/server test -- auth",
+    "test:vendors":  "npm --prefix apps/server test -- vendors",
+    "test:users":    "npm --prefix apps/server test -- users",
+    "test:watch":    "npm --prefix apps/server run test:watch"
+  }
+}
