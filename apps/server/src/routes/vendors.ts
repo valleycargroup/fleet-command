@@ -39,17 +39,26 @@ router.post('/', async (req: Request, res: Response) => {
 
     let vendorId: number;
 
+    const paymentTerms   = v.payment_terms   || 'weekly';
+    const cutoffDay      = v.cutoff_day      || 'Friday';
+    const cutoffTime     = v.cutoff_time     || '5 PM';
+    const deliveryMethod = v.delivery_method || 'USPS Mail';
+
     if (existing) {
       await db.raw(
-        `UPDATE vendors SET location = ?, categories = ?, contact_name = ?, email = ?, phone = ?, office_phone = ?, active = TRUE WHERE id = ?`,
+        `UPDATE vendors SET location = ?, categories = ?, contact_name = ?, email = ?, phone = ?, office_phone = ?,
+         payment_terms = ?, cutoff_day = ?, cutoff_time = ?, delivery_method = ?, active = TRUE WHERE id = ?`,
         [v.location || '', JSON.stringify(v.categories || []), cleanContact,
-         cleanEmail || existing.email || '', cleanPhone, v.office_phone || '', existing.id]
+         cleanEmail || existing.email || '', cleanPhone, v.office_phone || '',
+         paymentTerms, cutoffDay, cutoffTime, deliveryMethod, existing.id]
       );
       vendorId = existing.id;
     } else {
       const result = await db.raw(
-        'INSERT INTO vendors (name, location, categories, contact_name, email, phone, office_phone) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id',
-        [cleanName, v.location || '', JSON.stringify(v.categories || []), cleanContact, cleanEmail || '', cleanPhone, v.office_phone || '']
+        `INSERT INTO vendors (name, location, categories, contact_name, email, phone, office_phone,
+         payment_terms, cutoff_day, cutoff_time, delivery_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        [cleanName, v.location || '', JSON.stringify(v.categories || []), cleanContact, cleanEmail || '', cleanPhone, v.office_phone || '',
+         paymentTerms, cutoffDay, cutoffTime, deliveryMethod]
       );
       vendorId = result.rows[0].id;
     }
@@ -117,6 +126,11 @@ router.put('/:id', async (req: Request, res: Response) => {
       fields.push('categories = ?');
       values.push(JSON.stringify(catsArr));
     }
+
+    if (body.payment_terms !== undefined)   { fields.push('payment_terms = ?');   values.push(String(body.payment_terms)); }
+    if (body.cutoff_day !== undefined)      { fields.push('cutoff_day = ?');      values.push(String(body.cutoff_day)); }
+    if (body.cutoff_time !== undefined)     { fields.push('cutoff_time = ?');     values.push(String(body.cutoff_time)); }
+    if (body.delivery_method !== undefined) { fields.push('delivery_method = ?'); values.push(String(body.delivery_method)); }
 
     if (fields.length === 0) return res.status(400).json({ error: 'No fields to update' });
     values.push(vendorId);

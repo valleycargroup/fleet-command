@@ -63,16 +63,20 @@ CREATE TABLE IF NOT EXISTS vehicles (
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
-  id           SERIAL PRIMARY KEY,
-  name         TEXT NOT NULL,
-  location     TEXT,
-  categories   JSONB DEFAULT '[]',
-  contact_name TEXT,
-  email        TEXT,
-  phone        TEXT,
-  office_phone TEXT,
-  active       BOOLEAN DEFAULT TRUE,
-  created_at   TIMESTAMPTZ DEFAULT NOW()
+  id              SERIAL PRIMARY KEY,
+  name            TEXT NOT NULL,
+  location        TEXT,
+  categories      JSONB DEFAULT '[]',
+  contact_name    TEXT,
+  email           TEXT,
+  phone           TEXT,
+  office_phone    TEXT,
+  payment_terms   TEXT DEFAULT 'weekly',
+  cutoff_day      TEXT DEFAULT 'Friday',
+  cutoff_time     TEXT DEFAULT '5 PM',
+  delivery_method TEXT DEFAULT 'USPS Mail',
+  active          BOOLEAN DEFAULT TRUE,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS auctions (

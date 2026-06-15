@@ -73,7 +73,7 @@ const reloadUsers=async()=>{
 const saveVendor=async(f: any)=>{
   setBusy(true);
   try{
-    const payload={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:f.categories,password:f.password||""};
+    const payload={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:f.categories,password:f.password||"",payment_terms:f.paymentTerms||"weekly",cutoff_day:f.cutoffDay||"Friday",cutoff_time:f.cutoffTime||"5 PM",delivery_method:f.deliveryMethod||"USPS Mail"};
     const res=await fetch(WORKER+"/api/vendors",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed to register vendor"));setBusy(false);return;}
@@ -87,7 +87,7 @@ const updateVendor=async(f: any)=>{
   setBusy(true);
   try{
     const cats=Array.isArray(f.categories)?f.categories:(f.categories?[f.categories]:[]);
-    const payload: any={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:cats};
+    const payload: any={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:cats,payment_terms:f.paymentTerms||"weekly",cutoff_day:f.cutoffDay||"Friday",cutoff_time:f.cutoffTime||"5 PM",delivery_method:f.deliveryMethod||"USPS Mail"};
     if(f.password&&f.password.trim())payload.password=f.password.trim();
     const res=await fetch(WORKER+"/api/vendors/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
@@ -118,7 +118,7 @@ const reloadVendors=async()=>{
   (data.vendors||[]).forEach((vn: any)=>{
     const cats=vn.categories?tryParse(vn.categories,[]):[];
     cats.forEach((ck: any)=>{if(vnMap[ck])vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});});
-    regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
+    regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats,paymentTerms:vn.payment_terms||"weekly",cutoffDay:vn.cutoff_day||"Friday",cutoffTime:vn.cutoff_time||"5 PM",deliveryMethod:vn.delivery_method||"USPS Mail"});
   });
   setVendors(vnMap);setRegVendors(regVList);
 };

@@ -25,7 +25,7 @@ const queue=useMemo(()=>{
       if(locFilter!=="all"&&v.location!==locFilter)return;
       const vendorName=task.lockedVendorName||"Unknown Vendor";
       const winnerVn=(task.vendors||[]).find((x: any)=>x.selected);
-      if(!groups[vendorName])groups[vendorName]={name:vendorName,location:v.location,vendorEmail:winnerVn?.email,jobs:[],total:0,totalWS:0,totalRetail:0};
+      if(!groups[vendorName]){const vRec=vendors.find((vr: any)=>vr.name===vendorName);groups[vendorName]={name:vendorName,location:v.location,vendorEmail:winnerVn?.email,jobs:[],total:0,totalWS:0,totalRetail:0,deliveryMethod:vRec?.delivery_method||"USPS Mail",paymentTerms:vRec?.payment_terms||"weekly",cutoffDay:vRec?.cutoff_day||"Friday",cutoffTime:vRec?.cutoff_time||"5 PM"};}
       const accLines=(winnerVn?.lineItems||[]).filter((x: any)=>x.accepted&&!x.declined);
       groups[vendorName].jobs.push({vehicleId:v.id,vehicle:v,categoryKey:cat.key,categoryLabel:cat.label,categoryIcon:cat.icon,lineItems:accLines,total:task.lockedTotal||0,ws:task.lockedWS||0,retail:task.lockedRetail||0,approvedBy:task.approvedBy,approvedDate:task.approvedPaymentDate});
       groups[vendorName].total+=task.lockedTotal||0;
@@ -44,7 +44,7 @@ const markPaid=(group: any)=>{
   const f=paymentForm[group.name]||{};
   if(!f.checkNumber||!f.writtenDate){notify("⚠️ Enter check # and written date");return;}
   const mailedDate=f.mailedDate||f.writtenDate;
-  const method=f.method||"USPS Mail";
+  const method=f.method||group.deliveryMethod||"USPS Mail";
   const apName=currentUser?.first_name?currentUser.first_name+" "+(currentUser.last_name||""):"AP";
   const paidJobs: any[]=[];
   group.jobs.forEach((job: any)=>{
@@ -149,7 +149,7 @@ return <div key={gi} style={{background:"#12122A",border:"1px solid #2A2A3E",bor
 </div>
 <div style={{marginBottom:8}}>
 <div style={{fontSize:10,color:"#6B7280",marginBottom:3}}>Delivery method</div>
-<select style={{...S.sel,width:"100%",fontSize:13}} value={f.method||"USPS Mail"} onChange={(e: any)=>updateForm(group.name,"method",e.target.value)}>
+<select style={{...S.sel,width:"100%",fontSize:13}} value={f.method||group.deliveryMethod||"USPS Mail"} onChange={(e: any)=>updateForm(group.name,"method",e.target.value)}>
 <option>USPS Mail</option><option>Handed to vendor</option><option>Picked up at office</option><option>FedEx/UPS</option><option>Other</option>
 </select>
 </div>
