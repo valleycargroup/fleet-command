@@ -2,7 +2,7 @@ services:
   server:
     command: >
       sh -c "set -e;
-      if [ ! -d node_modules ] || [ -z \"$(ls -A node_modules)\" ]; then npm install; fi;
+      npm install;
       npm run dev:debug"
     environment:
       CHOKIDAR_USEPOLLING: "true"

@@ -51,7 +51,7 @@ services:
       - "9231:9231"
     command: >
       sh -c "set -e;
-      if [ ! -f node_modules/.bin/ts-node-dev ]; then npm install; fi;
+      npm install;
       npm run dev"
     volumes:
       - ./apps/server:/usr/src/app

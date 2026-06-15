@@ -10,7 +10,13 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(node_modules/.bin/vite build *)",
       "Bash(node -e \"require\\('child_process'\\).execSync\\('tsc --version', {stdio:'inherit'}\\)\")",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(git ls-tree *)",
+      "Bash(git check-ignore *)",
+      "Bash(git rm *)",
+      "Bash(npm install *)",
+      "Bash(node fix-errors.js)",
+      "Bash(npm test *)"
     ]
   }
 }
