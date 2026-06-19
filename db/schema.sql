@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_ap         BOOLEAN DEFAULT FALSE,
   location      TEXT DEFAULT 'Both',
   vendor_tag    TEXT,
-  vendor_categories    JSONB,
+  vendor_id     INTEGER,
   parts_location       TEXT,
   auction_assignments  JSONB,
   recon_categories     JSONB,
@@ -70,20 +70,18 @@ CREATE TABLE IF NOT EXISTS vehicles (
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
-  id              SERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  location        TEXT,
-  categories      JSONB DEFAULT '[]',
-  contact_name    TEXT,
-  email           TEXT,
-  phone           TEXT,
-  office_phone    TEXT,
-  payment_terms   TEXT DEFAULT 'weekly',
-  cutoff_day      TEXT DEFAULT 'Friday',
-  cutoff_time     TEXT DEFAULT '5 PM',
-  delivery_method TEXT DEFAULT 'USPS Mail',
-  active          BOOLEAN DEFAULT TRUE,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  id               SERIAL PRIMARY KEY,
+  name             TEXT NOT NULL,
+  location         TEXT,
+  categories       JSONB DEFAULT '[]',
+  office_phone     TEXT,
+  payment_terms    TEXT DEFAULT 'weekly',
+  cutoff_day       TEXT DEFAULT 'Friday',
+  cutoff_time      TEXT DEFAULT '5 PM',
+  delivery_method  TEXT DEFAULT 'USPS Mail',
+  primary_user_id  INTEGER,
+  active           BOOLEAN DEFAULT TRUE,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS auctions (

@@ -150,7 +150,7 @@ export const useStore = create<any>((set, get) => ({
       (vnRes.vendors||[]).forEach((vn: any)=>{
         const cats=vn.categories?tryParse(vn.categories,[]):[];
         cats.forEach((ck: any)=>{if(vnMap[ck])vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});});
-        regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
+        regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats,primaryUserId:vn.primary_user_id||null,paymentTerms:vn.payment_terms||"weekly",cutoffDay:vn.cutoff_day||"Friday",cutoffTime:vn.cutoff_time||"5 PM",deliveryMethod:vn.delivery_method||"USPS Mail"});
       });
       const mappedUsers=(uRes.users||[]).map((u: any)=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location,isBuyer:!!u.is_buyer,isSeller:!!u.is_seller}));
       const currentSelV=get().selV;

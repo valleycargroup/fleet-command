@@ -15,7 +15,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     const users = (await db.raw(
       `SELECT id, email, first_name, last_name, phone, role, is_buyer, is_seller, is_ap,
-              location, vendor_tag, vendor_categories, parts_location, auction_assignments, active, created_at
+              location, vendor_tag, vendor_id, parts_location, auction_assignments, active, created_at
        FROM users WHERE active = TRUE ORDER BY created_at DESC`
     )).rows;
 
@@ -36,7 +36,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     const body = req.body;
     const { email, phone, first_name, last_name, role, is_buyer, is_seller, is_ap,
-            location, vendor_tag, vendor_categories, parts_location, auction_assignments,
+            location, vendor_tag, parts_location, auction_assignments,
             recon_categories, recon_customized, password } = body;
 
     if (!email || !phone || !first_name) return res.status(400).json({ error: 'Email, phone, and first name required' });
@@ -58,12 +58,11 @@ router.post('/', async (req: Request, res: Response) => {
       await db.raw(
         `UPDATE users SET active = TRUE, password_hash = ?, first_name = ?, last_name = ?, phone = ?,
          role = ?, is_buyer = ?, is_seller = ?, is_ap = ?, location = ?, vendor_tag = ?,
-         vendor_categories = ?, parts_location = ?, auction_assignments = ?,
+         parts_location = ?, auction_assignments = ?,
          recon_categories = ?, recon_customized = ?, must_change_password = FALSE, updated_at = NOW()
          WHERE id = ?`,
         [hash, cleanFirst, cleanLast, cleanPhone, role || 'admin',
          !!is_buyer, !!is_seller, !!is_ap, location || 'Both', vendor_tag || null,
-         vendor_categories ? JSON.stringify(vendor_categories) : null,
          parts_location || null,
          auction_assignments ? JSON.stringify(auction_assignments) : null,
          recon_categories ? JSON.stringify(recon_categories) : null,
@@ -73,11 +72,10 @@ router.post('/', async (req: Request, res: Response) => {
     } else {
       const result = await db.raw(
         `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, is_ap,
-          location, vendor_tag, vendor_categories, parts_location, auction_assignments, recon_categories, recon_customized, must_change_password)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE) RETURNING id`,
+          location, vendor_tag, parts_location, auction_assignments, recon_categories, recon_customized, must_change_password)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE) RETURNING id`,
         [cleanEmail, hash, cleanFirst, cleanLast, cleanPhone, role || 'admin',
          !!is_buyer, !!is_seller, !!is_ap, location || 'Both', vendor_tag || null,
-         vendor_categories ? JSON.stringify(vendor_categories) : null,
          parts_location || null,
          auction_assignments ? JSON.stringify(auction_assignments) : null,
          recon_categories ? JSON.stringify(recon_categories) : null,
@@ -113,7 +111,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const fields: string[] = [];
     const values: any[] = [];
     const allowed = ['first_name', 'last_name', 'phone', 'role', 'is_buyer', 'is_seller', 'is_ap',
-                     'location', 'vendor_tag', 'vendor_categories', 'parts_location',
+                     'location', 'vendor_tag', 'parts_location',
                      'auction_assignments', 'recon_categories', 'recon_customized', 'active'];
     const trimFields = ['first_name', 'last_name', 'phone', 'vendor_tag', 'parts_location'];
 
