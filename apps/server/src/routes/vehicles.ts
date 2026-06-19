@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import db from '../lib/db';
 import { requireAuth } from '../lib/auth';
+import { sendVehicleToAuction } from '../lib/auctionExport';
+import { fetchCrmVehicle, crmVehicleToDraft, crmImportFieldsToFleetRow, driveToDriveline } from '../lib/crmImport';
 
 const router = Router();
 
@@ -30,15 +32,28 @@ router.post('/', async (req: Request, res: Response) => {
     if (!user) return;
 
     const v = req.body;
+
+    if (v.vin) {
+      const existing = (await db.raw(
+        'SELECT id FROM vehicles WHERE UPPER(TRIM(vin)) = UPPER(TRIM(?))', [v.vin]
+      )).rows[0];
+      if (existing) return res.status(409).json({ error: `A vehicle with VIN ${v.vin.toUpperCase()} already exists (ID ${existing.id})` });
+    }
+
     const result = await db.raw(
       `INSERT INTO vehicles (vin, stock_number, year, make, model, trim, color, miles, location, source,
-        origin, buyer, seller, sold_to, sale_date, enter_date, purchase_date, grounded_date, status, notes, recon_data, transport_data)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        origin, buyer, seller, sold_to, sale_date, enter_date, purchase_date, grounded_date, status, notes,
+        zip_code, fuel_type, transmission, driveline, drive, motor_trailer, condition_report, recon_data, transport_data)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [v.vin, v.stock_number, v.year, v.make, v.model, v.trim || '', v.color, v.miles,
        v.location, v.source || '', v.origin || '', v.buyer || '', v.seller || '',
        v.sold_to || null, v.sale_date || null, v.enter_date || null,
        v.purchase_date || null, v.grounded_date || null,
        v.sold_to ? 'sold' : 'active', v.notes || '',
+       v.zip_code || null, v.fuel_type || null, v.transmission || null,
+       v.driveline || driveToDriveline(v.drive || '') || null,
+       v.drive || null, v.motor_trailer || null,
+       v.condition_report ? JSON.stringify(v.condition_report) : null,
        JSON.stringify(v.recon_data || {}), JSON.stringify(v.transport_data || {})]
     );
 
@@ -68,12 +83,20 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.json({ ok: true });
     }
 
+    // Auto-derive driveline from drive when drive is updated but driveline isn't explicitly set
+    if (body.drive !== undefined && body.driveline === undefined) {
+      const derived = driveToDriveline(body.drive);
+      if (derived) body.driveline = derived;
+    }
+
     const fields: string[] = [];
     const values: any[] = [];
     const allowed = ['vin', 'stock_number', 'year', 'make', 'model', 'trim', 'color', 'miles',
                      'location', 'source', 'origin', 'buyer', 'seller', 'sold_to', 'sale_date',
                      'enter_date', 'purchase_date', 'grounded_date', 'status', 'kicked', 'notes',
-                     'recon_data', 'transport_data'];
+                     'zip_code', 'fuel_type', 'transmission', 'driveline', 'drive', 'motor_trailer',
+                     'condition_report', 'recon_data', 'transport_data',
+                     'cr_status', 'cr_assigned_to', 'photos'];
 
     for (const key of allowed) {
       if (body[key] !== undefined) {
@@ -228,6 +251,140 @@ router.put('/:id/parts-update', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/vehicles/:id/send-to-auction
+router.post('/:id/send-to-auction', async (req: Request, res: Response) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    if (user.role === 'vendor') return res.status(403).json({ error: 'Forbidden' });
+
+    const vehicle = (await db.raw('SELECT * FROM vehicles WHERE id = ?', [req.params.id])).rows[0];
+    if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+
+    // Client passes current photos from its Zustand state so we don't depend on the DB
+    // column being populated (handles race conditions and missing migration edge cases).
+    if (req.body?.photos && Array.isArray(req.body.photos) && req.body.photos.length > 0) {
+      vehicle.photos = req.body.photos;
+    }
+
+    const result = await sendVehicleToAuction(vehicle, { replaceExistingImages: !!req.body?.replace_existing_images });
+    if (!result.ok) return res.status(result.status || 502).json({ error: 'Auction app rejected the request', details: result.data });
+    res.json({ ok: true, auction: result.data, skippedNonUrlMedia: result.skippedNonUrlMedia });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// GET /api/vehicles/import-from-crm/lookup?vin=...
+// Read-only: fetches CRM's data and a suggested buyer match, for the
+// importer to review/edit before anything is saved.
+router.get('/import-from-crm/lookup', async (req: Request, res: Response) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    if (user.role === 'vendor') return res.status(403).json({ error: 'Vendors cannot import vehicles' });
+
+    const vin = String(req.query.vin || '').trim();
+    if (!vin) return res.status(400).json({ error: 'VIN required' });
+
+    const crmVehicle = await fetchCrmVehicle(vin);
+    const fleetUsers = (await db.raw(
+      `SELECT id, first_name, last_name, email FROM users WHERE role = 'buyer' OR role = 'admin' OR is_buyer = TRUE`
+    )).rows;
+    const draft = crmVehicleToDraft(crmVehicle, fleetUsers);
+
+    const existing = (await db.raw('SELECT id FROM vehicles WHERE vin = ?', [vin.toUpperCase()])).rows[0];
+    res.json({ ok: true, draft, existingVehicleId: existing?.id || null });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: e.message || 'Internal server error' });
+  }
+});
+
+// POST /api/vehicles/import-from-crm
+// Saves the fields the importer reviewed and confirmed (not a fresh CRM
+// fetch) — buyer and source are required here, same as manually adding a
+// vehicle, since CRM's own buyer/source values aren't trusted automatically.
+router.post('/import-from-crm', async (req: Request, res: Response) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    if (user.role === 'vendor') return res.status(403).json({ error: 'Vendors cannot import vehicles' });
+
+    const fields = req.body || {};
+    const vin = String(fields.vin || '').trim().toUpperCase();
+    if (!vin) return res.status(400).json({ error: 'VIN required' });
+
+    const required = ['buyingBroker', 'source', 'zipCode', 'fuelType', 'transmission', 'drive', 'motorTrailer'];
+    const missing = required.filter((k) => !String(fields[k] || '').trim());
+    if (missing.length) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+
+    const row = crmImportFieldsToFleetRow({ ...fields, vin });
+    const overwriteCR = fields.overwriteCR === true;
+    // 'include' (new vehicle default) | 'skip' (update default) | 'merge' | 'replace'
+    const photoImportMode: string = fields.photoImport || 'skip';
+
+    const existing = (await db.raw('SELECT id, photos FROM vehicles WHERE vin = ?', [vin])).rows[0];
+    if (existing) {
+      // overwriteCR=true: user explicitly asked to replace the existing CR (warned in UI).
+      // overwriteCR=false (default): protect Fleet edits — only fill if currently null.
+      const crJson = row.condition_report ? JSON.stringify(row.condition_report) : null;
+      const crAssignment = overwriteCR
+        ? 'condition_report=?::jsonb, cr_status=CASE WHEN ?::jsonb IS NOT NULL THEN \'baseline\' ELSE cr_status END,'
+        : 'condition_report=COALESCE(condition_report, ?::jsonb), cr_status=CASE WHEN condition_report IS NULL AND ?::jsonb IS NOT NULL THEN \'baseline\' ELSE cr_status END,';
+
+      let photosClause = '';
+      let photosParams: any[] = [];
+
+      if (photoImportMode === 'replace') {
+        photosClause = 'photos=?::jsonb,';
+        photosParams = [JSON.stringify(row.photos || [])];
+      } else if (photoImportMode === 'merge') {
+        const existingPhotos: any[] = Array.isArray(existing.photos) ? existing.photos : [];
+        const existingUrls = new Set(existingPhotos.map((p: any) => p.url || ''));
+        const incoming = (row.photos || []).filter((p: any) => p.url && !existingUrls.has(p.url));
+        photosClause = 'photos=?::jsonb,';
+        photosParams = [JSON.stringify([...existingPhotos, ...incoming])];
+      }
+      // 'skip' or anything else on update: leave photos column untouched
+
+      await db.raw(
+        `UPDATE vehicles SET stock_number=?, year=?, make=?, model=?, trim=?, miles=?, color=?, drive=?, zip_code=?,
+         fuel_type=?, transmission=?, driveline=?, motor_trailer=?, location=?, source=?, buyer=?,
+         ${crAssignment}
+         recon_data=recon_data || ?::jsonb,
+         ${photosClause}
+         updated_at=NOW() WHERE id=?`,
+        [row.stock_number, row.year, row.make, row.model, row.trim, row.miles, row.color, row.drive, row.zip_code,
+         row.fuel_type, row.transmission, row.driveline, row.motor_trailer, row.location, row.source, row.buyer,
+         crJson, crJson,
+         JSON.stringify(row.recon_data),
+         ...photosParams,
+         existing.id]
+      );
+      return res.json({ ok: true, id: existing.id, updated: true });
+    }
+
+    const result = await db.raw(
+      `INSERT INTO vehicles (vin, stock_number, year, make, model, trim, miles, color, drive, zip_code,
+        fuel_type, transmission, driveline, motor_trailer, location, source, buyer, status,
+        condition_report, cr_status, recon_data, photos, transport_data)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, '{}') RETURNING id`,
+      [row.vin, row.stock_number, row.year, row.make, row.model, row.trim, row.miles, row.color, row.drive, row.zip_code,
+       row.fuel_type, row.transmission, row.driveline, row.motor_trailer, row.location, row.source, row.buyer,
+       row.condition_report ? JSON.stringify(row.condition_report) : null,
+       row.condition_report ? 'baseline' : null,
+       JSON.stringify(row.recon_data),
+       JSON.stringify(row.photos || [])]
+    );
+    res.json({ ok: true, id: result.rows[0].id, updated: false });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: e.message || 'Internal server error' });
   }
 });
 

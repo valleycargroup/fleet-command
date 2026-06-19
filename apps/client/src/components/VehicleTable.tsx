@@ -4,32 +4,49 @@ import { fmtDate, stColor, stLabel } from '../lib/utils';
 import { S } from '../lib/styles';
 import { useStore, selectRoles } from '../lib/store';
 
+const CR_STATUS_BADGE: Record<string, { bg: string; color: string; bd: string; label: string }> = {
+  baseline:    { bg: '#1E3A5F', color: '#93C5FD', bd: '#3B82F6', label: '📋 CR' },
+  in_progress: { bg: '#78350F', color: '#FBBF24', bd: '#B45309', label: '📋 CR+' },
+  complete:    { bg: '#064E3B', color: '#34D399', bd: '#059669', label: '📋 CR ✓' },
+};
+
 export function VehicleTable() {
 const vehicles = useStore((s: any) => s.vehicles);
 const tab = useStore((s: any) => s.tab);
 const fLoc = useStore((s: any) => s.fLoc);
 const search = useStore((s: any) => s.search);
 const currentUser = useStore((s: any) => s.currentUser);
+const regVendors = useStore((s: any) => s.regVendors);
 const setSelV = useStore((s: any) => s.setSelV);
+const setDeepLinkCr = useStore((s: any) => s.setDeepLinkCr);
 const { isVendor } = useStore(selectRoles);
 const onSelect = setSelV;
+const [myCrOnly,setMyCrOnly]=useState(false);
 
 const list = useMemo(() => {
   let l = [...vehicles];
   if (tab === "delivered") l = l.filter((v: any) => v.status === "delivered");
   else l = l.filter((v: any) => v.status !== "delivered");
   if (isVendor && currentUser) {
+    // Primary: vendor_id FK on currentUser (set for all vendor logins going forward)
+    const myVendorId = currentUser.vendor_id ? 'vn_' + currentUser.vendor_id : null;
+    // Fallback: resolve via regVendors by email/vendor_tag (pre-migration users)
+    const ce = (currentUser.email||"").toLowerCase();
+    const vtag = (currentUser.vendor_tag||"").toLowerCase();
+    const myReg = !myVendorId ? (regVendors||[]).find((rv: any) =>
+      (ce && (rv.email||"").toLowerCase() === ce) ||
+      (vtag && (rv.company||rv.name||"").toLowerCase() === vtag)
+    ) : null;
+    const resolvedVendorId = myVendorId || (myReg ? 'vn_' + myReg.id : null);
+
     l = l.filter((v: any) => {
       const myTasks = VCAT.filter(c => {
         const t = v.reconTasks[c.key];
-        return t?.needed && (t.vendors||[]).some((vn: any) => {
-          const ce = (currentUser.email||"").toLowerCase();
-          const cf = (currentUser.first_name||currentUser.firstName||"").toLowerCase();
-          const cn = ((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();
-          const ve = (vn.email||"").toLowerCase();
-          const vname = (vn.name||"").toLowerCase();
-          return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));
-        });
+        if (!t?.needed) return false;
+        return (t.vendors||[]).some((vn: any) =>
+          (resolvedVendorId && vn.id === resolvedVendorId) ||
+          (ce && (vn.email||"").toLowerCase() === ce)
+        );
       });
       if (!myTasks.length) return false;
       return myTasks.some(c => v.reconTasks[c.key].status !== "complete");
@@ -40,6 +57,7 @@ const list = useMemo(() => {
   if (currentUser?.role === "Buyer/Seller") l = l.filter((v: any) => { const names=[currentUser.firstName,currentUser.name,(currentUser.firstName&&currentUser.lastName?(currentUser.firstName+" "+currentUser.lastName).trim():"")].filter(Boolean);return names.some((n: any)=>v.buyingBroker===n||v.sellingBroker===n);});
   if (fLoc !== "All") l = l.filter((v: any) => v.location === fLoc);
   if (search) { const q = search.toLowerCase(); l = l.filter((v: any) => (v.fullVin||v.vin8||"").toLowerCase().includes(q)||v.vin8.toLowerCase().includes(q)||`${v.year} ${v.make} ${v.model}`.toLowerCase().includes(q)||v.buyingBroker.toLowerCase().includes(q)||(v.sellingBroker||"").toLowerCase().includes(q)||(v.soldTo||"").toLowerCase().includes(q)); }
+  if (myCrOnly) l = l.filter((v: any) => v.crAssignedTo && v.crAssignedTo === currentUser?.id && !isCrDone(v));
   l.sort((a: any, b: any) => {
     if (tab === "delivered") { const da=a.deliveredDate||"",db=b.deliveredDate||""; return da>db?-1:da<db?1:0; }
     const ak=(a.kickedHistory||[]).length>0&&a.status!=="sold"&&a.status!=="delivered";
@@ -61,11 +79,13 @@ const list = useMemo(() => {
     return da>db?-1:da<db?1:0;
   });
   return l;
-}, [vehicles, tab, fLoc, search, currentUser]);
+}, [vehicles, tab, fLoc, search, currentUser, myCrOnly]);
 const [sortCol,setSortCol]=useState("");const [sortDir,setSortDir]=useState("asc");
 const toggleSort=(col: any)=>{if(sortCol===col)setSortDir(sortDir==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("asc");}};
 if(!list.length)return <div style={{textAlign:"center",padding:60,color:"#4B5563",fontSize:17}}>No vehicles found.</div>;
 const soldCount=list.filter((v: any)=>v.status==="sold"||v.status==="delivered").length;
+const isCrDone=(v: any)=>v.crStatus==="complete"||v.reconTasks?.cr?.status==="complete";
+const myCrCount=vehicles.filter((v: any)=>v.crAssignedTo&&v.crAssignedTo===currentUser?.id&&!isCrDone(v)).length;
 const reconCount=list.filter((v: any)=>{const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);return rc2.length>0&&rc2.some(c=>v.reconTasks[c.key]?.status!=="complete");}).length;
 const r2sCount=list.filter((v: any)=>{const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const dn2=rc2.filter(c=>v.reconTasks[c.key]?.status==="complete");return v.noReconNeeded||(rc2.length>0&&dn2.length===rc2.length);}).length;
 const inboundCount=list.filter((v: any)=>v.transport?.inbound?.set&&!v.transport?.inbound?.delivered).length;
@@ -73,7 +93,15 @@ const onGroundCount=list.filter((v: any)=>v.transport?.inbound?.delivered&&v.sta
 const outSetCount=list.filter((v: any)=>v.transport?.outbound?.set&&!v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
 const pickedUpCount=list.filter((v: any)=>v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
 const getPriority=(v: any)=>{const isKicked=(v.kickedReturn||(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV))&&v.status!=="sold"&&v.status!=="delivered";if(isKicked)return -1;const sold=v.status==="sold"||v.status==="delivered";const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const pastDue=rc.some(c=>{const t=v.reconTasks[c.key];if(!t||t.status==="complete")return false;const sv2=(t.vendors||[]).find((x: any)=>x.selected);const eta=sv2?.etaDone||t.etaComplete;if(!eta)return false;let d=new Date(eta);if(d.getFullYear()<100)d.setFullYear(d.getFullYear()+2000);return d<new Date();});if(sold&&pastDue)return 0;if(sold&&rc.some(c=>v.reconTasks[c.key]?.status!=="complete"))return 1;if(pastDue)return 2;return 3;};
-const isMyVendorRecord=(vn: any)=>{if(!isVendor||!currentUser)return false;const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));};
+const isMyVendorRecord=(vn: any)=>{
+  if(!isVendor||!currentUser)return false;
+  if(currentUser.vendor_id)return vn.id==='vn_'+currentUser.vendor_id;
+  const ce=(currentUser.email||"").toLowerCase();
+  const vtag=(currentUser.vendor_tag||"").toLowerCase();
+  const myReg=(regVendors||[]).find((rv: any)=>(ce&&(rv.email||"").toLowerCase()===ce)||(vtag&&(rv.company||rv.name||"").toLowerCase()===vtag));
+  if(myReg)return vn.id==='vn_'+myReg.id;
+  return ce&&(vn.email||"").toLowerCase()===ce;
+};
 const getVendorStatus=(v: any)=>{if(!isVendor||!currentUser)return null;const myTasks=VCAT.filter(c=>{const t=v.reconTasks[c.key];return t?.needed&&(t.vendors||[]).some(isMyVendorRecord);});if(!myTasks.length)return null;let bidPending=false,working=false,done=true;for(const c of myTasks){const t=v.reconTasks[c.key];const me=(t.vendors||[]).find(isMyVendorRecord);if(!me)continue;if(t.status==="complete"){continue;}done=false;if(me.bidLocked&&me.selected){working=true;}else if(!me.bidLocked){bidPending=true;}}if(bidPending)return{key:"bid_pending",label:"⏳ BID PENDING",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};if(working)return{key:"working",label:"🔧 WORKING",bg:"#1E3A5F",color:"#93C5FD",border:"#3B82F6"};if(done)return{key:"done",label:"✅ DONE",bg:"#0D3B1E",color:"#6EE7B7",border:"#166534"};return{key:"awaiting",label:"⏳ AWAITING BUYER",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};};
 const sorted2=[...list].sort((a: any,b: any)=>{const pa=getPriority(a),pb=getPriority(b);if(pa!==pb)return pa-pb;if(sortCol){let av: any,bv: any;
 if(sortCol==="Vehicle")av=a.year+" "+a.make+" "+a.model,bv=b.year+" "+b.make+" "+b.model;
@@ -102,6 +130,7 @@ return <span style={{display:"contents"}}><div style={{display:"flex",gap:8,marg
 <div style={{padding:"8px 16px",borderRadius:8,background:"#3B2F10",border:"1px solid #78590A",textAlign:"center"}}><span style={{fontSize:11,color:"#FBBF24"}}>Awaiting Buyer</span> <span style={{fontSize:18,fontWeight:800,color:"#FDE68A"}}>{list.filter((v: any)=>getVendorStatus(v)?.key==="awaiting").length}</span></div>
 </>:<>
 <div style={{padding:"8px 16px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:11,color:"#9CA3AF"}}>Total</span> <span style={{fontSize:18,fontWeight:800,color:"#E5E7EB"}}>{list.length}</span></div>
+{myCrCount>0&&<div onClick={()=>setMyCrOnly(v=>!v)} style={{padding:"8px 16px",borderRadius:8,background:myCrOnly?"#134E4A":"rgba(20,184,166,0.1)",border:`1px solid #0D9488`,textAlign:"center",cursor:"pointer",userSelect:"none"}} title="Filter to my pending CRs"><span style={{fontSize:11,color:"#2DD4BF"}}>Pending CRs</span> <span style={{fontSize:18,fontWeight:800,color:"#2DD4BF"}}>{myCrCount}</span></div>}
 <div style={{padding:"8px 16px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #166534",textAlign:"center"}}><span style={{fontSize:11,color:"#34D399"}}>Sold</span> <span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{soldCount}</span></div>
 <div style={{padding:"8px 16px",borderRadius:8,background:"rgba(96,165,250,0.1)",border:"1px solid #1E3A5F",textAlign:"center"}}><span style={{fontSize:11,color:"#60A5FA"}}>Inbound</span> <span style={{fontSize:18,fontWeight:800,color:"#60A5FA"}}>{inboundCount}</span></div>
 <div style={{padding:"8px 16px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #0D3B1E",textAlign:"center"}}><span style={{fontSize:11,color:"#34D399"}}>On Ground</span> <span style={{fontSize:18,fontWeight:800,color:"#34D399"}}>{onGroundCount}</span></div>
@@ -172,7 +201,7 @@ onClick={()=>onSelect(v)} onMouseEnter={(e: any)=>e.currentTarget.style.backgrou
 :sold?<span style={{...S.badge,background:"#3B1515",color:"#F87171"}}>NOT SET</span>
 :<span style={{color:"#4B5563"}}>—</span>}
 </div></td>
-<td style={{...S.td,whiteSpace:"normal",minWidth:240}}>{v.noReconNeeded?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:12}}>✅ NO RECON {v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
+<td style={{...S.td,whiteSpace:"normal",minWidth:240}}>{(()=>{const crBadge=CR_STATUS_BADGE[v.crStatus];return (crBadge&&v.crStatus!=="complete")?<span onClick={(e: any)=>{e.stopPropagation();setSelV(v);setDeepLinkCr(true);}} style={{...S.badge,background:crBadge.bg,color:crBadge.color,border:`1px solid ${crBadge.bd}`,fontSize:11,cursor:"pointer",marginBottom:4,display:"inline-block"}} title="View Condition Report">{crBadge.label}{v.crAssignedTo?" 👤":""}</span>:null;})()}{v.noReconNeeded?<span style={{...S.badge,background:"#06B6D4",color:"#FFF",fontWeight:800,fontSize:12}}>✅ NO RECON {v.noReconSetDate?fmtDate(v.noReconSetDate):""}</span>
 :<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{[...rc].sort((a: any,b: any)=>{const ao=v.reconTasks[a.key]?.order;const bo=v.reconTasks[b.key]?.order;if(ao&&bo)return ao-bo;if(ao&&!bo)return -1;if(!ao&&bo)return 1;return 0;}).map((c: any)=>{const t=v.reconTasks[c.key],cl=stColor(t.status);return <div key={c.key} title={`#${t.order||"—"} ${c.label}: ${stLabel(t.status)}`}
 onClick={(e: any)=>{e.stopPropagation();onSelect(v);}}
 style={{padding:"2px 6px",borderRadius:4,background:cl.bg,border:`1px solid ${cl.bd}`,fontSize:11,fontWeight:600,color:cl.text,cursor:"pointer",transition:"transform 0.1s"}}

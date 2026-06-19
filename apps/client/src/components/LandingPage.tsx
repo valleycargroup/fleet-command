@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { WORKER } from '../lib/constants';
+import { API_URL } from '../lib/constants';
 import { useStore } from '../lib/store';
 
 export function LandingPage() {
@@ -34,7 +34,7 @@ const doResetPw=async()=>{
   if(resetPw!==resetConfirm){setResetErr("Passwords don't match");return;}
   setLoading(true);setResetErr("");
   try{
-    const r=await fetch(WORKER+"/api/auth/reset-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:resetToken,new_password:resetPw})});
+    const r=await fetch(API_URL+"/api/auth/reset-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:resetToken,new_password:resetPw})});
     const d=await r.json();
     if(!r.ok||d.error){setResetErr(d.error||"Reset failed — link may be expired");setLoading(false);return;}
     window.history.replaceState({},document.title,window.location.pathname);
@@ -47,7 +47,7 @@ const doLogin=async()=>{
   if(!email||!pw){setLoginErr("Enter email and password");return;}
   setLoading(true);setLoginErr("");
   try{
-    const r=await fetch(WORKER+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pw})});
+    const r=await fetch(API_URL+"/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pw})});
     const d=await r.json();
     if(!r.ok){setLoginErr(d.error||"Login failed");setLoading(false);return;}
     setPendingToken(d.token);setPendingUser(d.user);
@@ -65,7 +65,7 @@ const doChangePw=async()=>{
   if(newPw!==confirmPw){setPwErr("Passwords don't match");return;}
   setLoading(true);setPwErr("");
   try{
-    const r=await fetch(WORKER+"/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+pendingToken},body:JSON.stringify({new_password:newPw})});
+    const r=await fetch(API_URL+"/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+pendingToken},body:JSON.stringify({new_password:newPw})});
     if(!r.ok){const d=await r.json();setPwErr(d.error||"Failed");setLoading(false);return;}
     sessionStorage.setItem("fc_token",pendingToken);sessionStorage.setItem("fc_user",JSON.stringify(pendingUser));
     onLogin(pendingUser,pendingToken);
@@ -75,7 +75,7 @@ const doChangePw=async()=>{
 
 const doForgot=async()=>{
   if(!forgotEmail){return;}
-  try{await fetch(WORKER+"/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:forgotEmail})});}catch(e){}
+  try{await fetch(API_URL+"/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:forgotEmail})});}catch(e){}
   setForgotSent(true);
 };
 

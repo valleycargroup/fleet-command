@@ -66,7 +66,8 @@ router.post('/login', authLimiter, async (req: Request, res: Response) => {
         id: user.id, email: user.email,
         first_name: user.first_name, last_name: user.last_name,
         role: user.role, is_buyer: user.is_buyer, is_seller: user.is_seller,
-        is_ap: user.is_ap, location: user.location, vendor_tag: user.vendor_tag,
+        is_ap: user.is_ap, location: user.location,
+        vendor_tag: user.vendor_tag, vendor_id: user.vendor_id ?? null,
         must_change_password: user.must_change_password,
       },
     });
@@ -153,7 +154,8 @@ router.get('/me', async (req: Request, res: Response) => {
       id: user.id, email: user.email,
       first_name: user.first_name, last_name: user.last_name,
       role: user.role, is_buyer: user.is_buyer, is_seller: user.is_seller,
-      is_ap: user.is_ap, location: user.location, vendor_tag: user.vendor_tag,
+      is_ap: user.is_ap, location: user.location,
+      vendor_tag: user.vendor_tag, vendor_id: user.vendor_id ?? null,
       must_change_password: user.must_change_password,
     });
   } catch (e: any) {

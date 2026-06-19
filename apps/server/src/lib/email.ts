@@ -3,7 +3,7 @@ import db from './db';
 
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || process.env.FROM_EMAIL || 'notifications@fleetcommandrecon.net';
 const FROM_NAME = process.env.SENDGRID_FROM_NAME || 'Fleet Command';
-const APP_URL = process.env.APP_URL || 'https://fleetcommandrecon.net';
+export const APP_URL = process.env.APP_URL || 'https://fleetcommandrecon.net';
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.SENDGRID_API_KEY;

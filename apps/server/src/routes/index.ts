@@ -9,10 +9,12 @@ import partsRouter from './parts';
 import emailLogRouter from './email-log';
 import reportsRouter from './reports';
 import uploadsRouter from './uploads';
+import emailSendRouter from './email-send';
+import devRouter from './dev';
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests — try again in 15 minutes' },
@@ -30,5 +32,10 @@ router.use('/parts', partsRouter);
 router.use('/email-log', emailLogRouter);
 router.use('/reports', reportsRouter);
 router.use('/uploads', uploadsRouter);
+router.use('/email', emailSendRouter);
+
+if (process.env.NODE_ENV !== 'production') {
+  router.use('/dev', devRouter);
+}
 
 export default router;

@@ -1,10 +1,11 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { useStore, selectRoles } from './lib/store';
-import { VCAT, LOCATIONS } from './lib/constants';
+import { API_URL, VCAT, LOCATIONS } from './lib/constants';
 import { S } from './lib/styles';
 import { LandingPage } from './components/LandingPage';
 import { VehicleTable } from './components/VehicleTable';
 import { AddVehicleModal } from './components/AddVehicleModal';
+import { ImportCrmModal } from './components/ImportCrmModal';
 import { VehicleDetail } from './components/VehicleDetail';
 import { VendorsPage } from './pages/VendorsPage';
 import { AdminPage } from './pages/AdminPage';
@@ -35,6 +36,7 @@ function App() {
   const csvUploading = useStore(s => s.csvUploading);
   const { loadData, handleLogout, handleCSVUpload } = useStore(s => s);
   const csvRef = useRef(null as any);
+  const [showImportCrm, setShowImportCrm] = useState(false);
 
   // Load data on login
   useEffect(() => {
@@ -74,15 +76,14 @@ function App() {
   // localStorage backup
   useEffect(() => { try { localStorage.setItem("fc_vehicles", JSON.stringify(vehicles)); } catch(e) {} }, [vehicles]);
 
-  // Background auto-sync every 5 seconds
+  // Background auto-sync every 30 seconds
   useEffect(() => {
     if (!apiReady || !currentUser) return;
-    const WORKER_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
     const interval = setInterval(async () => {
       try {
         const token = sessionStorage.getItem("fc_token");
         if (!token) return;
-        const r = await fetch(WORKER_URL+"/api/vehicles", { headers:{"Content-Type":"application/json","Authorization":"Bearer "+token} });
+        const r = await fetch(API_URL+"/api/vehicles", { headers:{"Content-Type":"application/json","Authorization":"Bearer "+token} });
         if (!r.ok) return;
         const data = await r.json();
         const { mapVehicle } = useStore.getState();
@@ -98,7 +99,7 @@ function App() {
           return changed ? { vehicles: fresh } : prev;
         });
       } catch(e) {}
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [apiReady, currentUser]);
 
@@ -174,6 +175,7 @@ function App() {
           {LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
         </select>
         {tab!=="vendors"&&tab!=="register"&&!isVendor&&<button style={S.btn} onClick={()=>setShowAdd(true)}>+ Add Vehicle</button>}
+        {tab!=="vendors"&&tab!=="register"&&isAdmin&&<button style={{...S.btn,background:"#1E3A5F",color:"#93C5FD"}} onClick={()=>setShowImportCrm(true)}>⬇️ Import from CRM</button>}
       </div>
     </div>
     <div style={{padding:"12px 16px"}}>
@@ -192,6 +194,7 @@ function App() {
       </div>:null}
     </div>
     {showAdd&&<AddVehicleModal/>}
+    {showImportCrm&&<ImportCrmModal onClose={()=>setShowImportCrm(false)}/>}
   </div>;
 }
 

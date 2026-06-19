@@ -5,6 +5,13 @@ import { sendEmail, logEmail, welcomeVendorEmail } from '../lib/email';
 
 const router = Router();
 
+function splitName(full: string): { first: string; last: string } {
+  const parts = full.trim().split(/\s+/);
+  return parts.length > 1
+    ? { first: parts[0], last: parts.slice(1).join(' ') }
+    : { first: full.trim(), last: '' };
+}
+
 // GET /api/vendors
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -72,18 +79,19 @@ router.post('/', async (req: Request, res: Response) => {
           warning = `Vendor saved, but email ${cleanEmail} is already a ${existingUser.role} user — no login created.`;
         } else {
           const hash = await hashPassword(v.password);
+          const { first, last } = splitName(cleanContact || cleanName);
           if (existingUser) {
             await db.raw(
-              `UPDATE users SET active = TRUE, password_hash = ?, first_name = ?, phone = ?, role = 'vendor',
-               is_buyer = FALSE, is_seller = FALSE, vendor_tag = ?, vendor_categories = ?, must_change_password = FALSE, updated_at = NOW()
+              `UPDATE users SET active = TRUE, password_hash = ?, first_name = ?, last_name = ?, phone = ?, role = 'vendor',
+               is_buyer = FALSE, is_seller = FALSE, vendor_tag = ?, vendor_categories = ?, vendor_id = ?, must_change_password = FALSE, updated_at = NOW()
                WHERE id = ?`,
-              [hash, cleanContact || cleanName, cleanPhone, cleanName, JSON.stringify(v.categories || []), existingUser.id]
+              [hash, first, last, cleanPhone, cleanName, JSON.stringify(v.categories || []), vendorId, existingUser.id]
             );
           } else {
             await db.raw(
-              `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, vendor_tag, vendor_categories, must_change_password)
-               VALUES (?, ?, ?, '', ?, 'vendor', FALSE, FALSE, ?, ?, FALSE)`,
-              [cleanEmail, hash, cleanContact || cleanName, cleanPhone, cleanName, JSON.stringify(v.categories || [])]
+              `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, vendor_tag, vendor_categories, vendor_id, must_change_password)
+               VALUES (?, ?, ?, ?, ?, 'vendor', FALSE, FALSE, ?, ?, ?, FALSE)`,
+              [cleanEmail, hash, first, last, cleanPhone, cleanName, JSON.stringify(v.categories || []), vendorId]
             );
           }
           const welcome = welcomeVendorEmail(cleanName, cleanContact || cleanName, cleanEmail, v.password, v.categories || []);
@@ -133,33 +141,55 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (body.delivery_method !== undefined) { fields.push('delivery_method = ?'); values.push(String(body.delivery_method)); }
 
     if (fields.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+    // Capture old email before the update so we can find the existing user account
+    const oldVendorRow = (await db.raw('SELECT email FROM vendors WHERE id = ?', [vendorId])).rows[0];
+    const oldEmail = oldVendorRow?.email?.trim().toLowerCase() || null;
+
     values.push(vendorId);
     await db.raw(`UPDATE vendors SET ${fields.join(', ')} WHERE id = ?`, values);
 
-    // Sync vendor user account
+    // Sync vendor user account — always (not just on password change)
     const vendor = (await db.raw('SELECT name, email, contact_name, phone, categories FROM vendors WHERE id = ?', [vendorId])).rows[0];
     let warning: string | null = null;
 
     if (vendor?.email) {
       const cleanEmail = vendor.email.trim().toLowerCase();
+      const emailChanged = !!(oldEmail && oldEmail !== cleanEmail);
       try {
-        const existingUser = (await db.raw('SELECT id, role FROM users WHERE email = ?', [cleanEmail])).rows[0];
+        // Look up user by OLD email first (handles the email-change case), fall back to new email
+        const lookupEmail = emailChanged ? oldEmail! : cleanEmail;
+        let existingUser = (await db.raw('SELECT id, role FROM users WHERE email = ?', [lookupEmail])).rows[0];
+        // Fallback: find orphaned vendor user by company name (handles email changes done before this fix)
+        if (!existingUser && vendor?.name) {
+          existingUser = (await db.raw(
+            `SELECT id, role FROM users WHERE vendor_tag = ? AND role = 'vendor' LIMIT 1`, [vendor.name]
+          )).rows[0];
+        }
+
         if (existingUser && existingUser.role && existingUser.role !== 'vendor') {
           warning = `Vendor saved, but email ${cleanEmail} is already a ${existingUser.role} login.`;
-        } else if (body.password && body.password.trim()) {
-          const hash = await hashPassword(body.password.trim());
-          if (existingUser) {
-            await db.raw(
-              `UPDATE users SET active = TRUE, password_hash = ?, first_name = ?, phone = ?, vendor_tag = ?, vendor_categories = ?, must_change_password = FALSE, updated_at = NOW() WHERE id = ?`,
-              [hash, vendor.contact_name || vendor.name, vendor.phone || '', vendor.name, vendor.categories || '[]', existingUser.id]
-            );
-          } else {
-            await db.raw(
-              `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, vendor_tag, vendor_categories, must_change_password)
-               VALUES (?, ?, ?, '', ?, 'vendor', FALSE, FALSE, ?, ?, FALSE)`,
-              [cleanEmail, hash, vendor.contact_name || vendor.name, vendor.phone || '', vendor.name, vendor.categories || '[]']
-            );
+        } else if (existingUser) {
+          // Always sync email, name, phone, categories; only update password if provided
+          const { first: syncFirst, last: syncLast } = splitName(vendor.contact_name || vendor.name);
+          const syncFields = ['email = ?', 'first_name = ?', 'last_name = ?', 'phone = ?', 'vendor_tag = ?', 'vendor_categories = ?', 'vendor_id = ?', 'active = TRUE', 'updated_at = NOW()'];
+          const syncValues: any[] = [cleanEmail, syncFirst, syncLast, vendor.phone || '', vendor.name, vendor.categories || '[]', vendorId];
+          if (body.password && body.password.trim()) {
+            const hash = await hashPassword(body.password.trim());
+            syncFields.push('password_hash = ?', 'must_change_password = FALSE');
+            syncValues.push(hash);
           }
+          syncValues.push(existingUser.id);
+          await db.raw(`UPDATE users SET ${syncFields.join(', ')} WHERE id = ?`, syncValues);
+        } else if (body.password && body.password.trim()) {
+          // No existing user at all — create one (requires a password to be useful)
+          const hash = await hashPassword(body.password.trim());
+          const { first: newFirst, last: newLast } = splitName(vendor.contact_name || vendor.name);
+          await db.raw(
+            `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, vendor_tag, vendor_categories, vendor_id, must_change_password)
+             VALUES (?, ?, ?, ?, ?, 'vendor', FALSE, FALSE, ?, ?, ?, FALSE)`,
+            [cleanEmail, hash, newFirst, newLast, vendor.phone || '', vendor.name, vendor.categories || '[]', vendorId]
+          );
         }
       } catch (e) { warning = 'Vendor saved, but login account sync failed.'; }
     }

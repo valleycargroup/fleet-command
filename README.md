@@ -45,6 +45,40 @@ cp .env.example .env
 
 Required for email to work: set `SENDGRID_API_KEY` to a valid SendGrid key.
 
+### Dev tools
+
+#### Test emails
+
+In development (`NODE_ENV !== production`), trigger any template against a real address via the dev endpoint (uses stub data):
+
+```bash
+curl -X POST http://localhost:3001/api/dev/test-email \
+  -H "Content-Type: application/json" \
+  -d '{"type": "welcome-user", "to": "you@example.com"}'
+```
+
+List all available types:
+
+```bash
+curl http://localhost:3001/api/dev/test-email/types
+```
+
+Available types: `welcome-user`, `welcome-vendor`, `password-reset`, `vendor_assigned`, `vendor_bid_accepted`, `vendor_bid_declined`, `vendor_work_canceled`, `vendor_part_approved`, `vendor_work_started`, `buyer_bid_submitted`, `buyer_vendor_declined`, `buyer_work_complete`, `buyer_recon_complete`, `buyer_vehicle_kicked`, `buyer_approved_shipping`, `shipping_hold`, `vehicle_grounded`, `transport_inbound_set`, `driveway_inbound_pickedup`, `driveway_outbound_shipped`, `driveway_outbound_delivered`, `retail_vehicle_shipped`, `retail_vehicle_delivered`, `seller_vehicle_sold`, `seller_vehicle_kicked`, `seller_progress`, `dealer_vehicle_shipped`, `dealer_vehicle_delivered`, `parts_request_to_pm`, `parts_quoted_to_buyer`, `parts_approved_to_pm`, `parts_approved_to_vendor`, `part_received`, `all_parts_received`, `part_rejected`, `part_backorder`, `recon_approved_for_payment`, `recon_disputed`, `vendor_payment_receipt`.
+
+`SENDGRID_API_KEY` must be set in `.env` for sends to go through. The `/api/dev` routes are not mounted in production.
+
+#### Email send endpoint
+
+All event-driven emails go through `POST /api/email/send`. Recipients are resolved automatically from the database based on email type and the data payload:
+
+```bash
+curl -X POST http://localhost:3001/api/email/send \
+  -H "Content-Type: application/json" \
+  -d '{"type": "buyer_work_complete", "to": "fallback@example.com", "data": {...}}'
+```
+
+The `to` field is only used as a fallback if no recipients can be resolved from the database. The frontend's `fireEmail` function calls this endpoint automatically.
+
 ### Database
 
 On first `docker compose up` the database is initialised automatically from `db/schema.sql`.

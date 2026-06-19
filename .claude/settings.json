@@ -16,7 +16,31 @@
       "Bash(git rm *)",
       "Bash(npm install *)",
       "Bash(node fix-errors.js)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(npm run *)",
+      "Read(//d/websites/vcg-crm/crm-backend/src/routes/**)",
+      "Bash(find \"d:\\\\websites\\\\vcg-crm\\\\crm-backend\\\\src\\\\routes\" -type f -name \"*.js\" | head -20)",
+      "Bash(find \"d:\\\\websites\\\\vcg-crm\\\\crm-backend\" -name \"schema.prisma\" -o -name \"*.prisma\")",
+      "Read(//d/websites/vcg-crm/crm-backend/**)",
+      "Bash(find \"d:\\\\websites\\\\vcg-crm\\\\crm-backend\" -name \"*.sql\" | grep -i schema)",
+      "Bash(grep -r \"POST.*auction\\\\|auction.*payload\\\\|vehicle.*media\" \"d:\\\\websites\\\\vcg-crm\" --include=\"*.js\" 2>/dev/null | grep -v node_modules | head -10)",
+      "Read(//d/websites/vcg-crm/**)",
+      "Bash(docker network *)",
+      "Bash(npm view *)",
+      "Bash(npx vitest *)",
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 5001 -ErrorAction SilentlyContinue\")",
+      "Bash(curl -s -i -X GET \"http://localhost:5001/external/fleet-command-vehicle/1FTFW1E83MFA56515\" -H \"x-api-key: JpbcpTZU58gpKfQxRn6Y7ZZdjucroK\")",
+      "Bash(curl -s http://localhost:5005/api/auth)",
+      "Bash(curl -s http://localhost:5002/api/auth)",
+      "Bash(ipconfig)",
+      "Bash(curl -s -X POST http://localhost:5002/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@example.com\",\"password\":\"changeme123\"}')",
+      "Bash(node createTables.js)",
+      "Bash(curl -s \"http://localhost:5001/external/fleet-command-vehicle/1FTFW1E83MFA56515\" -H \"x-api-key: JpbcpTZU58gpKfQxRn6Y7ZZdjucroK\")"
+    ],
+    "additionalDirectories": [
+      "D:\\websites\\vcg-crm\\crm-backend\\src\\routes",
+      "D:\\websites\\vcg-crm\\crm-backend\\src"
     ]
   }
 }

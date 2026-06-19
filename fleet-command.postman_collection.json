@@ -1,0 +1,709 @@
+{
+  "info": {
+    "_postman_id": "fc-fleet-command-api-v1",
+    "name": "Fleet Command API",
+    "description": "All API routes for the Fleet Command Express server (default port 5001).\n\nCollection variables:\n• {{base_url}} — http://localhost:5001  (change if running remotely)\n• {{token}}    — populated automatically by the Login request's test script\n\nWorkflow:\n1. Run **Auth › Login** — the test script saves the token to {{token}}.\n2. All other requests use {{token}} automatically via the Authorization header.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5001", "type": "string" },
+    { "key": "token",    "value": "",                       "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "DB Status (needs_setup check)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/auth/db-status", "host": ["{{base_url}}"], "path": ["api","auth","db-status"] }
+          }
+        },
+        {
+          "name": "Setup (first-run admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"phone\": \"6025550100\",\n  \"first_name\": \"Admin\",\n  \"last_name\": \"User\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/auth/setup", "host": ["{{base_url}}"], "path": ["api","auth","setup"] }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.token) {",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Token saved:', json.token.substring(0, 8) + '...');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"YourPassword1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "Me (current user)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"NewPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/auth/change-password", "host": ["{{base_url}}"], "path": ["api","auth","change-password"] }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/auth/forgot-password", "host": ["{{base_url}}"], "path": ["api","auth","forgot-password"] }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<reset-token-from-email>\",\n  \"new_password\": \"NewPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/auth/reset-password", "host": ["{{base_url}}"], "path": ["api","auth","reset-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/users", "host": ["{{base_url}}"], "path": ["api","users"] }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer@example.com\",\n  \"phone\": \"6025550101\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Doe\",\n  \"role\": \"buyer\",\n  \"is_buyer\": true,\n  \"is_seller\": false,\n  \"is_ap\": false,\n  \"location\": \"PHX\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/users", "host": ["{{base_url}}"], "path": ["api","users"] }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"phone\": \"6025550199\",\n  \"location\": \"PHX\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/users/1", "host": ["{{base_url}}"], "path": ["api","users","1"] }
+          }
+        },
+        {
+          "name": "Delete User (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/users/1", "host": ["{{base_url}}"], "path": ["api","users","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vehicles",
+      "item": [
+        {
+          "name": "List Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/vehicles", "host": ["{{base_url}}"], "path": ["api","vehicles"] }
+          }
+        },
+        {
+          "name": "Create Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vin\": \"1HGCM82633A123456\",\n  \"stock_number\": \"ABC12345\",\n  \"year\": 2022,\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"trim\": \"LE\",\n  \"color\": \"White\",\n  \"miles\": 30000,\n  \"location\": \"PHX\",\n  \"source\": \"ADESA\",\n  \"buyer\": \"Darren Smith\",\n  \"seller\": \"Mike Jones\",\n  \"purchase_date\": \"2026-06-01\",\n  \"status\": \"active\",\n  \"recon_data\": {},\n  \"transport_data\": {}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vehicles", "host": ["{{base_url}}"], "path": ["api","vehicles"] }
+          }
+        },
+        {
+          "name": "Update Vehicle",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"miles\": 31500,\n  \"color\": \"Silver\",\n  \"status\": \"active\",\n  \"notes\": \"Minor scuff on rear bumper\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vehicles/1", "host": ["{{base_url}}"], "path": ["api","vehicles","1"] }
+          }
+        },
+        {
+          "name": "Delete Vehicle",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/vehicles/1", "host": ["{{base_url}}"], "path": ["api","vehicles","1"] }
+          }
+        },
+        {
+          "name": "Vendor Bid Update",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryKey\": \"detail\",\n  \"vendorUpdates\": {\n    \"lineItems\": [\n      { \"id\": \"li_1\", \"desc\": \"Full interior & exterior detail\", \"price\": 250, \"costType\": \"ws\" }\n    ],\n    \"estimate\": 250,\n    \"findingsSubmitted\": true,\n    \"findingsSubmittedDate\": \"2026-06-15\"\n  },\n  \"taskStatusChange\": {\n    \"status\": \"estimated\",\n    \"estimate\": 250\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vehicles/1/vendor-bid", "host": ["{{base_url}}"], "path": ["api","vehicles","1","vendor-bid"] }
+          }
+        },
+        {
+          "name": "Parts Update (Parts Manager)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryKey\": \"mechanical\",\n  \"lineItemId\": \"li_1\",\n  \"vendorId\": null,\n  \"partUpdates\": {\n    \"partStatus\": \"quoted\",\n    \"partPrice\": 120,\n    \"partETA\": \"2026-06-20\",\n    \"partQuotedBy\": \"Parts Team\",\n    \"partQuotedDate\": \"2026-06-15\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vehicles/1/parts-update", "host": ["{{base_url}}"], "path": ["api","vehicles","1","parts-update"] }
+          }
+        },
+        {
+          "name": "CSV Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"csv_data\": \"STOCK #,VIN,YEAR,MAKE,MODEL,TRIM,COLOR,MILES,LOCATION,FROM,BUYER,SELLER\\nABC001,1HGCM82633A000001,2022,Toyota,Camry,LE,White,30000,PHX,ADESA,Darren Smith,Mike Jones\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vehicles/upload-csv", "host": ["{{base_url}}"], "path": ["api","vehicles","upload-csv"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendors",
+      "item": [
+        {
+          "name": "List Vendors",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/vendors", "host": ["{{base_url}}"], "path": ["api","vendors"] }
+          }
+        },
+        {
+          "name": "Create Vendor",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Detail\",\n  \"contact_name\": \"John Acme\",\n  \"email\": \"john@acmedetail.com\",\n  \"phone\": \"6025550200\",\n  \"office_phone\": \"6025550201\",\n  \"location\": \"123 Vendor St, Phoenix AZ\",\n  \"categories\": [\"detail\", \"touchup\"],\n  \"password\": \"VendorPass1\",\n  \"payment_terms\": \"weekly\",\n  \"cutoff_day\": \"Friday\",\n  \"cutoff_time\": \"5 PM\",\n  \"delivery_method\": \"USPS Mail\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vendors", "host": ["{{base_url}}"], "path": ["api","vendors"] }
+          }
+        },
+        {
+          "name": "Update Vendor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_name\": \"Jane Acme\",\n  \"phone\": \"6025550299\",\n  \"categories\": [\"detail\", \"touchup\", \"bodyshop\"],\n  \"payment_terms\": \"bi-weekly\",\n  \"cutoff_day\": \"Thursday\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/vendors/1", "host": ["{{base_url}}"], "path": ["api","vendors","1"] }
+          }
+        },
+        {
+          "name": "Delete Vendor (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/vendors/1", "host": ["{{base_url}}"], "path": ["api","vendors","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auctions",
+      "item": [
+        {
+          "name": "List Auctions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/auctions", "host": ["{{base_url}}"], "path": ["api","auctions"] }
+          }
+        },
+        {
+          "name": "Create Auction",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ADESA Phoenix\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/auctions", "host": ["{{base_url}}"], "path": ["api","auctions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Parts",
+      "item": [
+        {
+          "name": "List Parts Requests",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/parts", "host": ["{{base_url}}"], "path": ["api","parts"] }
+          }
+        },
+        {
+          "name": "Create Parts Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": 1,\n  \"recon_task_id\": \"mechanical\",\n  \"description\": \"Brake Pads Front\",\n  \"vendor_name\": \"Acme Mechanical\",\n  \"category\": \"mechanical\",\n  \"supplier\": \"AutoZone\",\n  \"cost\": 120,\n  \"eta\": \"2026-06-20\",\n  \"requested_by\": \"John Tech\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/parts", "host": ["{{base_url}}"], "path": ["api","parts"] }
+          }
+        },
+        {
+          "name": "Update Parts Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ordered\",\n  \"supplier\": \"AutoZone\",\n  \"cost\": 120,\n  \"tracking_number\": \"1Z999AA10123456784\",\n  \"eta\": \"2026-06-20\",\n  \"ordered_date\": \"2026-06-15\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/parts/1", "host": ["{{base_url}}"], "path": ["api","parts","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Overview Report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/reports?type=overview",
+              "host": ["{{base_url}}"],
+              "path": ["api","reports"],
+              "query": [{ "key": "type", "value": "overview" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload Single File (image)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select an image file (JPEG, PNG, WEBP, GIF) or video (MP4, MOV)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/uploads?folder=images",
+              "host": ["{{base_url}}"],
+              "path": ["api","uploads"],
+              "query": [{ "key": "folder", "value": "images", "description": "images or files" }]
+            }
+          }
+        },
+        {
+          "name": "Upload Single File (PDF/doc)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a PDF or image file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/uploads?folder=files",
+              "host": ["{{base_url}}"],
+              "path": ["api","uploads"],
+              "query": [{ "key": "folder", "value": "files" }]
+            }
+          }
+        },
+        {
+          "name": "Upload Multiple Files (up to 10)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "files", "type": "file", "src": [], "description": "Up to 10 image files" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/uploads/many?folder=images",
+              "host": ["{{base_url}}"],
+              "path": ["api","uploads","many"],
+              "query": [{ "key": "folder", "value": "images" }]
+            }
+          }
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/uploads/images/abc123.jpg",
+              "host": ["{{base_url}}"],
+              "path": ["api","uploads","images","abc123.jpg"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Email Log",
+      "item": [
+        {
+          "name": "Get Email Log",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/email-log?limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api","email-log"],
+              "query": [{ "key": "limit", "value": "50", "description": "Max rows to return (default 50)" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Email",
+      "item": [
+        {
+          "name": "Send Email (vendor_assigned)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"vendor_assigned\",\n  \"to\": \"fallback@example.com\",\n  \"data\": {\n    \"vendor\": { \"name\": \"Acme Detail\" },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"tasks\": [\n      { \"desc\": \"Full interior & exterior detail\", \"isPart\": false }\n    ],\n    \"buyer\": \"Darren Smith\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/email/send", "host": ["{{base_url}}"], "path": ["api","email","send"] }
+          }
+        },
+        {
+          "name": "Send Email (buyer_bid_submitted)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"buyer_bid_submitted\",\n  \"to\": \"fallback@example.com\",\n  \"data\": {\n    \"vendor\": { \"name\": \"Acme Detail\" },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      { \"desc\": \"Full Detail\", \"price\": 250, \"costType\": \"ws\" }\n    ],\n    \"totalBid\": 250\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/email/send", "host": ["{{base_url}}"], "path": ["api","email","send"] }
+          }
+        },
+        {
+          "name": "Send Email (recon_approved_for_payment)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"recon_approved_for_payment\",\n  \"to\": \"fallback@example.com\",\n  \"data\": {\n    \"vendor\": { \"name\": \"Acme Detail\", \"email\": \"john@acmedetail.com\" },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"location\": \"PHX\",\n    \"lineItems\": [\n      { \"desc\": \"Full Detail\", \"price\": 250, \"costType\": \"ws\" }\n    ],\n    \"lockedTotal\": 250,\n    \"lockedWS\": 250,\n    \"lockedRetail\": 0,\n    \"approvedBy\": \"Darren Smith\",\n    \"approvedDate\": \"2026-06-15\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/email/send", "host": ["{{base_url}}"], "path": ["api","email","send"] }
+          }
+        },
+        {
+          "name": "Send Email (vendor_payment_receipt)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"vendor_payment_receipt\",\n  \"to\": \"fallback@example.com\",\n  \"data\": {\n    \"vendor\": { \"name\": \"Acme Detail\", \"email\": \"john@acmedetail.com\" },\n    \"checkNumber\": \"10042\",\n    \"checkWrittenDate\": \"2026-06-15\",\n    \"checkMailedDate\": \"2026-06-15\",\n    \"deliveryMethod\": \"USPS Mail\",\n    \"totalPaid\": 750,\n    \"paidBy\": \"Accounting\",\n    \"jobs\": [\n      {\n        \"vehicleYear\": 2022,\n        \"vehicleMake\": \"Toyota\",\n        \"vehicleModel\": \"Camry\",\n        \"vehicleTrim\": \"LE\",\n        \"vin8\": \"ABC12345\",\n        \"categoryIcon\": \"🧽\",\n        \"categoryLabel\": \"Detail\",\n        \"total\": 750,\n        \"lineItems\": [\n          { \"desc\": \"Full Detail\", \"price\": 750, \"costType\": \"ws\" }\n        ],\n        \"approvedDate\": \"2026-06-14\",\n        \"approvedBy\": \"Darren Smith\"\n      }\n    ]\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/email/send", "host": ["{{base_url}}"], "path": ["api","email","send"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dev (non-prod only)",
+      "description": "These routes are only available when NODE_ENV != production.",
+      "item": [
+        {
+          "name": "List Email Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/dev/test-email/types", "host": ["{{base_url}}"], "path": ["api","dev","test-email","types"] }
+          }
+        },
+        {
+          "name": "Send Test Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"vendor_assigned\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — welcome-user",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"welcome-user\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — welcome-vendor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"welcome-vendor\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — password-reset",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"password-reset\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — vendor_payment_receipt",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"vendor_payment_receipt\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — recon_approved_for_payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"recon_approved_for_payment\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — buyer_recon_complete",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"buyer_recon_complete\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        },
+        {
+          "name": "Send Test Email — seller_vehicle_sold",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"seller_vehicle_sold\",\n  \"to\": \"you@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/dev/test-email", "host": ["{{base_url}}"], "path": ["api","dev","test-email"] }
+          }
+        }
+      ]
+    }
+  ]
+}

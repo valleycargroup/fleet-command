@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { VCAT, ARB_SOURCES } from '../lib/constants';
+import { useState, useEffect } from 'react';
+import { VCAT, ARB_SOURCES, DRIVE_TYPES, FUEL_TYPES, driveToDriveline, driveToLongForm, fuelNormalize, API_URL } from '../lib/constants';
+const isVideo = (url: string) => /\.(mp4|mov|avi|webm|mkv|m4v|ogg|ogv|3gp)(\?|$)/i.test(url || '');
 import { fmtDate, vData } from '../lib/utils';
 import { S } from '../lib/styles';
 import { DateIn } from './DateIn';
 import { ReconCategory } from './ReconCategory';
+import { ConditionReportEditor } from './ConditionReportEditor';
 import { useStore, selectRoles } from '../lib/store';
 
 export function VehicleDetail(){
@@ -13,18 +15,45 @@ const allUsers = useStore((s: any) => s.allUsers);
 const currentUser = useStore((s: any) => s.currentUser);
 const notify = useStore((s: any) => s.notify);
 const fireEmail = useStore((s: any) => s.fireEmail);
+const sendToAuction = useStore((s: any) => s.sendToAuction);
 const upd = useStore((s: any) => s.upd);
 const deleteVehicle = useStore((s: any) => s.deleteVehicle);
 const setSelV = useStore((s: any) => s.setSelV);
 const setDeepLinkCat = useStore((s: any) => s.setDeepLinkCat);
 const deepLinkCat = useStore((s: any) => s.deepLinkCat);
+const deepLinkCr = useStore((s: any) => s.deepLinkCr);
+const setDeepLinkCr = useStore((s: any) => s.setDeepLinkCr);
 const { isAdmin, isVendor } = useStore(selectRoles);
+const regVendors = useStore((s: any) => s.regVendors);
+const isVendorForCat = (catKey: string): boolean => {
+  if (!isVendor || !currentUser) return true;
+  const task = v.reconTasks?.[catKey];
+  if (!task?.needed) return false;
+  // Primary: vendor_id FK (set on all vendor users going forward)
+  const myVendorId = currentUser.vendor_id ? 'vn_' + currentUser.vendor_id : null;
+  // Fallback: resolve via regVendors by email/vendor_tag (covers users before vendor_id was added)
+  const ce = (currentUser.email || '').toLowerCase();
+  const vtag = (currentUser.vendor_tag || '').toLowerCase();
+  const myReg = !myVendorId ? (regVendors || []).find((rv: any) =>
+    (ce && (rv.email || '').toLowerCase() === ce) ||
+    (vtag && (rv.company || '').toLowerCase() === vtag)
+  ) : null;
+  const resolvedId = myVendorId || (myReg ? 'vn_' + myReg.id : null);
+  return (task.vendors || []).some((vn: any) =>
+    (resolvedId && vn.id === resolvedId) ||
+    (ce && (vn.email || '').toLowerCase() === ce)
+  );
+};
 const onBack = () => { setSelV(null); setDeepLinkCat(null); };
 const onUpdate = (u: any) => upd(v.id, u);
 const onDelete = () => deleteVehicle(v);
 const onClearDeepLink = () => setDeepLinkCat(null);
-const [sm,setSm]=useState(false);const [sb,setSb]=useState(()=>{const names=((allUsers||[]).filter((u: any)=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any)=>n);return names[0]||"";});const [st,setSt]=useState("");
-const [showKick,setShowKick]=useState(false);const [kickReason,setKickReason]=useState("");const [lbImg2,setLbImg2]=useState(null as any);
+const [crEditorOpen,setCrEditorOpen]=useState(false);const [crEditorMode,setCrEditorMode]=useState<'edit'|'view'>('edit');
+const openCr=(mode: 'edit'|'view')=>{setCrEditorMode(mode);setCrEditorOpen(true);};
+useEffect(()=>{if(deepLinkCr){openCr('view');setDeepLinkCr(false);}},[deepLinkCr]);const [showAuction,setShowAuction]=useState(false);const [auctionSending,setAuctionSending]=useState(false);
+const [auctionForm,setAuctionForm]=useState(()=>{const drv=driveToLongForm(v.drive||'')||"";return{zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||""};});
+const [sm,setSm]=useState(false);const [sb,setSb]=useState(()=>{const names=((allUsers||[]).filter((u: any)=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any)=>n);return names[0]||"";});const [st,setSt]=useState("");const [includeCR,setIncludeCR]=useState(true);
+const [showKick,setShowKick]=useState(false);const [kickReason,setKickReason]=useState("");const [lbImg2,setLbImg2]=useState(null as any);const [photoUploading,setPhotoUploading]=useState(false);const [photoManage,setPhotoManage]=useState(false);
 const [editInb,setEditInb]=useState(true);const [editOut,setEditOut]=useState(true);const [editRetail,setEditRetail]=useState(false);const [retailForm,setRetailForm]=useState(v.transport?.retail||{});
 const [showArbForm,setShowArbForm]=useState(false);const [arbSource,setArbSource]=useState(v.arb?.source||"");const [arbCustom,setArbCustom]=useState("");const [arbReason,setArbReason]=useState("");const [arbCloseReason,setArbCloseReason]=useState("");
 const saveInb=(newInb: any)=>{setInbForm(newInb);const curOut=v.transport?.outbound||{};const syncOut=curOut.isDriveway?{...curOut,readyDate:newInb.driverwayClearDate||curOut.readyDate||"",eta:newInb.drivewayEta||curOut.eta||"",set:!!(newInb.driverwayClearDate||curOut.readyDate),pickedUp:newInb.drivewayPickedUp||curOut.pickedUp||false,datePickedUp:newInb.drivewayPickedUpDate||curOut.datePickedUp||""}:curOut;const locUp=newInb.destination?{location:newInb.destination}:{};onUpdate({...locUp,transport:{inbound:newInb,outbound:syncOut}});};
@@ -114,6 +143,7 @@ const reconCost=VCAT.reduce((s: any,c)=>{const t=v.reconTasks[c.key];if(!t?.need
 const sel=(t.vendors||[]).find((vn: any)=>vn.selected);return s+(sel?Number(sel.estimate)||0:Number(t.estimate)||0);},0);
 const inbCost=inb?.cost||0;const outbCost=outb?.cost||0;
 return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button style={{padding:"10px 20px",fontSize:16,fontWeight:700,borderRadius:8,background:"#1E3A5F",color:"#93C5FD",border:"2px solid #3B82F6",cursor:"pointer"}} onClick={onBack}>← Back</button>
+{isAdmin&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:700,borderRadius:8,background:"#3B2F10",color:"#FDE68A",border:"1px solid #78590A",cursor:"pointer"}} onClick={()=>{const drv=driveToLongForm(v.drive||'')||"";setAuctionForm({zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||""});setShowAuction(true);}}>🏛️ Publish to Internal Auction</button>}
 {isAdmin&&onDelete&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:600,borderRadius:8,background:"transparent",color:"#F87171",border:"1px solid #7F1D1D",cursor:"pointer"}} onClick={onDelete}>🗑️ Delete</button>}</div>
 {(v.status==="sold"||v.status==="delivered")?<div style={{margin:"10px 0",padding:"10px 14px",borderRadius:8,background:"#0D3B1E33",borderLeft:"4px solid #34D399",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:13,color:"#34D399",fontWeight:700,marginBottom:2}}>💰 SOLD — Customer waiting</div><div style={{fontSize:12,color:"#6EE7B7"}}>Sold to {v.soldTo||"—"}{v.soldDate?" on "+fmtDate(v.soldDate):""}</div></div><span style={{fontSize:11,padding:"6px 12px",borderRadius:6,background:"#166534",color:"#6EE7B7",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Priority</span></div>
 :<div style={{margin:"10px 0",padding:"10px 14px",borderRadius:8,background:"#1A1A2E",borderLeft:"4px solid #6B7280",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:13,color:"#9CA3AF",fontWeight:700,marginBottom:2}}>📦 IN INVENTORY — Not yet sold</div><div style={{fontSize:12,color:"#6B7280"}}>Standard turnaround</div></div><span style={{fontSize:11,padding:"6px 12px",borderRadius:6,background:"#2A2A3E",color:"#9CA3AF",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Standard</span></div>}
@@ -124,17 +154,18 @@ return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button styl
 <span>Location: <b>{v.location}</b></span><span>Buyer: <b>{v.buyingBroker}</b></span>
 {v.sellingBroker&&<span>Seller: <b>{v.sellingBroker}</b></span>}</div></div>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-{v.status!=="sold"&&v.status!=="delivered"&&<button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>setSm(true)}>Mark Sold</button>}
-{v.status==="sold"&&<button style={{...S.btn,background:"#166534"}} onClick={()=>{onUpdate({status:"delivered",deliveredDate:new Date().toISOString().split("T")[0]});notify("On Ground");
+{!isVendor&&v.status!=="sold"&&v.status!=="delivered"&&<button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>setSm(true)}>Mark Sold</button>}
+{!isVendor&&v.status==="sold"&&<button style={{...S.btn,background:"#166534"}} onClick={()=>{onUpdate({status:"delivered",deliveredDate:new Date().toISOString().split("T")[0]});notify("On Ground");
 if(typeof fireEmail==="function")fireEmail("vehicle_grounded",{buyer:v.buyingBroker||"",seller:v.sellingBroker||"",dealer:v.soldTo||"",vehicle:vData(v),location:v.location||"",groundedDate:new Date().toISOString().split("T")[0]});}}>Mark On Ground</button>}
-{(v.status==="sold"||v.status==="delivered")&&<button style={{padding:"7px 16px",borderRadius:6,border:"2px solid #F97316",background:"#7C2D12",color:"#FDBA74",fontSize:14,cursor:"pointer",fontWeight:800}}
+{!isVendor&&(v.status==="sold"||v.status==="delivered")&&<button style={{padding:"7px 16px",borderRadius:6,border:"2px solid #F97316",background:"#7C2D12",color:"#FDBA74",fontSize:14,cursor:"pointer",fontWeight:800}}
 onClick={()=>{setShowKick(true);setKickReason("");}}>🔄 Kicked</button>}
-{v.status==="sold"&&<button style={{padding:"7px 16px",borderRadius:6,border:"2px solid #6B7280",background:"#1A1A2E",color:"#9CA3AF",fontSize:14,cursor:"pointer",fontWeight:800}}
+{!isVendor&&v.status==="sold"&&<button style={{padding:"7px 16px",borderRadius:6,border:"2px solid #6B7280",background:"#1A1A2E",color:"#9CA3AF",fontSize:14,cursor:"pointer",fontWeight:800}}
 onClick={()=>{onUpdate({status:"in_recon",soldTo:null,soldDate:null,sellingBroker:"",
 buyerApprovedShip:false,buyerApprovedDate:null,shippingHoldDate:null,shippingHoldBy:null,
 transport:{...v.transport,outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false,datePickedUp:"",delivered:false,dateDelivered:"",readyDate:"",isDriveway:false}}
 });notify("↩️ Sale reversed — vehicle back in inventory");}}>↩️ Unsell</button>}
 </div></div>
+{!isVendor&&<>
 <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12,alignItems:"stretch"}}>
 {(v.kickedHistory||[]).map((k: any,i: any)=><div key={i} style={{padding:"12px 18px",borderRadius:10,background:"#3B1515",border:"2px solid #7F1D1D",minWidth:260}}>
 <div style={{fontSize:13,color:"#FCA5A5",textTransform:"uppercase",letterSpacing:2,fontWeight:600}}>Kicked — #{i+1}</div>
@@ -300,7 +331,7 @@ return <div style={{width:"100%"}}>
 {!v.noReconNeeded?
 rcNeeded.length>0?<div style={{fontSize:14,color:"#6B7280"}}>☐ No Recon Needed <span style={{fontSize:12,color:"#F87171"}}>(recon already assigned — remove tasks first)</span></div>
 :<label style={{display:"flex",alignItems:"center",gap:10,fontSize:18,color:"#E5E7EB",fontWeight:700,cursor:"pointer"}}>
-<input type="checkbox" style={{width:22,height:22}} checked={false} onChange={()=>{const today=new Date().toISOString().split("T")[0];const upd: any={noReconNeeded:true,noReconSetBy:"Darren",noReconSetDate:today};if(!v.transport?.outbound?.readyDate){upd.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{set:false}),readyDate:today}};}onUpdate(upd);notify("✅ No Recon Needed — Ready to Ship");}}/>
+<input type="checkbox" style={{width:22,height:22}} checked={false} onChange={()=>{const today=new Date().toISOString().split("T")[0];const upd: any={noReconNeeded:true,noReconSetBy:(currentUser?.first_name||currentUser?.firstName||""),noReconSetDate:today};if(!v.transport?.outbound?.readyDate){upd.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{set:false}),readyDate:today}};}onUpdate(upd);notify("✅ No Recon Needed — Ready to Ship");}}/>
 No Recon Needed
 </label>
 :<div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -317,9 +348,122 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
 🔄 Needs Recon (Buyer Only)</button>}
 </div>
 </div>
+</>}
+{isVendor&&<div style={{...S.card,marginBottom:14,padding:16}}>
+<div style={{fontWeight:800,color:"#93C5FD",fontSize:16,marginBottom:12}}>📋 Vehicle Info</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+<div><div style={{fontSize:11,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Location</div><div style={{fontSize:16,fontWeight:700,color:"#E5E7EB"}}>{v.location||"—"}</div></div>
+<div><div style={{fontSize:11,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Stock #</div><div style={{fontSize:16,fontWeight:700,color:"#E5E7EB",fontFamily:"monospace"}}>{v.stockNumber||v.vin8||"—"}</div></div>
+<div><div style={{fontSize:11,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Grounded</div><div style={{fontSize:15,fontWeight:700,color:inb?.delivered?"#34D399":"#F87171"}}>{inb?.delivered?"✅ "+fmtDate(inb.dateDelivered):"⏳ Not yet grounded"}</div></div>
+</div>
+{(()=>{const buyer=(allUsers||[]).find((u: any)=>{const n=((u.firstName||"")+(u.lastName?" "+u.lastName:"")).trim();return n===v.buyingBroker;});if(!buyer)return null;return <div style={{padding:12,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}><div style={{fontSize:11,color:"#6B7280",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Contact</div><div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>{v.buyingBroker}</div>{buyer.cell&&<div style={{fontSize:14,color:"#93C5FD",marginTop:4}}>📞 {buyer.cell}</div>}{buyer.email&&<div style={{fontSize:13,color:"#6B7280",marginTop:2}}>✉️ {buyer.email}</div>}</div>;})()}
+</div>}
+{!isVendor&&<div style={{...S.card,marginBottom:10,padding:16}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+<div style={{fontWeight:800,color:"#E5E7EB",fontSize:16}}>🖼️ Vehicle Photos <span style={{fontSize:13,color:"#6B7280",fontWeight:400}}>({(v.photos||[]).length})</span></div>
+<div style={{display:"flex",gap:6}}>
+{(v.photos||[]).length>0&&<button style={{...S.btn,fontSize:13,padding:"6px 14px",background:photoManage?"#1E3A5F":"#12122A",border:photoManage?"1px solid #3B82F6":"1px solid #2A2A3E"}} onClick={()=>setPhotoManage(m=>!m)}>{photoManage?"✅ Done":"✏️ Manage"}</button>}
+<label style={{...S.btn,fontSize:13,padding:"6px 14px",background:photoUploading?"#374151":"#1E3A5F",cursor:photoUploading?"not-allowed":"pointer",opacity:photoUploading?0.6:1}}>
+<input type="file" multiple accept="image/jpeg,image/png,image/webp" style={{display:"none"}} disabled={photoUploading} onChange={async(e: any)=>{
+  const files=Array.from(e.target.files||[]) as File[];
+  if(!files.length)return;
+  setPhotoUploading(true);
+  try{
+    const token=sessionStorage.getItem("fc_token")||"";
+    const fd=new FormData();
+    files.forEach(f=>fd.append("files",f));
+    const resp=await fetch(API_URL+"/api/uploads/many?folder=images",{method:"POST",headers:{"Authorization":"Bearer "+token},body:fd});
+    const result=await resp.json();
+    if(result.ok){const newPhotos=(result.data||[]).map((d: any)=>({key:d.key,url:d.url}));onUpdate({photos:[...(v.photos||[]),...newPhotos]});notify("📷 "+newPhotos.length+" photo"+(newPhotos.length===1?"":"s")+" uploaded");}
+    else notify("⚠️ Upload failed: "+(result.error||"unknown error"));
+  }catch(err){notify("⚠️ Upload failed");}
+  finally{setPhotoUploading(false);e.target.value="";}
+}}/>
+{photoUploading?"⏳ Uploading...":"📷 Upload Photos"}
+</label>
+</div>
+</div>
+{(()=>{
+  const photos=v.photos||[];
+  const rawMainIdx=Math.max(0,photos.findIndex((p: any)=>p.isMain));
+  // If the flagged main is a video, fall back to the first non-video photo
+  const mainIdx=isVideo(photos[rawMainIdx]?.url)
+    ? Math.max(0, photos.findIndex((p: any)=>!isVideo(p.url)))
+    : rawMainIdx;
+  const mainPhoto=photos[mainIdx];
+  const movePhoto=(from: number,to: number)=>{const arr=[...photos];const[item]=arr.splice(from,1);arr.splice(to,0,item);onUpdate({photos:arr});};
+  const setMain=(idx: number)=>onUpdate({photos:photos.map((x: any,xi: number)=>({...x,isMain:xi===idx}))});
+  const deletePhoto=async(pi: number,p: any)=>{if(!window.confirm("Delete this photo?"))return;try{const token=sessionStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo deleted");}catch{notify("⚠️ Delete failed");}};
+  if(photos.length===0)return <div style={{fontSize:13,color:"#4B5563",fontStyle:"italic"}}>No photos uploaded yet.</div>;
+  if(photoManage)return <div>
+    <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>Drag position using ← → buttons. First photo is sent as primary to auction. ⭐ = main display photo.</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+    {photos.map((p: any,pi: number)=><div key={pi} style={{background:"#0D0D1A",borderRadius:8,border:pi===mainIdx?"2px solid #F59E0B":"1px solid #2A2A3E",overflow:"hidden"}}>
+      <div style={{position:"relative",paddingBottom:"75%",cursor:"pointer"}} onClick={()=>setLbImg2({data:p.url,type:isVideo(p.url)?"video":"image"})}>
+        {isVideo(p.url)?<video src={p.url} preload="metadata" muted style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>:<img src={p.url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
+        {isVideo(p.url)&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.4)",fontSize:22,color:"#fff",pointerEvents:"none"}}>▶</div>}
+        {pi===mainIdx&&<div style={{position:"absolute",top:4,left:4,background:"#F59E0B",borderRadius:4,fontSize:11,fontWeight:700,color:"#000",padding:"2px 6px"}}>⭐ MAIN</div>}
+        <div style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,0.6)",borderRadius:4,fontSize:11,color:"#9CA3AF",padding:"2px 6px"}}>#{pi+1}</div>
+      </div>
+      <div style={{padding:"6px 8px",display:"flex",gap:4,flexWrap:"wrap"}}>
+        <button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#E5E7EB",cursor:pi===0?"not-allowed":"pointer",opacity:pi===0?0.3:1}} disabled={pi===0} onClick={()=>movePhoto(pi,pi-1)}>← </button>
+        <button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#E5E7EB",cursor:pi===photos.length-1?"not-allowed":"pointer",opacity:pi===photos.length-1?0.3:1}} disabled={pi===photos.length-1} onClick={()=>movePhoto(pi,pi+1)}> →</button>
+        <button title={isVideo(p.url)?"Cannot set a video as main photo":undefined} style={{flex:1,padding:"4px 0",fontSize:12,background:pi===mainIdx?"#78350F":"#1A1A2E",border:pi===mainIdx?"1px solid #F59E0B":"1px solid #2A2A3E",borderRadius:4,color:pi===mainIdx?"#FDE68A":"#9CA3AF",cursor:isVideo(p.url)?"not-allowed":"pointer",opacity:isVideo(p.url)?0.3:1}} disabled={isVideo(p.url)} onClick={()=>setMain(pi)}>⭐</button>
+        {p.source!=="crm"&&<button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#FCA5A5",cursor:"pointer"}} onClick={()=>deletePhoto(pi,p)}>🗑</button>}
+      </div>
+    </div>)}
+    </div>
+  </div>;
+  return <div>
+    <div style={{position:"relative",width:"100%",paddingBottom:"56%",background:"#0D0D1A",borderRadius:8,overflow:"hidden",marginBottom:10,cursor:"pointer"}} onClick={()=>setLbImg2({data:mainPhoto.url,type:isVideo(mainPhoto.url)?"video":"image"})}>
+      {isVideo(mainPhoto.url)?<><video src={mainPhoto.url} preload="metadata" muted style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain"}}/><div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",fontSize:36,color:"#fff",pointerEvents:"none"}}>▶</div></>:<img src={mainPhoto.url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain"}}/>}
+    </div>
+    <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
+    {photos.map((p: any,pi: number)=><div key={pi} style={{position:"relative",width:90,height:68,borderRadius:6,overflow:"hidden",border:pi===mainIdx?"2px solid #F59E0B":"1px solid #2A2A3E",cursor:"pointer",flexShrink:0}} onClick={()=>setLbImg2({data:p.url,type:isVideo(p.url)?"video":"image"})}>
+      {isVideo(p.url)?<><video src={p.url} preload="metadata" muted style={{width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.45)",fontSize:18,color:"#fff",pointerEvents:"none"}}>▶</div></>:<img src={p.url} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
+      {pi===mainIdx&&<div style={{position:"absolute",bottom:2,left:2,background:"#F59E0B",borderRadius:3,fontSize:9,fontWeight:700,color:"#000",padding:"1px 4px"}}>MAIN</div>}
+    </div>)}
+    </div>
+    <div style={{fontSize:11,color:"#4B5563",marginTop:6}}>Click any photo to view full size • Use ✏️ Manage to reorder, set main, or delete</div>
+  </div>;
+})()}
+</div>}
 {!v.noReconNeeded&&isInArb&&<div style={{padding:16,borderRadius:10,background:"#3B1515",border:"2px solid #EF4444",textAlign:"center",marginBottom:10}}><div style={{fontSize:18,fontWeight:800,color:"#FCA5A5"}}>🔴 RECON PAUSED — IN ARBITRATION WITH {v.arb?.source||"?"}</div><div style={{fontSize:13,color:"#F87171",marginTop:4}}>Resolve arbitration before continuing recon</div></div>}
 {!v.noReconNeeded&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10,opacity:isInArb?0.4:1,pointerEvents:isInArb?"none":"auto"}}>
 {[...VCAT].sort((a,b)=>{const ao=v.reconTasks[a.key]?.order;const bo=v.reconTasks[b.key]?.order;if(ao&&bo)return ao-bo;if(ao&&!bo)return -1;if(!ao&&bo)return 1;return 0;}).map(cat=>{
+const isMyTask=isVendorForCat(cat.key);
+const _task=v.reconTasks?.[cat.key];
+// Vendors see all needed categories; non-assigned ones get a read-only status card
+if(isVendor&&!_task?.needed)return null;
+if(isVendor&&!isMyTask){
+  const sv=(_task.vendors||[]).find((vn: any)=>vn.selected);
+  const st2=_task.status;
+  const sLabel=st2==="complete"?"Complete":st2==="started"?"In Progress":st2==="approved"?"Approved":st2==="estimated"?"Bidding":st2==="assigned"?"Assigned":"Pending";
+  const sColor=st2==="complete"?"#34D399":st2==="started"?"#FBBF24":st2==="approved"?"#60A5FA":"#9CA3AF";
+  const lineItems=(sv?.lineItems||[]).filter((li: any)=>!li.declined);
+  const bidTotal=sv?.bidLocked?lineItems.reduce((s: any,li: any)=>s+(Number(li.price)||0),0):null;
+  const adjTotal=bidTotal!==null?(bidTotal+(sv?.bidAdjustment||0)):null;
+  return <div key={cat.key} style={{...S.card}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+      <span style={{fontSize:18}}>{cat.icon}</span>
+      <span style={{fontWeight:700,color:"#E5E7EB",fontSize:14}}>{cat.label}</span>
+      <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#1A1A2E",color:sColor,border:"1px solid "+sColor,fontWeight:700}}>{sLabel}</span>
+    </div>
+    {sv&&<div style={{fontSize:13,color:"#93C5FD",fontWeight:600,marginBottom:4}}>🔧 {sv.name}</div>}
+    {_task.notes&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:6,fontStyle:"italic"}}>"{_task.notes}"</div>}
+    {lineItems.length>0&&<div style={{marginTop:4}}>
+      {lineItems.map((li: any,lii: number)=><div key={lii} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#E5E7EB",padding:"3px 0",borderBottom:"1px solid #1A1A2E"}}>
+        <span>{li.desc||li.description||"—"}</span>
+        <span style={{color:"#FBBF24",fontWeight:600}}>${(Number(li.price)||0).toLocaleString()}</span>
+      </div>)}
+      {adjTotal!==null&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#FBBF24",marginTop:6}}>
+        <span>Total</span><span>${adjTotal.toLocaleString()}</span>
+      </div>}
+    </div>}
+    {sv&&!sv.bidLocked&&<div style={{fontSize:12,color:"#6B7280",marginTop:4,fontStyle:"italic"}}>Awaiting bid submission</div>}
+  </div>;
+}
+if(!isVendor&&!isVendorForCat(cat.key))return null;
 if(cat.key==="cr"){const crt=v.reconTasks[cat.key];const crNeed=crt?.needed;const crCl={bd:crNeed?"#3B82F6":"#4B5563",bg:"#0D0D1A",text:"#FFF"};
 return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+crCl.bd,background:crCl.bg,opacity:crNeed?1:0.5,minHeight:50}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -331,9 +475,6 @@ return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+crCl.bd,back
 {crt?.status==="complete"||crt?.status==="started"?<span>🔒</span>
 :<input type="checkbox" checked={crNeed||false} onChange={()=>{const t2={...v.reconTasks};t2[cat.key]=t2[cat.key]?.needed?{needed:false,status:"na"}:{needed:true,status:"unassigned"};onUpdate({reconTasks:t2});}}/>} Need</label>
 </div>
-{crNeed&&!crt?.vendorName&&<div style={{marginTop:8}}>
-<select style={{...S.sel,width:"100%",opacity:canAssignVendors?1:0.5}} defaultValue="" disabled={!canAssignVendors} onChange={(e: any)=>{if(e.target.value)assign(cat.key,e.target.value);e.target.value="";}}><option value="" disabled>{canAssignVendors?"+ Assign CR Writer...":"⚠️ Vehicle must be on ground"}</option>{(vendors[cat.key]||[]).map((vn2: any)=><option key={vn2.id} value={vn2.id}>{vn2.name}</option>)}</select>
-</div>}
 {crNeed&&crt?.vendorName&&<div style={{marginTop:6}}>
 <div style={{fontSize:14,fontWeight:700,color:"#FFF"}}>{crt.vendorName}</div>
 <div style={{fontSize:13,color:"#FBBF24",marginTop:2}}>CR Requested: {crt.dateStarted?fmtDate(crt.dateStarted):crt.dateAssigned?fmtDate(crt.dateAssigned):"—"}</div>
@@ -346,6 +487,51 @@ return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+crCl.bd,back
 {crt.crRetakeCount>0&&<div style={{fontSize:12,color:"#9CA3AF",marginTop:4}}>Re-writes: {crt.crRetakeCount} • Last completed: {crt.lastCrCompleted?fmtDate(crt.lastCrCompleted):"—"}</div>}
 </div>}
 </div>}
+{(()=>{
+const crStatusColors: any={baseline:{bg:"#1E3A5F",color:"#93C5FD"},in_progress:{bg:"#78350F",color:"#FBBF24"},complete:{bg:"#064E3B",color:"#34D399"}};
+const crStatusLabels: any={baseline:"Baseline",in_progress:"In Progress",complete:"Complete"};
+const crStatus=v.crStatus;
+const assignedTo=v.conditionReport?.meta?.assigned_to;
+const assignableUsers=(allUsers||[]).filter((u: any)=>u.role!=="vendor");
+const assignCr=(user: any)=>{
+  const assignedToObj=user?{id:user.id,name:user.name||(`${user.firstName||""} ${user.lastName||""}`).trim(),email:user.email}:null;
+  const updatedCr={...(v.conditionReport||{}),meta:{...((v.conditionReport||{}).meta||{}),assigned_to:assignedToObj}};
+  onUpdate({crAssignedTo:user?.id||null,conditionReport:updatedCr});
+};
+const changeCrStatus=(status: string)=>{
+  const updatedCr={...(v.conditionReport||{}),meta:{...((v.conditionReport||{}).meta||{}),status}};
+  const update: any={crStatus:status,conditionReport:updatedCr};
+  const t={...v.reconTasks};
+  if(status==="complete"&&t.cr?.needed&&t.cr?.status!=="complete"){
+    t.cr={...t.cr,status:"complete",dateCompleted:new Date().toISOString().split("T")[0]};
+    update.reconTasks=t;
+  } else if(status!=="complete"&&t.cr?.needed&&t.cr?.status==="complete"){
+    t.cr={...t.cr,status:"started",dateCompleted:null};
+    update.reconTasks=t;
+  }
+  onUpdate(update);
+};
+return <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
+  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+    <select value={crStatus||""} onChange={e=>changeCrStatus(e.target.value)}
+      style={{flex:1,fontSize:12,padding:"5px 8px",borderRadius:6,background:crStatusColors[crStatus]?.bg||"#1A1A2E",color:crStatusColors[crStatus]?.color||"#9CA3AF",border:`1px solid ${crStatusColors[crStatus]?.color||"#374151"}`,fontWeight:700,cursor:"pointer"}}>
+      <option value="">— CR Status —</option>
+      <option value="baseline">Baseline (pre-repair)</option>
+      <option value="in_progress">In Progress</option>
+      <option value="complete">Complete</option>
+    </select>
+  </div>
+  <select value={assignedTo?.id?.toString()||""} onChange={e=>{const u=assignableUsers.find((x: any)=>String(x.id)===e.target.value);assignCr(u||null);}}
+    style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:6,background:"#0D0D1A",color:assignedTo?"#E5E7EB":"#6B7280",border:"1px solid #374151",cursor:"pointer"}}>
+    <option value="">👤 Assign to user...</option>
+    {assignableUsers.map((u: any)=><option key={u.id} value={u.id}>{u.name||(`${u.firstName||""} ${u.lastName||""}`).trim()}</option>)}
+  </select>
+</div>;
+})()}
+<div style={{display:"flex",gap:6,marginTop:8}}>
+{v.conditionReport&&<button style={{...S.btn,flex:1,background:"#0A1628",color:"#60A5FA",padding:10,fontSize:13,border:"1px solid #1E3A5F"}} onClick={()=>openCr('view')}>👁 View CR</button>}
+<button style={{...S.btn,flex:1,background:"#0F1F3D",color:"#93C5FD",padding:10,fontSize:13,border:"1px solid #1E3A5F"}} onClick={()=>openCr('edit')}>✏️ {v.conditionReport?"Edit CR":"Create CR"}</button>
+</div>
 </div>;}
 if(cat.key==="auction"){const axt=v.reconTasks[cat.key];const axNeed=axt?.needed;const axCl={bd:axNeed?"#FBBF24":"#4B5563",bg:"#0D0D1A",text:"#000"};
 return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+axCl.bd,background:axCl.bg,opacity:axNeed?1:0.5,minHeight:50}}>
@@ -402,10 +588,18 @@ return <div key={cat.key} style={{...S.card,borderLeft:"4px solid "+bwCl.bd,back
 {bwNeed&&bwt?.vendorName&&<div style={{marginTop:6}}>
 <div style={{fontSize:14,fontWeight:700,color:"#FFF"}}>{bwt.vendorName}</div>
 <div style={{fontSize:13,color:"#FBBF24",marginTop:2}}>Pics Requested: {bwt.dateStarted?fmtDate(bwt.dateStarted):bwt.dateAssigned?fmtDate(bwt.dateAssigned):"—"}</div>
-{bwt.status==="started"&&<button style={{...S.btn,width:"100%",background:"#166534",color:"#6EE7B7",padding:10,fontSize:14,marginTop:8}} onClick={(e: any)=>{e.target.disabled=true;const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"complete",dateCompleted:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});}}>✅ Pics Complete</button>}
+{bwt.status==="started"&&<div style={{marginTop:8}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+<span style={{fontSize:13,fontWeight:700,color:"#60A5FA"}}>📷 Advertising Photos ({(bwt.advertisingPhotos||[]).length})</span>
+<label style={{...S.btn,fontSize:12,padding:"4px 10px",background:"#1E3A5F",cursor:"pointer"}}><input type="file" multiple accept="image/*,video/*" style={{display:"none"}} onChange={async(e: any)=>{const files=Array.from(e.target.files||[]);if(!files.length)return;const newPhotos=await Promise.all((files as File[]).map(f=>new Promise((res: any)=>{const rd=new FileReader();rd.onload=()=>res({data:rd.result,name:f.name,type:f.type.startsWith("video")?"video":"image"});rd.readAsDataURL(f);})));const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],advertisingPhotos:[...(bwt.advertisingPhotos||[]),...newPhotos]};onUpdate({reconTasks:t2});e.target.value="";}}/> 📷 Upload</label>
+</div>
+{(bwt.advertisingPhotos||[]).length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>{(bwt.advertisingPhotos||[]).map((p: any,pi: number)=><img key={pi} src={p.data} onClick={()=>setLbImg2(p)} style={{width:50,height:50,borderRadius:4,objectFit:"cover",border:"1px solid #2A2A3E",cursor:"pointer"}}/>)}</div>}
+<button style={{...S.btn,width:"100%",background:"#166534",color:"#6EE7B7",padding:10,fontSize:14}} onClick={(e: any)=>{e.target.disabled=true;const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"complete",dateCompleted:new Date().toISOString().split("T")[0]};onUpdate({reconTasks:t2});}}>📸 Mark Pics Complete</button>
+</div>}
 {bwt.status==="complete"&&<div style={{marginTop:6}}>
+{(bwt.advertisingPhotos||[]).length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>{(bwt.advertisingPhotos||[]).map((p: any,pi: number)=><img key={pi} src={p.data} onClick={()=>setLbImg2(p)} style={{width:50,height:50,borderRadius:4,objectFit:"cover",border:"1px solid #2A2A3E",cursor:"pointer"}}/>)}</div>}
 <div style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Completed: {bwt.dateCompleted?fmtDate(bwt.dateCompleted):"—"}</div>
-<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14,marginTop:8}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"started",dateStarted:new Date().toISOString().split("T")[0],dateCompleted:null,retakeCount:(bwt.retakeCount||0)+1,lastCompleted:bwt.dateCompleted};onUpdate({reconTasks:t2});}}>📸 Request Re-Take Pics</button>
+{!isVendor&&<button style={{...S.btn,width:"100%",background:"#1E3A5F",color:"#93C5FD",padding:10,fontSize:14,marginTop:8}} onClick={()=>{const t2={...v.reconTasks};t2[cat.key]={...t2[cat.key],status:"started",dateStarted:new Date().toISOString().split("T")[0],dateCompleted:null,retakeCount:(bwt.retakeCount||0)+1,lastCompleted:bwt.dateCompleted};onUpdate({reconTasks:t2});}}>📸 Request Re-Take Pics</button>}
 {bwt.retakeCount>0&&<div style={{fontSize:12,color:"#9CA3AF",marginTop:4}}>Re-takes: {bwt.retakeCount} • Last completed: {bwt.lastCompleted?fmtDate(bwt.lastCompleted):"—"}</div>}
 </div>}
 </div>}
@@ -420,6 +614,7 @@ onNotes={(n: any,clearUnread: any,setUnread: any)=>{const t={...v.reconTasks};if
 onPhotos={(p: any)=>{const t={...v.reconTasks};t[cat.key]={...t[cat.key],photos:p};onUpdate({reconTasks:t});}}
 />})}
 </div>}
+{crEditorOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}} onClick={()=>setCrEditorOpen(false)}><div style={{background:"#12122A",border:"2px solid #1E3A5F",borderRadius:12,padding:24,width:"95%",maxWidth:800,maxHeight:"90vh",overflowY:"auto"}} onClick={(e: any)=>e.stopPropagation()}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><span style={{fontWeight:800,color:"#E5E7EB",fontSize:20}}>📋 Condition Report — {v.year} {v.make} {v.model}</span><button style={{...S.sm,fontSize:18}} onClick={()=>setCrEditorOpen(false)}>✕</button></div><ConditionReportEditor startMode={crEditorMode}/></div></div>}
 {sm&&<div style={S.ov} onClick={()=>setSm(false)}><div style={{...S.modal,maxWidth:400}} onClick={(e: any)=>e.stopPropagation()}>
 <h2 style={{color:"#E5E7EB",fontSize:16,marginBottom:12}}>Mark as Sold</h2>
 <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -459,6 +654,108 @@ if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.se
 <button style={{...S.sm,fontSize:14,padding:"12px 16px"}} onClick={()=>setShowKick(false)}>Cancel</button>
 </div>
 </div></div>}
+{showAuction&&(()=>{
+const isGrounded=v.transport?.inbound?.delivered;
+const rc2=VCAT.filter((c: any)=>v.reconTasks[c.key]?.needed);
+const rcDone2=rc2.filter((c: any)=>v.reconTasks[c.key]?.status==="complete");
+const allReconDone2=rc2.length>0&&rcDone2.length===rc2.length;
+const noRecon=v.noReconNeeded;
+const reconReady=noRecon||allReconDone2;
+const hasCR=!!v.conditionReport;
+const crDone=v.crStatus==="complete"||v.reconTasks?.cr?.status==="complete";
+const missingFields=[];
+if(!auctionForm.fuelType)missingFields.push("Fuel Type");
+if(!auctionForm.drive&&!auctionForm.driveline)missingFields.push("Drive / Driveline");
+const warnings=[];
+if(!isGrounded)warnings.push({label:"Vehicle not on ground",sev:"error"});
+if(!reconReady)warnings.push({label:`Recon incomplete (${rcDone2.length}/${rc2.length} done)`,sev:"warn"});
+if(!hasCR)warnings.push({label:"No condition report",sev:"warn"});
+else if(!crDone)warnings.push({label:"Condition report not marked complete",sev:"warn"});
+if(missingFields.length)warnings.push({label:`Missing: ${missingFields.join(", ")}`,sev:"error"});
+const hasErrors=warnings.some(w=>w.sev==="error");
+return <div style={S.ov} onClick={()=>!auctionSending&&setShowAuction(false)}><div style={{...S.modal,maxWidth:560,maxHeight:"90vh",overflowY:"auto"}} onClick={(e: any)=>e.stopPropagation()}>
+<h2 style={{color:"#FDE68A",fontSize:18,marginBottom:4}}>🏛️ Publish to Internal Auction</h2>
+
+{/* Vehicle summary */}
+<div style={{background:"#0D0D1A",border:"1px solid #2A2A3E",borderRadius:8,padding:"10px 14px",marginBottom:12,fontSize:13}}>
+<div style={{fontWeight:700,color:"#E5E7EB",fontSize:15,marginBottom:4}}>{v.year} {v.make} {v.model} {v.trim}</div>
+<div style={{display:"flex",gap:16,flexWrap:"wrap",color:"#9CA3AF"}}>
+<span>VIN: <b style={{color:"#E5E7EB"}}>{v.fullVin||v.vin8||"—"}</b></span>
+<span>Stock: <b style={{color:"#E5E7EB"}}>{v.stockNumber||"—"}</b></span>
+<span>Miles: <b style={{color:"#E5E7EB"}}>{(v.miles||0).toLocaleString()}</b></span>
+<span>Color: <b style={{color:"#E5E7EB"}}>{v.color||"—"}</b></span>
+<span>Location: <b style={{color:"#E5E7EB"}}>{v.location||"—"}</b></span>
+</div>
+</div>
+
+{/* Readiness checklist */}
+{warnings.length>0&&<div style={{marginBottom:12}}>
+{warnings.map((w,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:6,background:w.sev==="error"?"#3B0A0A":"#2C1A00",border:`1px solid ${w.sev==="error"?"#7F1D1D":"#78350F"}`,marginBottom:4,fontSize:12}}>
+<span style={{fontSize:14}}>{w.sev==="error"?"🚫":"⚠️"}</span>
+<span style={{color:w.sev==="error"?"#FCA5A5":"#FDE68A"}}>{w.label}</span>
+</div>)}
+</div>}
+{!warnings.length&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:6,background:"#064E3B",border:"1px solid #059669",marginBottom:12,fontSize:12}}>
+<span>✅</span><span style={{color:"#34D399",fontWeight:700}}>Vehicle is ready to publish</span>
+</div>}
+
+{/* Editable fields */}
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+<label style={S.fl}>Zip Code<input style={S.fi} value={auctionForm.zipCode} onChange={(e: any)=>setAuctionForm({...auctionForm,zipCode:e.target.value})}/></label>
+<label style={S.fl}>Fuel Type <span style={{color:"#F87171"}}>*</span><select style={{...S.fi,borderColor:!auctionForm.fuelType?"#DC2626":undefined}} value={auctionForm.fuelType} onChange={(e: any)=>setAuctionForm({...auctionForm,fuelType:e.target.value})}><option value="">— select —</option>{FUEL_TYPES.map((ft: string)=><option key={ft} value={ft}>{ft}</option>)}</select></label>
+<label style={S.fl}>Transmission<input style={S.fi} value={auctionForm.transmission} onChange={(e: any)=>setAuctionForm({...auctionForm,transmission:e.target.value})}/></label>
+<label style={S.fl}>Driveline<input style={S.fi} value={auctionForm.driveline} onChange={(e: any)=>setAuctionForm({...auctionForm,driveline:e.target.value.toUpperCase()})} placeholder="4WD, AWD, FWD..."/></label>
+<label style={S.fl}>Drive <span style={{color:"#F87171"}}>*</span><select style={{...S.fi,borderColor:!auctionForm.drive&&!auctionForm.driveline?"#DC2626":undefined}} value={auctionForm.drive} onChange={(e: any)=>{const drv=e.target.value;setAuctionForm({...auctionForm,drive:drv,driveline:driveToDriveline(drv)||auctionForm.driveline});}}><option value="">— select —</option>{DRIVE_TYPES.map((dt: string)=><option key={dt} value={dt}>{dt}</option>)}</select></label>
+<label style={S.fl}>Engine / Motor<input style={S.fi} value={auctionForm.motorTrailer} onChange={(e: any)=>setAuctionForm({...auctionForm,motorTrailer:e.target.value})} placeholder="3.5L V6"/></label>
+</div>
+
+{/* CR toggle */}
+{hasCR&&<label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",borderRadius:8,background:includeCR?"#0D3B1E":"#1A1A2E",border:`1px solid ${includeCR?"#166534":"#2A2A3E"}`,marginBottom:12,userSelect:"none"}}>
+<input type="checkbox" checked={includeCR} onChange={e=>setIncludeCR(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+<div>
+<div style={{fontSize:13,fontWeight:700,color:includeCR?"#34D399":"#9CA3AF"}}>📋 Include Condition Report</div>
+<div style={{fontSize:11,color:"#6B7280"}}>{crDone?"Complete":"In progress"} {v.conditionReport?.meta?.last_saved_at?`· Last updated ${new Date(v.conditionReport.meta.last_saved_at).toLocaleDateString()}`:""}</div>
+</div>
+</label>}
+
+{(()=>{const aPhotos=v.photos||[];if(!aPhotos.length)return null;
+const aMainIdx=Math.max(0,aPhotos.findIndex((p: any)=>p.isMain));
+const moveP=(from: number,to: number)=>{const arr=[...aPhotos];const[item]=arr.splice(from,1);arr.splice(to,0,item);onUpdate({photos:arr});};
+const setMainP=(idx: number)=>onUpdate({photos:aPhotos.map((x: any,xi: number)=>({...x,isMain:xi===idx}))});
+return <div style={{marginBottom:12}}>
+<div style={{fontWeight:700,color:"#E5E7EB",fontSize:13,marginBottom:8}}>🖼️ Photos to Send <span style={{color:"#6B7280",fontWeight:400}}>({aPhotos.length}) — drag order sets auction photo order</span></div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
+{aPhotos.map((p: any,pi: number)=><div key={pi} style={{background:"#0D0D1A",borderRadius:6,border:pi===aMainIdx?"2px solid #F59E0B":"1px solid #2A2A3E",overflow:"hidden"}}>
+<div style={{position:"relative",paddingBottom:"70%",cursor:"pointer"}} onClick={()=>setLbImg2({data:p.url,type:isVideo(p.url)?"video":"image"})}>
+{isVideo(p.url)?<><video src={p.url} preload="metadata" muted style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.4)",fontSize:22,color:"#fff",pointerEvents:"none"}}>▶</div></>:<img src={p.url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
+{pi===aMainIdx&&<div style={{position:"absolute",top:3,left:3,background:"#F59E0B",borderRadius:3,fontSize:10,fontWeight:700,color:"#000",padding:"1px 5px"}}>⭐ MAIN</div>}
+<div style={{position:"absolute",top:3,right:3,background:"rgba(0,0,0,0.65)",borderRadius:3,fontSize:10,color:"#9CA3AF",padding:"1px 5px"}}>#{pi+1}</div>
+</div>
+<div style={{display:"flex",gap:3,padding:"4px 5px"}}>
+<button style={{flex:1,padding:"3px 0",fontSize:11,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:3,color:"#E5E7EB",cursor:pi===0?"not-allowed":"pointer",opacity:pi===0?0.3:1}} disabled={pi===0} onClick={()=>moveP(pi,pi-1)}>←</button>
+<button style={{flex:1,padding:"3px 0",fontSize:11,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:3,color:"#E5E7EB",cursor:pi===aPhotos.length-1?"not-allowed":"pointer",opacity:pi===aPhotos.length-1?0.3:1}} disabled={pi===aPhotos.length-1} onClick={()=>moveP(pi,pi+1)}>→</button>
+<button style={{flex:1,padding:"3px 0",fontSize:11,background:pi===aMainIdx?"#78350F":"#1A1A2E",border:pi===aMainIdx?"1px solid #F59E0B":"1px solid #2A2A3E",borderRadius:3,color:pi===aMainIdx?"#FDE68A":"#9CA3AF",cursor:"pointer"}} onClick={()=>setMainP(pi)}>⭐</button>
+</div>
+</div>)}
+</div>
+</div>;})()}
+<div style={{display:"flex",gap:8,marginTop:4}}>
+<button style={{...S.btn,flex:1,background:hasErrors?"#374151":"#78590A",color:hasErrors?"#6B7280":"#FDE68A",opacity:auctionSending?0.6:1,cursor:hasErrors?"not-allowed":"pointer"}} disabled={auctionSending||hasErrors}
+onClick={async()=>{
+setAuctionSending(true);
+onUpdate(auctionForm);
+const vehicleForAuction={...v,...auctionForm,...(!includeCR?{conditionReport:null}:{})};
+try{await sendToAuction(vehicleForAuction);setShowAuction(false);}
+catch(e){}
+finally{setAuctionSending(false);}
+}}>
+{auctionSending?"Publishing…":hasErrors?"⛔ Fix Errors to Publish":"🏛️ Publish to Internal Auction"}
+</button>
+<button style={S.sm} onClick={()=>setShowAuction(false)} disabled={auctionSending}>Cancel</button>
+</div>
+{hasErrors&&<div style={{fontSize:11,color:"#F87171",textAlign:"center",marginTop:6}}>Resolve errors above before publishing</div>}
+</div></div>;
+})()}
 {lbImg2&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.98)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"pointer"}} onClick={()=>setLbImg2(null)}>
 <div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={(e: any)=>e.stopPropagation()}>
 {lbImg2.type==="video"?<video key={lbImg2.data} src={lbImg2.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={(e: any)=>e.stopPropagation()}/>:<img src={lbImg2.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}

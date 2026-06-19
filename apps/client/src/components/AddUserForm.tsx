@@ -2,29 +2,121 @@ import { useState } from 'react';
 import { LOCATIONS } from '../lib/constants';
 import { S } from '../lib/styles';
 
-export function AddUserForm({onSave, onClose, initial}: any) {
-const normRole=(r: any)=>{if(!r)return"Admin";const lc=String(r).toLowerCase();if(lc==="buyer/seller"||lc==="admin")return lc==="admin"?"Admin":"Buyer/Seller";if(lc==="buyer")return"Buyer";if(lc==="seller")return"Seller";return"Admin";};
-const [f,setF]=useState(initial?{...initial,role:normRole(initial.role),password:""}:{firstName:"",lastName:"",email:"",cell:"",role:"Admin",location:LOCATIONS[0],password:""});
-const isEdit=!!initial;
-return <div style={S.ov} onClick={onClose}><div style={{...S.modal,maxWidth:500}} onClick={(e: any)=>e.stopPropagation()}>
-<h2 style={{color:"#E5E7EB",fontSize:20,marginBottom:12}}>{isEdit?"✏️ Edit User":"👤 Register User / Admin"}</h2>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-<label style={S.fl}>First Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_first" value={f.firstName} onChange={(e: any)=>setF({...f,firstName:e.target.value})}/></label>
-<label style={S.fl}>Last Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_last" value={f.lastName} onChange={(e: any)=>setF({...f,lastName:e.target.value})}/></label>
-<label style={S.fl}>Email (Username) *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_email_reg" type="text" value={f.email} onChange={(e: any)=>setF({...f,email:e.target.value})} disabled={isEdit}/></label>
-<label style={S.fl}>Cell # *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="off" name="fc_phone" type="tel" value={f.cell} onChange={(e: any)=>setF({...f,cell:e.target.value})}/></label>
-<label style={S.fl}>Password {isEdit?"(leave blank to keep current)":"*"}<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-password" name="fc_pw_reg" type="password" value={f.password||""} onChange={(e: any)=>setF({...f,password:e.target.value})} placeholder={isEdit?"Leave blank":"Login password"}/></label>
-<label style={S.fl}>Role<select style={{...S.fi,fontSize:16,padding:10}} value={f.role} onChange={(e: any)=>setF({...f,role:e.target.value})}><option>Admin</option><option>Buyer</option><option>Seller</option><option>Buyer/Seller</option><option>Accounts Payable</option></select></label>
-<label style={S.fl}>Location<select style={{...S.fi,fontSize:16,padding:10}} value={f.location} onChange={(e: any)=>setF({...f,location:e.target.value})}>{LOCATIONS.map((l: any)=><option key={l}>{l}</option>)}</select></label></div>
-<div style={{display:"flex",gap:8,marginTop:14}}><button style={{...S.btn,flex:1,fontSize:16,padding:12}} onClick={()=>{
-  const missing: any[]=[];
-  if(!f.firstName||!f.firstName.trim())missing.push("First Name");
-  if(!f.lastName||!f.lastName.trim())missing.push("Last Name");
-  if(!f.email||!f.email.trim())missing.push("Email");
-  if(!f.cell||!f.cell.trim())missing.push("Cell #");
-  if(!isEdit&&(!f.password||!f.password.trim()))missing.push("Password");
-  if(missing.length){alert("Please fill in: "+missing.join(", "));return;}
-  onSave(f);
-}}>{isEdit?"Save Changes":"Register User"}</button><button style={{...S.sm,padding:12}} onClick={onClose}>Cancel</button></div>
-</div></div>;
+interface UserFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  cell: string;
+  role: string;
+  location: string;
+  password: string;
+}
+
+interface Props {
+  onSave: (data: UserFormData) => void;
+  onClose: () => void;
+  initial?: Partial<UserFormData> & { role?: string };
+}
+
+function normalizeRole(r: any): string {
+  if (!r) return 'Admin';
+  const lc = String(r).toLowerCase();
+  if (lc === 'admin') return 'Admin';
+  if (lc === 'buyer/seller') return 'Buyer/Seller';
+  if (lc === 'buyer') return 'Buyer';
+  if (lc === 'seller') return 'Seller';
+  return 'Admin';
+}
+
+export function AddUserForm({ onSave, onClose, initial }: Props) {
+  const isEdit = !!initial;
+
+  const [f, setF] = useState<UserFormData>(() =>
+    initial
+      ? { ...initial, role: normalizeRole(initial.role), password: '' } as UserFormData
+      : { firstName: '', lastName: '', email: '', cell: '', role: 'Admin', location: LOCATIONS[0], password: '' }
+  );
+
+  const set = (field: keyof UserFormData) => (e: { target: { value: string } }) =>
+    setF(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handleSave = () => {
+    const missing: string[] = [];
+    if (!f.firstName.trim()) missing.push('First Name');
+    if (!f.lastName.trim()) missing.push('Last Name');
+    if (!f.email.trim()) missing.push('Email');
+    if (!f.cell.trim()) missing.push('Cell #');
+    if (!isEdit && !f.password.trim()) missing.push('Password');
+    if (missing.length) { alert('Please fill in: ' + missing.join(', ')); return; }
+    onSave(f);
+  };
+
+  const fieldStyle = { ...S.fi, fontSize: 16, padding: 10 };
+
+  return (
+    <div style={S.ov} onClick={onClose}>
+      <div style={{ ...S.modal, maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+
+        <h2 style={{ color: '#E5E7EB', fontSize: 20, marginBottom: 12 }}>
+          {isEdit ? '✏️ Edit User' : '👤 Register User / Admin'}
+        </h2>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+
+          <label style={S.fl}>First Name *
+            <input style={fieldStyle} autoComplete="off" name="fc_first"
+              value={f.firstName} onChange={set('firstName')} />
+          </label>
+
+          <label style={S.fl}>Last Name *
+            <input style={fieldStyle} autoComplete="off" name="fc_last"
+              value={f.lastName} onChange={set('lastName')} />
+          </label>
+
+          <label style={S.fl}>Email (Username) *
+            <input style={fieldStyle} autoComplete="off" name="fc_email_reg" type="text"
+              value={f.email} onChange={set('email')} disabled={isEdit} />
+          </label>
+
+          <label style={S.fl}>Cell # *
+            <input style={fieldStyle} autoComplete="off" name="fc_phone" type="tel"
+              value={f.cell} onChange={set('cell')} />
+          </label>
+
+          <label style={S.fl}>Password {isEdit ? '(leave blank to keep current)' : '*'}
+            <input style={fieldStyle} autoComplete="new-password" name="fc_pw_reg" type="password"
+              value={f.password || ''} onChange={set('password')}
+              placeholder={isEdit ? 'Leave blank' : 'Login password'} />
+          </label>
+
+          <label style={S.fl}>Role
+            <select style={fieldStyle} value={f.role} onChange={set('role')}>
+              <option>Admin</option>
+              <option>Buyer</option>
+              <option>Seller</option>
+              <option>Buyer/Seller</option>
+              <option>Accounts Payable</option>
+            </select>
+          </label>
+
+          <label style={S.fl}>Location
+            <select style={fieldStyle} value={f.location} onChange={set('location')}>
+              {LOCATIONS.map(l => <option key={l}>{l}</option>)}
+            </select>
+          </label>
+
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <button style={{ ...S.btn, flex: 1, fontSize: 16, padding: 12 }} onClick={handleSave}>
+            {isEdit ? 'Save Changes' : 'Register User'}
+          </button>
+          <button style={{ ...S.sm, padding: 12 }} onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
 }

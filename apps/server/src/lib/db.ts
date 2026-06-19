@@ -5,7 +5,7 @@ import '../config/env';
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-const isLocal =
+export const isLocal =
   NODE_ENV === 'local' ||
   process.env.DB_HOST === 'localhost' ||
   process.env.DB_HOST === 'db' ||

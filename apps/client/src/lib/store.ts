@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { WORKER, VCAT } from './constants';
+import { API_URL, VCAT } from './constants';
 import { tryParse, vData } from './utils';
 
 export const useStore = create<any>((set, get) => ({
@@ -43,6 +43,7 @@ export const useStore = create<any>((set, get) => ({
   note: null as string|null,
   showAdd: false,
   deepLinkCat: null as string|null,
+  deepLinkCr: false as boolean,
   pendingDeepLink: (()=>{try{const p=new URLSearchParams(window.location.search);const vid=p.get("vehicle");const vcat=p.get("cat");return vid?{vid,vcat}:null;}catch(e){return null;}})(),
 
   setTab: (tab: string) => set({ tab, selV: null }),
@@ -51,6 +52,7 @@ export const useStore = create<any>((set, get) => ({
   setSearch: (search: string) => set({ search }),
   setShowAdd: (showAdd: boolean) => set({ showAdd }),
   setDeepLinkCat: (deepLinkCat: any) => set({ deepLinkCat }),
+  setDeepLinkCr: (deepLinkCr: boolean) => set({ deepLinkCr }),
   setPendingDeepLink: (pendingDeepLink: any) => set({ pendingDeepLink }),
 
   notify: (msg: string) => {
@@ -64,7 +66,7 @@ export const useStore = create<any>((set, get) => ({
     const opts: any = { method, headers: { "Content-Type": "application/json" } };
     if (token) opts.headers["Authorization"] = "Bearer " + token;
     if (body) opts.body = JSON.stringify(body);
-    const r = await fetch(WORKER + path, opts);
+    const r = await fetch(API_URL + path, opts);
     if (!r.ok) {
       const errData = await r.json().catch(()=>({ error:"Request failed" }));
       if (r.status === 401) get().handleLogout();
@@ -95,6 +97,8 @@ export const useStore = create<any>((set, get) => ({
       fullVin:v.vin||"",stockNumber:v.stock_number||"",
       year:v.year||0,make:v.make||"",model:v.model||"",trim:v.trim||"",
       miles:v.miles||0,color:v.color||"",
+      zipCode:v.zip_code||"",fuelType:v.fuel_type||"",transmission:v.transmission||"",
+      driveline:v.driveline||"",drive:v.drive||"",motorTrailer:v.motor_trailer||"",
       location:(()=>{const l=(v.location||"PHX").toUpperCase().trim();if(l==="PHOENIX"||l==="PHX"||l==="AZ")return "PHX";if(l==="DALLAS"||l==="DFW"||l==="TX")return "Dallas";return v.location||"PHX";})(),
       source:v.source||"",
       purchaseDate:v.purchase_date||v.enter_date||"",
@@ -117,7 +121,12 @@ export const useStore = create<any>((set, get) => ({
       kickedReturn:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedReturn||false;})(),
       kickedFromDealer:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedFromDealer||null;})(),
       kickedHistory:(()=>{const rd=tryParse(v.recon_data,{});return rd._kickedHistory||[];})(),
-      notes:v.notes||"",_raw:v,
+      notes:v.notes||"",
+      conditionReport:(()=>{const r=v.condition_report;if(!r)return null;return typeof r==='string'?tryParse(r,null):r;})(),
+      crStatus:v.cr_status||null,
+      crAssignedTo:v.cr_assigned_to||null,
+      photos:tryParse(v.photos,[]),
+      _raw:v,
     };
   },
 
@@ -130,9 +139,9 @@ export const useStore = create<any>((set, get) => ({
     try {
       const hdrs={"Content-Type":"application/json","Authorization":"Bearer "+token};
       const [vRes,vnRes,uRes]=await Promise.all([
-        fetch(WORKER+"/api/vehicles",{headers:hdrs}).then(r=>r.json()),
-        fetch(WORKER+"/api/vendors",{headers:hdrs}).then(r=>r.json()),
-        fetch(WORKER+"/api/users",{headers:hdrs}).then(r=>r.json()),
+        fetch(API_URL+"/api/vehicles",{headers:hdrs}).then(r=>r.json()),
+        fetch(API_URL+"/api/vendors",{headers:hdrs}).then(r=>r.json()),
+        fetch(API_URL+"/api/users",{headers:hdrs}).then(r=>r.json()),
       ]);
       const mapped=(vRes.vehicles||[]).map((v: any)=>mapVehicle(v));
       const vnMap: any={};
@@ -143,8 +152,10 @@ export const useStore = create<any>((set, get) => ({
         cats.forEach((ck: any)=>{if(vnMap[ck])vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});});
         regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats});
       });
-      const mappedUsers=(uRes.users||[]).map((u: any)=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location}));
-      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, apiReady:true });
+      const mappedUsers=(uRes.users||[]).map((u: any)=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location,isBuyer:!!u.is_buyer,isSeller:!!u.is_seller}));
+      const currentSelV=get().selV;
+      const freshSelV=currentSelV?mapped.find((v: any)=>v._dbId===currentSelV._dbId)||currentSelV:null;
+      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, apiReady:true, selV:freshSelV });
     } catch(e) {
       console.error("API load failed, falling back to localStorage:", e);
       try{const sv=localStorage.getItem("fc_vehicles");if(sv){const p=JSON.parse(sv);if(p&&p.length>0)set({vehicles:p});}}catch(e2){}
@@ -162,14 +173,20 @@ export const useStore = create<any>((set, get) => ({
         vin:v.fullVin||v.vin8||"", stock_number:v.stockNumber||v.vin8||"",
         year:v.year, make:v.make, model:v.model, trim:v.trim||"",
         color:v.color, miles:v.miles, location:v.location,
+        zip_code:v.zipCode||null, fuel_type:v.fuelType||null, transmission:v.transmission||null,
+        driveline:v.driveline||null, drive:v.drive||null, motor_trailer:v.motorTrailer||null,
         source:v.source||"", buyer:v.buyingBroker||"", seller:v.sellingBroker||"",
         sold_to:v.soldTo||null, sale_date:v.soldDate||null,
         purchase_date:v.purchaseDate||null, grounded_date:v.deliveredDate||null,
         status:v.status==="delivered"?"delivered":v.status==="sold"?"sold":"active",
         kicked:(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV||v.kickedReturn)?1:0,
         notes:v.notes||"",
+        condition_report:v.conditionReport||null,
+        cr_status:v.crStatus||null,
+        cr_assigned_to:v.crAssignedTo||null,
         recon_data:JSON.stringify({...(v.reconTasks||{}),_kickedHistory:v.kickedHistory||[],_kickedFromDealer:v.kickedFromDealer||null,_kickedReturn:v.kickedReturn||false,_kicked:v.kicked||false,_kickedFromCSV:v.kickedFromCSV||false,_noReconNeeded:!!v.noReconNeeded,_noReconSetBy:v.noReconSetBy||null,_noReconSetDate:v.noReconSetDate||null,_buyerApprovedShip:!!v.buyerApprovedShip,_buyerApprovedDate:v.buyerApprovedDate||null,_shippingHoldBy:v.shippingHoldBy||null,_shippingHoldDate:v.shippingHoldDate||null,_arb:v.arb||null}),
         transport_data:JSON.stringify(v.transport||{}),
+        photos:JSON.stringify(v.photos||[]),
       });
     } catch(e) { console.error("Sync failed:", e); }
   },
@@ -189,18 +206,18 @@ export const useStore = create<any>((set, get) => ({
   addVehicle: async (v: any) => {
     const { api, apiReady, notify } = get();
     if (apiReady) {
-      try {
-        const res = await api("/api/vehicles", "POST", {
-          vin:v.fullVin||v.vin8||"", stock_number:v.vin8||"",
-          year:v.year, make:v.make, model:v.model, trim:v.trim||"",
-          color:v.color, miles:v.miles, location:v.location,
-          source:v.source||"", buyer:v.buyingBroker||"", seller:v.sellingBroker||"",
-          purchase_date:v.purchaseDate||null, status:"active",
-          recon_data:JSON.stringify(v.reconTasks||{}),
-          transport_data:JSON.stringify(v.transport||{}),
-        });
-        if (res.ok && res.id) { v.id="db_"+res.id; v._dbId=res.id; v.stockNumber=v.vin8||""; }
-      } catch(e) { console.error("API create failed:", e); }
+      const res = await api("/api/vehicles", "POST", {
+        vin:v.fullVin||v.vin8||"", stock_number:v.vin8||"",
+        year:v.year, make:v.make, model:v.model, trim:v.trim||"",
+        color:v.color, miles:v.miles, location:v.location,
+        zip_code:v.zipCode||null, fuel_type:v.fuelType||null, transmission:v.transmission||null,
+        driveline:v.driveline||null, drive:v.drive||null, motor_trailer:v.motorTrailer||null,
+        source:v.source||"", buyer:v.buyingBroker||"", seller:v.sellingBroker||"",
+        purchase_date:v.purchaseDate||null, status:"active",
+        recon_data:JSON.stringify(v.reconTasks||{}),
+        transport_data:JSON.stringify(v.transport||{}),
+      });
+      if (res.ok && res.id) { v.id="db_"+res.id; v._dbId=res.id; v.stockNumber=v.vin8||""; }
     }
     set((state: any) => ({ vehicles:[v,...state.vehicles], showAdd:false }));
     notify("Vehicle added");
@@ -240,11 +257,48 @@ export const useStore = create<any>((set, get) => ({
     set({ csvUploading: false });
   },
 
+  // ============ SEND TO AUCTION ============
+  sendToAuction: async (v: any, opts: { replaceExistingImages?: boolean } = {}) => {
+    const { api, notify } = get();
+    if (!v._dbId) { notify('⚠️ Save the vehicle before sending to auction'); return; }
+    try {
+      const res = await api(`/api/vehicles/${v._dbId}/send-to-auction`, 'POST', { replace_existing_images: !!opts.replaceExistingImages, photos: v.photos || [] });
+      notify(`🔨 Sent to Auction — ${res.skippedNonUrlMedia ? res.skippedNonUrlMedia + ' local photo(s) skipped (no hosted URL)' : 'media included'}`);
+      return res;
+    } catch (e: any) {
+      notify(`⚠️ Send to Auction failed — ${e.message}`);
+      throw e;
+    }
+  },
+
+  // ============ IMPORT FROM CRM ============
+  lookupCrmVehicle: async (vin: string) => {
+    const { api, notify } = get();
+    try {
+      return await api(`/api/vehicles/import-from-crm/lookup?vin=${encodeURIComponent(vin)}`, 'GET');
+    } catch (e: any) {
+      notify(`⚠️ CRM lookup failed — ${e.message}`);
+      throw e;
+    }
+  },
+  importFromCrm: async (fields: any) => {
+    const { api, notify, loadData } = get();
+    try {
+      const res = await api('/api/vehicles/import-from-crm', 'POST', fields);
+      notify(res.updated ? '✅ Vehicle updated from CRM' : '✅ Vehicle imported from CRM');
+      await loadData();
+      return res;
+    } catch (e: any) {
+      notify(`⚠️ Import from CRM failed — ${e.message}`);
+      throw e;
+    }
+  },
+
   // ============ FIRE EMAIL ============
   fireEmail: async (type: string, data: any) => {
     const { notify } = get();
     try {
-      const resp = await fetch(WORKER+"/send", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type,to:"darren@valleycargroup.com",data}) });
+      const resp = await fetch(API_URL+"/api/email/send", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({type,to:"",data}) });
       if (resp.ok) {
         const result = await resp.json().catch(()=>({}));
         const n = (result.recipients||[]).length;

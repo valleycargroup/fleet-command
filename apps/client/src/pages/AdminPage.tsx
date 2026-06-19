@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { WORKER, VCAT } from '../lib/constants';
+import { API_URL, VCAT } from '../lib/constants';
 import { tryParse } from '../lib/utils';
 import { S } from '../lib/styles';
 import { AddUserForm } from '../components/AddUserForm';
@@ -30,7 +30,7 @@ const saveUser=async(f: any)=>{
   setBusy(true);
   try{
     const payload={email:f.email.trim().toLowerCase(),phone:f.cell,first_name:f.firstName,last_name:f.lastName,role:f.role==="Buyer/Seller"?"admin":f.role==="Accounts Payable"?"ap":f.role.toLowerCase(),is_buyer:f.role==="Buyer"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_seller:f.role==="Seller"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_ap:f.role==="Accounts Payable"?1:0,location:f.location,password:f.password||""};
-    const res=await fetch(WORKER+"/api/users",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
+    const res=await fetch(API_URL+"/api/users",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadUsers();setShowAdd(null);notify("✅ User registered");
@@ -43,7 +43,7 @@ const updateUser=async(f: any)=>{
   try{
     const payload: any={first_name:f.firstName,last_name:f.lastName,phone:f.cell,role:f.role==="Buyer/Seller"?"admin":f.role==="Accounts Payable"?"ap":f.role.toLowerCase(),is_buyer:f.role==="Buyer"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_seller:f.role==="Seller"||f.role==="Buyer/Seller"||f.role==="Admin"?1:0,is_ap:f.role==="Accounts Payable"?1:0,location:f.location};
     if(f.password&&f.password.trim().length>0)payload.password=f.password.trim();
-    const res=await fetch(WORKER+"/api/users/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
+    const res=await fetch(API_URL+"/api/users/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadUsers();setEditUser(null);notify("✅ User updated"+(f.password?" — password changed":""));
@@ -55,7 +55,7 @@ const deleteUser=async(u: any)=>{
   if(!confirm("Remove "+u.firstName+" "+u.lastName+"?\n\nThey will no longer be able to log in. You can re-register them with the same email later."))return;
   setBusy(true);
   try{
-    const res=await fetch(WORKER+"/api/users/"+u.id,{method:"DELETE",headers:authHdrs()});
+    const res=await fetch(API_URL+"/api/users/"+u.id,{method:"DELETE",headers:authHdrs()});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadUsers();notify("✅ User removed");
@@ -64,7 +64,7 @@ const deleteUser=async(u: any)=>{
 };
 
 const reloadUsers=async()=>{
-  const res=await fetch(WORKER+"/api/users",{headers:authHdrs()});
+  const res=await fetch(API_URL+"/api/users",{headers:authHdrs()});
   const data=await res.json();
   const mapped=(data.users||[]).map((u: any)=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location}));
   setUsers(mapped);if(setAllUsers)setAllUsers(mapped);
@@ -74,7 +74,7 @@ const saveVendor=async(f: any)=>{
   setBusy(true);
   try{
     const payload={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:f.categories,password:f.password||"",payment_terms:f.paymentTerms||"weekly",cutoff_day:f.cutoffDay||"Friday",cutoff_time:f.cutoffTime||"5 PM",delivery_method:f.deliveryMethod||"USPS Mail"};
-    const res=await fetch(WORKER+"/api/vendors",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
+    const res=await fetch(API_URL+"/api/vendors",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed to register vendor"));setBusy(false);return;}
     await reloadVendors();setShowAdd(null);
@@ -89,7 +89,7 @@ const updateVendor=async(f: any)=>{
     const cats=Array.isArray(f.categories)?f.categories:(f.categories?[f.categories]:[]);
     const payload: any={name:f.company,contact_name:f.contact,email:f.email.trim().toLowerCase(),phone:f.cell,office_phone:f.officePhone||"",location:f.address||"",categories:cats,payment_terms:f.paymentTerms||"weekly",cutoff_day:f.cutoffDay||"Friday",cutoff_time:f.cutoffTime||"5 PM",delivery_method:f.deliveryMethod||"USPS Mail"};
     if(f.password&&f.password.trim())payload.password=f.password.trim();
-    const res=await fetch(WORKER+"/api/vendors/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
+    const res=await fetch(API_URL+"/api/vendors/"+f.id,{method:"PUT",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadVendors();setEditVendor(null);
@@ -102,7 +102,7 @@ const deleteVendor=async(v: any)=>{
   if(!confirm("Remove "+v.company+"?\n\nThey will be removed from vendor assignment dropdowns."))return;
   setBusy(true);
   try{
-    const res=await fetch(WORKER+"/api/vendors/"+v.id,{method:"DELETE",headers:authHdrs()});
+    const res=await fetch(API_URL+"/api/vendors/"+v.id,{method:"DELETE",headers:authHdrs()});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadVendors();notify("✅ Vendor removed");
@@ -111,7 +111,7 @@ const deleteVendor=async(v: any)=>{
 };
 
 const reloadVendors=async()=>{
-  const res=await fetch(WORKER+"/api/vendors",{headers:authHdrs()});
+  const res=await fetch(API_URL+"/api/vendors",{headers:authHdrs()});
   const data=await res.json();
   const vnMap: any={};VCAT.forEach(c=>{vnMap[c.key]=[];});
   const regVList: any[]=[];
