@@ -2,25 +2,29 @@
 /* eslint-disable no-console */
 
 /**
- * Applies db/schema.sql and every db/migrations/*.sql file to the configured
- * Postgres database. Uses IF NOT EXISTS everywhere so it is safe to re-run on
- * an existing database — one command works for both fresh installs and schema
- * updates.
+ * Applies db/schema.sql then every db/migrations/*.sql file to the configured
+ * Postgres database. Uses IF NOT EXISTS everywhere so it is safe to re-run.
+ *
+ * - Prefers local `psql` if installed.
+ * - Falls back to `docker run postgres:16-alpine psql` so no local psql is needed.
+ *
+ * Connection source:
+ * - DATABASE_URL if present
+ * - Otherwise DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME
  *
  * Usage:  node createTables.js
  */
 
+const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// ---------------------------------------------------------------------------
-// Load .env
-// ---------------------------------------------------------------------------
 function loadEnv() {
 	const envPath = path.resolve(__dirname, '.env');
 	if (!fs.existsSync(envPath)) return;
 	try {
 		require('dotenv').config({ path: envPath, override: true });
+		return;
 	} catch (_) {
 		const lines = fs.readFileSync(envPath, 'utf8').split('\n');
 		for (const raw of lines) {
@@ -30,16 +34,17 @@ function loadEnv() {
 			if (idx === -1) continue;
 			const key = line.slice(0, idx).trim();
 			let val = line.slice(idx + 1).trim();
-			if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
+			if (
+				(val.startsWith('"') && val.endsWith('"')) ||
+				(val.startsWith("'") && val.endsWith("'"))
+			) {
 				val = val.slice(1, -1);
+			}
 			process.env[key] = val;
 		}
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Connection config
-// ---------------------------------------------------------------------------
 function isDockerRuntime() {
 	try {
 		if (fs.existsSync('/.dockerenv')) return true;
@@ -52,67 +57,72 @@ function parseConnConfig() {
 	try { url = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null; } catch (_) {}
 
 	let host = url?.hostname || process.env.DB_HOST || 'localhost';
-	let port = Number(url?.port || process.env.DB_PORT || 5432);
+	const port = url?.port || process.env.DB_PORT || '5432';
 	const database = (url?.pathname || '').replace(/^\//, '') || process.env.DB_NAME || 'postgres';
 	const user = url?.username || process.env.DB_USER || 'postgres';
 	const password = decodeURIComponent(url?.password || '') || process.env.DB_PASSWORD || '';
 
-	// Inside docker-compose the host is "db" — from the host machine use localhost
-	if (host === 'db' && !isDockerRuntime()) {
-		host = 'localhost';
-		port = Number(process.env.DB_PORT || port);
-	}
+	if (host === 'db' && !isDockerRuntime()) host = 'localhost';
 
-	const ssl = ['localhost', '127.0.0.1'].includes(host) ? false : { rejectUnauthorized: false };
-	return { host, port, database, user, password, ssl };
+	const sslmode = ['localhost', '127.0.0.1'].includes(host) ? 'disable' : 'require';
+	return { host, port, database, user, password, sslmode };
 }
 
-// ---------------------------------------------------------------------------
-// SQL helpers
-// ---------------------------------------------------------------------------
+function connString(conn) {
+	return `postgresql://${conn.user}@${conn.host}:${conn.port}/${conn.database}?sslmode=${conn.sslmode}`;
+}
+
+function runPsql(sqlFile, conn, useDocker) {
+	const env = { ...process.env, PGPASSWORD: conn.password || '' };
+
+	if (!useDocker) {
+		const result = spawnSync(
+			'psql',
+			['-v', 'ON_ERROR_STOP=1', connString(conn), '-f', sqlFile],
+			{ stdio: 'inherit', env }
+		);
+		return result.status === 0;
+	}
+
+	const dbDir = path.resolve(__dirname, 'db');
+	const containerFile = '/db/' + path.relative(dbDir, sqlFile).replace(/\\/g, '/');
+	const args = [
+		'run', '--rm',
+		'-v', `${dbDir}:/db:ro`,
+		'-e', `PGPASSWORD=${conn.password || ''}`,
+	];
+	if (['localhost', '127.0.0.1'].includes(conn.host)) {
+		args.push('--network', 'host');
+	}
+	args.push('postgres:16-alpine', 'psql', '-v', 'ON_ERROR_STOP=1', connString(conn), '-f', containerFile);
+
+	const result = spawnSync('docker', args, { stdio: 'inherit' });
+	return result.status === 0;
+}
+
+function applyFile(sqlFile, conn) {
+	const label = path.relative(__dirname, sqlFile);
+	process.stdout.write(`  Applying ${label} ... `);
+	if (runPsql(sqlFile, conn, false) || runPsql(sqlFile, conn, true)) {
+		console.log('✅');
+		return true;
+	}
+	console.log('❌');
+	return false;
+}
+
 function listMigrations() {
 	const dir = path.resolve(__dirname, 'db', 'migrations');
 	if (!fs.existsSync(dir)) return [];
-	return fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort()
+	return fs.readdirSync(dir)
+		.filter(f => f.endsWith('.sql'))
+		.sort()
 		.map(f => path.resolve(dir, f));
 }
 
-// Split a SQL file into individual statements (split on semicolons, ignore
-// empty chunks and psql \-commands).
-function splitStatements(sql) {
-	return sql
-		.split(/;[ \t]*(?:\r?\n|$)/)
-		.map(s => s.trim())
-		.filter(s => s.length > 0 && !s.startsWith('\\'));
-}
-
-// Extract the object name from a CREATE TABLE/INDEX/FUNCTION statement.
-function extractName(stmt) {
-	const m = stmt.match(
-		/CREATE\s+(?:TABLE|INDEX|UNIQUE\s+INDEX|FUNCTION|VIEW|SEQUENCE|TYPE|EXTENSION)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?(\w+)"?)/i
-	);
-	return m ? m[1] : null;
-}
-
-function objectKind(stmt) {
-	const m = stmt.match(/CREATE\s+(TABLE|INDEX|UNIQUE\s+INDEX|FUNCTION|VIEW|SEQUENCE|TYPE|EXTENSION|OR\s+REPLACE\s+FUNCTION)/i);
-	if (!m) return 'object';
-	const k = m[1].toUpperCase();
-	if (k.includes('INDEX')) return 'index';
-	if (k.includes('FUNCTION')) return 'function';
-	return k.toLowerCase();
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-async function main() {
+function main() {
 	loadEnv();
 	const conn = parseConnConfig();
-
-	// Require pg from the server's node_modules — no extra install needed.
-	const { Client } = require('./apps/server/node_modules/pg');
-	const client = new Client(conn);
 
 	console.log('');
 	console.log('╔══════════════════════════════════════════╗');
@@ -123,69 +133,32 @@ async function main() {
 	console.log(`  Database : ${conn.database}`);
 	console.log('');
 
-	await client.connect();
-
-	// ── Schema ──────────────────────────────────────────────────────────────
 	const schemaFile = path.resolve(__dirname, 'db', 'schema.sql');
 	if (!fs.existsSync(schemaFile)) {
 		console.error('  ❌  db/schema.sql not found');
-		await client.end();
 		process.exit(1);
 	}
 
-	console.log('  Schema');
-	console.log('  ──────────────────────────────────────────');
-	const schemaStatements = splitStatements(fs.readFileSync(schemaFile, 'utf8'));
-	for (const stmt of schemaStatements) {
-		const name = extractName(stmt);
-		const kind = objectKind(stmt);
-		try {
-			await client.query(stmt);
-			if (name) console.log(`  ✔  Ensuring ${kind}: ${name}`);
-		} catch (e) {
-			console.error(`\n  ❌  Failed on statement:\n     ${stmt.slice(0, 120)}`);
-			console.error(`     ${e.message}`);
-			await client.end();
-			process.exit(1);
-		}
+	if (!applyFile(schemaFile, conn)) {
+		console.error('  ❌  Schema failed.');
+		process.exit(1);
 	}
-	console.log('  ✅  Schema applied successfully.');
-	console.log('');
 
-	// ── Migrations ──────────────────────────────────────────────────────────
 	const migrations = listMigrations();
 	if (migrations.length === 0) {
 		console.log('  ℹ   No migrations found in db/migrations/.');
 	} else {
-		console.log('  Migrations');
-		console.log('  ──────────────────────────────────────────');
 		for (const file of migrations) {
-			const label = path.basename(file);
-			const stmts = splitStatements(fs.readFileSync(file, 'utf8'));
-			let ok = true;
-			for (const stmt of stmts) {
-				try {
-					await client.query(stmt);
-				} catch (e) {
-					console.error(`\n  ❌  ${label} — ${e.message}`);
-					ok = false;
-					break;
-				}
+			if (!applyFile(file, conn)) {
+				console.error(`  ❌  Migration failed: ${path.basename(file)}`);
+				process.exit(1);
 			}
-			if (!ok) { await client.end(); process.exit(1); }
-			console.log(`  ✔  ${label}`);
 		}
-		console.log(`  ✅  ${migrations.length} migration(s) applied.`);
 	}
 
 	console.log('');
 	console.log('  ✅  Database is up to date.');
 	console.log('');
-
-	await client.end();
 }
 
-main().catch(e => {
-	console.error('  ❌  Unexpected error:', e.message);
-	process.exit(1);
-});
+main();

@@ -160,6 +160,14 @@ jobs:
                   sudo docker compose -f docker-compose.prod.yml ps
                   '"
 
+            - name: Run database migrations
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.PROD_EC2_SSH_HOST_FLEET }} "bash -lc '
+                  set -e
+                  cd ~/fleet-command
+                  node createTables.js
+                  '"
+
             - name: Show container logs
               if: always()
               run: |

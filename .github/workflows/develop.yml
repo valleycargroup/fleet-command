@@ -128,6 +128,14 @@ jobs:
                   \$COMPOSE logs --tail=100 server || true
                   '"
 
+            - name: Run database migrations
+              run: |
+                  ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "bash -lc '
+                  set -e
+                  cd ~/fleet-command
+                  node createTables.js
+                  '"
+
             - name: Verify server container is running
               run: |
                   ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.DEV_EC2_SSH_HOST_FLEET }} "bash -lc '
