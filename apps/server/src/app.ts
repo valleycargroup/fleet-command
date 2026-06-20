@@ -9,6 +9,7 @@ import './config/env';
 const CLIENT_PORT = process.env.CLIENT_PORT || 3000;
 
 const app = express();
+app.set('trust proxy', 1); // behind AWS ALB
 
 const allowedOrigins = [
   `http://localhost:${CLIENT_PORT}`,
