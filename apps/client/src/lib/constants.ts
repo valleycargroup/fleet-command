@@ -4,6 +4,7 @@ export const SOURCES = ["Manheim Phoenix", "ADESA Dallas", "Copart", "IAAI", "OV
 export const ARB_SOURCES = ["Manheim","ACV","Openlane","Copart","ADESA","OVE","IAAI"];
 export const COLORS = ["White", "Black", "Silver", "Gray", "Red", "Blue", "Green", "Brown", "Gold", "Orange", "Beige"];
 export const FUEL_TYPES = ["gas", "diesel", "electric", "hybrid", "ethanol", "hydrogen", "petrol", "other"];
+export const TRANSMISSION_TYPES = ["Automatic", "Manual", "CVT", "DCT", "Semi-Automatic", "Other"];
 
 // Standard drive values matching the Auction app's expected long-form labels.
 export const DRIVE_TYPES = [

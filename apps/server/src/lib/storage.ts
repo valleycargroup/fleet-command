@@ -39,6 +39,8 @@ const serverPublicUrl = (() => {
 const s3Client = useS3 && hasAnyS3Bucket
   ? new S3Client({
       region: storageConfig.region,
+      ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
+      ...(process.env.S3_FORCE_PATH_STYLE === 'true' ? { forcePathStyle: true } : {}),
       credentials: storageConfig.accessKeyId && storageConfig.secretAccessKey
         ? { accessKeyId: storageConfig.accessKeyId, secretAccessKey: storageConfig.secretAccessKey }
         : undefined, // falls back to EC2 instance role on prod

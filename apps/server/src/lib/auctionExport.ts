@@ -75,6 +75,13 @@ function collectMediaUrls(task: ReconTask | undefined): string[] {
   return urls;
 }
 
+// When running locally both Fleet Command and the Auction app are in Docker.
+// Photo URLs stored with localhost are unreachable from inside the Auction container,
+// so we rewrite localhost → host.docker.internal in the payload only.
+function toAuctionReachableUrl(url: string): string {
+  return url.replace(/^(https?:\/\/)localhost(:\d+)/i, '$1host.docker.internal$2');
+}
+
 export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?: boolean } = {}) {
   const reconData: Record<string, ReconTask> = vehicle.recon_data || {};
 
@@ -90,14 +97,16 @@ export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?
   if (interiorNotes) conditionReport.interior_notes = interiorNotes;
   if (tiresNotes) conditionReport.tires_brakes_notes = tiresNotes;
 
-  const mediaManifest: Array<Record<string, any>> = [];
+  // media_urls is the correct field — the Auction app downloads each URL and re-uploads
+  // to its own storage. media_manifest is metadata-only (no url field) and is NOT used here.
+  const mediaUrls: Array<Record<string, any>> = [];
   let skippedNonUrlMedia = 0;
   Object.entries(reconData).forEach(([key, task]) => {
     const urls = collectMediaUrls(task);
     urls.forEach((url) => {
-      mediaManifest.push({
+      mediaUrls.push({
+        url: toAuctionReachableUrl(url),
         type: /\.(mp4|mov|webm)$/i.test(url) ? 'video' : 'image',
-        url,
         category: key === 'cr' ? 'condition-report' : 'gallery',
         label: key,
         hidden_from_gallery: key === 'cr',
@@ -143,11 +152,19 @@ export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?
   vehiclePhotos.forEach((p: any) => {
     const url = typeof p === 'string' ? p : p?.url;
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
-      mediaManifest.push({ type: 'image', url, category: 'gallery', label: 'vehicle', hidden_from_gallery: false, show_in_condition_report: false, source: 'fleet_command' });
+      mediaUrls.push({
+        url: toAuctionReachableUrl(url),
+        type: /\.(mp4|mov|webm)$/i.test(url) ? 'video' : 'image',
+        category: 'gallery',
+        label: 'vehicle',
+        hidden_from_gallery: false,
+        show_in_condition_report: false,
+        source: 'fleet_command',
+      });
     }
   });
 
-  if (mediaManifest.length > 0) payload.media_manifest = mediaManifest;
+  if (mediaUrls.length > 0) payload.media_urls = mediaUrls;
 
   return { payload, skippedNonUrlMedia };
 }

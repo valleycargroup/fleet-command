@@ -21,12 +21,12 @@ Parameters:
 
     AcmCertificateArnUsEast1:
         Type: String
-        Default: "arn:aws:acm:us-east-1:590183676974:certificate/1b2b6468-dc54-4775-a3a2-8f52cc6e3b9a"
+        Default: "arn:aws:acm:us-east-1:590183676974:certificate/063887ac-1c71-4f03-ab45-74e5c31cab32"
         Description: CloudFront TLS certificate (must be in us-east-1)
 
     AlbCertificateArn:
         Type: String
-        Default: "arn:aws:acm:us-east-2:590183676974:certificate/50cf6a80-d8c6-438f-b21e-47bf837e8234"
+        Default: "arn:aws:acm:us-east-2:590183676974:certificate/818b7255-8441-432e-893f-8f279c739d63"
         Description: ALB TLS certificate in the app region (us-east-2)
 
 Conditions:
@@ -433,7 +433,10 @@ Resources:
             SecurityGroupIds: [!GetAtt InstanceSecurityGroup.GroupId]
             IamInstanceProfile: !Ref FleetInstanceProfile
             Tags:
-                - { Key: Name, Value: !Sub "${Environment}-fleet-command-instance" }
+                - {
+                      Key: Name,
+                      Value: !Sub "${Environment}-fleet-command-instance",
+                  }
             BlockDeviceMappings:
                 - DeviceName: /dev/xvda
                   Ebs: { VolumeSize: 30, VolumeType: gp3 }
@@ -608,11 +611,7 @@ Resources:
             DBInstanceClass: db.serverless
             PubliclyAccessible: true
             Tags:
-                - {
-                      Key: Name,
-                      Value: !Sub "${Environment}-fleet-command-db",
-                  }
-
+                - { Key: Name, Value: !Sub "${Environment}-fleet-command-db" }
 
 Outputs:
     WebsiteURL:

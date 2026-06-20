@@ -405,7 +405,8 @@ router.post('/upload-csv', async (req: Request, res: Response) => {
     const colMap: Record<string, number> = {};
     headers.forEach((h: string, i: number) => { colMap[h] = i; });
 
-    if (colMap['STOCK #'] === undefined) return res.status(400).json({ error: 'Missing required column: STOCK #' });
+    if (colMap['VIN'] === undefined && colMap['STOCK #'] === undefined)
+      return res.status(400).json({ error: 'CSV must have at least a VIN or STOCK # column' });
 
     let imported = 0, updated = 0, skipped = 0, kickedCount = 0;
     const errors: string[] = [];
@@ -413,50 +414,60 @@ router.post('/upload-csv', async (req: Request, res: Response) => {
     for (let i = 1; i < lines.length; i++) {
       try {
         const row = parseCSVRow(lines[i]);
-        const stockNum = getCol(row, colMap, 'STOCK #');
-        if (!stockNum) continue;
+        const vin      = getCol(row, colMap, 'VIN')?.trim().toUpperCase() || '';
+        const stockNum = getCol(row, colMap, 'STOCK #')?.trim() || '';
 
-        const vin = getCol(row, colMap, 'VIN') || '';
-        const year = parseInt(getCol(row, colMap, 'YEAR')) || null;
-        const make = getCol(row, colMap, 'MAKE') || '';
-        const model = getCol(row, colMap, 'MODEL') || '';
-        const trim = getCol(row, colMap, 'TRIM') || '';
-        const color = getCol(row, colMap, 'COLOR') || '';
+        // Need at least a VIN or stock number to identify the vehicle
+        if (!vin && !stockNum) continue;
+
+        const year    = parseInt(getCol(row, colMap, 'YEAR')) || null;
+        const make    = getCol(row, colMap, 'MAKE') || '';
+        const model   = getCol(row, colMap, 'MODEL') || '';
+        const trim    = getCol(row, colMap, 'TRIM') || '';
+        const color   = getCol(row, colMap, 'COLOR') || '';
         const rawMiles = String(getCol(row, colMap, 'MILES') || '0');
         let miles = parseInt(rawMiles.replace(/[^0-9]/g, '')) || 0;
         if (miles > 999999) miles = Math.floor(miles / 100);
-        const location = getCol(row, colMap, 'LOCATION') || '';
-        const source = getCol(row, colMap, 'FROM') || '';
-        const origin = getCol(row, colMap, 'ORIGIN') || '';
-        const buyer = getCol(row, colMap, 'BUYER') || '';
-        const seller = getCol(row, colMap, 'SELLER') || '';
-        const soldTo = getCol(row, colMap, 'SOLD TO') || null;
-        const saleDate = parseDate(getCol(row, colMap, 'SALE DATE'));
+        const location  = getCol(row, colMap, 'LOCATION') || '';
+        const source    = getCol(row, colMap, 'FROM') || '';
+        const origin    = getCol(row, colMap, 'ORIGIN') || '';
+        const buyer     = getCol(row, colMap, 'BUYER') || '';
+        const seller    = getCol(row, colMap, 'SELLER') || '';
+        const soldTo    = getCol(row, colMap, 'SOLD TO') || null;
+        const saleDate  = parseDate(getCol(row, colMap, 'SALE DATE'));
         const enterDate = parseDate(getCol(row, colMap, 'ENTER DATE'));
-        const dogDate = parseDate(getCol(row, colMap, 'D.O.G.'));
+        const dogDate   = parseDate(getCol(row, colMap, 'D.O.G.'));
         const kickedDate = parseDate(getCol(row, colMap, 'KICKED'));
-        const notes = getCol(row, colMap, 'NOTES') || '';
-        const isKicked = !!kickedDate;
-        const status = isKicked ? 'active' : (soldTo ? 'sold' : 'active');
+        const notes     = getCol(row, colMap, 'NOTES') || '';
+        const isKicked  = !!kickedDate;
+        const status    = isKicked ? 'active' : (soldTo ? 'sold' : 'active');
         if (isKicked) kickedCount++;
 
-        const existing = (await db.raw('SELECT id, recon_data, status FROM vehicles WHERE stock_number = ?', [stockNum])).rows[0];
+        // VIN is the primary dedup key; fall back to stock number if no VIN
+        let existing: any = null;
+        if (vin) {
+          existing = (await db.raw('SELECT id, status FROM vehicles WHERE UPPER(TRIM(vin)) = ? LIMIT 1', [vin])).rows[0];
+        }
+        if (!existing && stockNum) {
+          existing = (await db.raw('SELECT id, status FROM vehicles WHERE stock_number = ? LIMIT 1', [stockNum])).rows[0];
+        }
 
         if (existing) {
           if (existing.status === 'delivered') { skipped++; continue; }
           await db.raw(
-            `UPDATE vehicles SET vin=?, year=?, make=?, model=?, trim=?, color=?, miles=?, location=?, source=?,
-             origin=?, buyer=?, seller=?, sold_to=?, sale_date=?, enter_date=?, grounded_date=?, status=?, notes=?, updated_at=NOW()
-             WHERE stock_number=?`,
-            [vin, year, make, model, trim, color, miles, location, source, origin, buyer, seller,
-             soldTo, saleDate, enterDate, dogDate, status, notes, stockNum]
+            `UPDATE vehicles SET vin=?, stock_number=COALESCE(NULLIF(?, ''), stock_number),
+             year=?, make=?, model=?, trim=?, color=?, miles=?, location=?, source=?,
+             origin=?, buyer=?, seller=?, sold_to=?, sale_date=?, enter_date=?, grounded_date=?,
+             status=?, notes=?, updated_at=NOW() WHERE id=?`,
+            [vin, stockNum, year, make, model, trim, color, miles, location, source, origin, buyer, seller,
+             soldTo, saleDate, enterDate, dogDate, status, notes, existing.id]
           );
           updated++;
         } else {
           await db.raw(
             `INSERT INTO vehicles (vin, stock_number, year, make, model, trim, color, miles, location, source,
              origin, buyer, seller, sold_to, sale_date, enter_date, grounded_date, status, notes, recon_data, transport_data)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', '{}')`,
+             VALUES (?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', '{}')`,
             [vin, stockNum, year, make, model, trim, color, miles, location, source, origin, buyer, seller,
              soldTo, saleDate, enterDate, dogDate, status, notes]
           );

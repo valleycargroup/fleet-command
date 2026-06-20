@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { VCAT, ARB_SOURCES, DRIVE_TYPES, FUEL_TYPES, driveToDriveline, driveToLongForm, fuelNormalize, API_URL } from '../lib/constants';
+import { VCAT, ARB_SOURCES, DRIVE_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, driveToDriveline, driveToLongForm, fuelNormalize, API_URL } from '../lib/constants';
 const isVideo = (url: string) => /\.(mp4|mov|avi|webm|mkv|m4v|ogg|ogv|3gp)(\?|$)/i.test(url || '');
 import { fmtDate, vData } from '../lib/utils';
 import { S } from '../lib/styles';
@@ -393,7 +393,7 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
   const mainPhoto=photos[mainIdx];
   const movePhoto=(from: number,to: number)=>{const arr=[...photos];const[item]=arr.splice(from,1);arr.splice(to,0,item);onUpdate({photos:arr});};
   const setMain=(idx: number)=>onUpdate({photos:photos.map((x: any,xi: number)=>({...x,isMain:xi===idx}))});
-  const deletePhoto=async(pi: number,p: any)=>{if(!window.confirm("Delete this photo?"))return;try{const token=sessionStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo deleted");}catch{notify("⚠️ Delete failed");}};
+  const deletePhoto=async(pi: number,p: any)=>{if(!window.confirm("Delete this photo?"))return;if(p.key){try{const token=sessionStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});}catch{/* storage delete best-effort — still remove from list */}}onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo removed");};;
   if(photos.length===0)return <div style={{fontSize:13,color:"#4B5563",fontStyle:"italic"}}>No photos uploaded yet.</div>;
   if(photoManage)return <div>
     <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>Drag position using ← → buttons. First photo is sent as primary to auction. ⭐ = main display photo.</div>
@@ -409,7 +409,7 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
         <button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#E5E7EB",cursor:pi===0?"not-allowed":"pointer",opacity:pi===0?0.3:1}} disabled={pi===0} onClick={()=>movePhoto(pi,pi-1)}>← </button>
         <button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#E5E7EB",cursor:pi===photos.length-1?"not-allowed":"pointer",opacity:pi===photos.length-1?0.3:1}} disabled={pi===photos.length-1} onClick={()=>movePhoto(pi,pi+1)}> →</button>
         <button title={isVideo(p.url)?"Cannot set a video as main photo":undefined} style={{flex:1,padding:"4px 0",fontSize:12,background:pi===mainIdx?"#78350F":"#1A1A2E",border:pi===mainIdx?"1px solid #F59E0B":"1px solid #2A2A3E",borderRadius:4,color:pi===mainIdx?"#FDE68A":"#9CA3AF",cursor:isVideo(p.url)?"not-allowed":"pointer",opacity:isVideo(p.url)?0.3:1}} disabled={isVideo(p.url)} onClick={()=>setMain(pi)}>⭐</button>
-        {p.source!=="crm"&&<button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#FCA5A5",cursor:"pointer"}} onClick={()=>deletePhoto(pi,p)}>🗑</button>}
+        <button style={{flex:1,padding:"4px 0",fontSize:12,background:"#1A1A2E",border:"1px solid #2A2A3E",borderRadius:4,color:"#FCA5A5",cursor:"pointer"}} onClick={()=>deletePhoto(pi,p)}>🗑</button>
       </div>
     </div>)}
     </div>
@@ -436,10 +436,12 @@ const _task=v.reconTasks?.[cat.key];
 // Vendors see all needed categories; non-assigned ones get a read-only status card
 if(isVendor&&!_task?.needed)return null;
 if(isVendor&&!isMyTask){
-  const sv=(_task.vendors||[]).find((vn: any)=>vn.selected);
+  // Fall back to first vendor in array if none marked selected yet
+  const sv=(_task.vendors||[]).find((vn: any)=>vn.selected)||(_task.vendors||[])[0]||null;
   const st2=_task.status;
   const sLabel=st2==="complete"?"Complete":st2==="started"?"In Progress":st2==="approved"?"Approved":st2==="estimated"?"Bidding":st2==="assigned"?"Assigned":"Pending";
   const sColor=st2==="complete"?"#34D399":st2==="started"?"#FBBF24":st2==="approved"?"#60A5FA":"#9CA3AF";
+  const workTasks=_task.workTasks||[];
   const lineItems=(sv?.lineItems||[]).filter((li: any)=>!li.declined);
   const bidTotal=sv?.bidLocked?lineItems.reduce((s: any,li: any)=>s+(Number(li.price)||0),0):null;
   const adjTotal=bidTotal!==null?(bidTotal+(sv?.bidAdjustment||0)):null;
@@ -451,16 +453,26 @@ if(isVendor&&!isMyTask){
     </div>
     {sv&&<div style={{fontSize:13,color:"#93C5FD",fontWeight:600,marginBottom:4}}>🔧 {sv.name}</div>}
     {_task.notes&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:6,fontStyle:"italic"}}>"{_task.notes}"</div>}
-    {lineItems.length>0&&<div style={{marginTop:4}}>
+    {workTasks.length>0&&<div style={{marginBottom:6}}>
+      {workTasks.map((wt: any,wi: number)=>{
+        const li=(sv?.lineItems||[]).find((x: any)=>x.id===wt.id);
+        return <div key={wi} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#E5E7EB",padding:"3px 0",borderBottom:"1px solid #1A1A2E"}}>
+          <span style={{color:"#9CA3AF"}}>{wt.desc||"—"}</span>
+          {li?.price>0?<span style={{color:"#FBBF24",fontWeight:600}}>${(Number(li.price)||0).toLocaleString()}</span>:<span style={{color:"#4B5563"}}>—</span>}
+        </div>;
+      })}
+    </div>}
+    {lineItems.length>0&&workTasks.length===0&&<div style={{marginBottom:6}}>
       {lineItems.map((li: any,lii: number)=><div key={lii} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#E5E7EB",padding:"3px 0",borderBottom:"1px solid #1A1A2E"}}>
         <span>{li.desc||li.description||"—"}</span>
         <span style={{color:"#FBBF24",fontWeight:600}}>${(Number(li.price)||0).toLocaleString()}</span>
       </div>)}
-      {adjTotal!==null&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#FBBF24",marginTop:6}}>
-        <span>Total</span><span>${adjTotal.toLocaleString()}</span>
-      </div>}
     </div>}
-    {sv&&!sv.bidLocked&&<div style={{fontSize:12,color:"#6B7280",marginTop:4,fontStyle:"italic"}}>Awaiting bid submission</div>}
+    {adjTotal!==null&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,color:"#FBBF24",marginTop:4}}>
+      <span>Total</span><span>${adjTotal.toLocaleString()}</span>
+    </div>}
+    {sv&&!sv.bidLocked&&lineItems.some((li: any)=>li.price>0)&&<div style={{fontSize:12,color:"#6B7280",marginTop:4,fontStyle:"italic"}}>Bid pending approval</div>}
+    {sv&&!sv.bidLocked&&!lineItems.some((li: any)=>li.price>0)&&<div style={{fontSize:12,color:"#4B5563",marginTop:4,fontStyle:"italic"}}>Awaiting bid</div>}
   </div>;
 }
 if(!isVendor&&!isVendorForCat(cat.key))return null;
@@ -668,7 +680,7 @@ if(!auctionForm.fuelType)missingFields.push("Fuel Type");
 if(!auctionForm.drive&&!auctionForm.driveline)missingFields.push("Drive / Driveline");
 const warnings=[];
 if(!isGrounded)warnings.push({label:"Vehicle not on ground",sev:"error"});
-if(!reconReady)warnings.push({label:`Recon incomplete (${rcDone2.length}/${rc2.length} done)`,sev:"warn"});
+if(!reconReady){if(rc2.length===0)warnings.push({label:"No recon tasks assigned — add tasks or check No Recon Needed",sev:"warn"});else warnings.push({label:`Recon incomplete (${rcDone2.length}/${rc2.length} done)`,sev:"warn"});}
 if(!hasCR)warnings.push({label:"No condition report",sev:"warn"});
 else if(!crDone)warnings.push({label:"Condition report not marked complete",sev:"warn"});
 if(missingFields.length)warnings.push({label:`Missing: ${missingFields.join(", ")}`,sev:"error"});
@@ -699,11 +711,11 @@ return <div style={S.ov} onClick={()=>!auctionSending&&setShowAuction(false)}><d
 <span>✅</span><span style={{color:"#34D399",fontWeight:700}}>Vehicle is ready to publish</span>
 </div>}
 
-{/* Editable fields */}
+<div style={{fontSize:12,fontWeight:700,color:"#9CA3AF",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Vehicle Details</div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-<label style={S.fl}>Zip Code<input style={S.fi} value={auctionForm.zipCode} onChange={(e: any)=>setAuctionForm({...auctionForm,zipCode:e.target.value})}/></label>
+<label style={S.fl}>Zip Code <span style={{fontSize:10,color:"#6B7280",fontWeight:400}}>(vehicle location for auction listing)</span><input style={S.fi} value={auctionForm.zipCode} onChange={(e: any)=>setAuctionForm({...auctionForm,zipCode:e.target.value})}/></label>
 <label style={S.fl}>Fuel Type <span style={{color:"#F87171"}}>*</span><select style={{...S.fi,borderColor:!auctionForm.fuelType?"#DC2626":undefined}} value={auctionForm.fuelType} onChange={(e: any)=>setAuctionForm({...auctionForm,fuelType:e.target.value})}><option value="">— select —</option>{FUEL_TYPES.map((ft: string)=><option key={ft} value={ft}>{ft}</option>)}</select></label>
-<label style={S.fl}>Transmission<input style={S.fi} value={auctionForm.transmission} onChange={(e: any)=>setAuctionForm({...auctionForm,transmission:e.target.value})}/></label>
+<label style={S.fl}>Transmission<select style={S.fi} value={auctionForm.transmission} onChange={(e: any)=>setAuctionForm({...auctionForm,transmission:e.target.value})}><option value="">— select —</option>{TRANSMISSION_TYPES.map((t: string)=><option key={t} value={t}>{t}</option>)}</select></label>
 <label style={S.fl}>Driveline<input style={S.fi} value={auctionForm.driveline} onChange={(e: any)=>setAuctionForm({...auctionForm,driveline:e.target.value.toUpperCase()})} placeholder="4WD, AWD, FWD..."/></label>
 <label style={S.fl}>Drive <span style={{color:"#F87171"}}>*</span><select style={{...S.fi,borderColor:!auctionForm.drive&&!auctionForm.driveline?"#DC2626":undefined}} value={auctionForm.drive} onChange={(e: any)=>{const drv=e.target.value;setAuctionForm({...auctionForm,drive:drv,driveline:driveToDriveline(drv)||auctionForm.driveline});}}><option value="">— select —</option>{DRIVE_TYPES.map((dt: string)=><option key={dt} value={dt}>{dt}</option>)}</select></label>
 <label style={S.fl}>Engine / Motor<input style={S.fi} value={auctionForm.motorTrailer} onChange={(e: any)=>setAuctionForm({...auctionForm,motorTrailer:e.target.value})} placeholder="3.5L V6"/></label>

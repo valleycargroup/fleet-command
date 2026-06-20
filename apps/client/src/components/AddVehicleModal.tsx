@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { VCAT, SOURCES, COLORS, LOCATIONS, FUEL_TYPES, driveToDriveline } from '../lib/constants';
+import { VCAT, SOURCES, COLORS, LOCATIONS, FUEL_TYPES, DRIVE_TYPES, TRANSMISSION_TYPES, driveToDriveline } from '../lib/constants';
 import { S } from '../lib/styles';
 import { useStore } from '../lib/store';
 
@@ -37,9 +37,9 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",displa
 {err&&<div style={{fontSize:12,color:"#EF4444",marginTop:4}}>{err}</div>}
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>{F("Purchase Date","purchaseDate","date")}{F("Year","year","number")}{F("Make","make")}{F("Model","model")}{F("Trim","trim")}{F("Color","color","text",COLORS)}{F("Miles","miles","number")}{F("Location","location","text",LOCATIONS)}<label style={S.fl}>Buyer<select style={S.fi} value={f.buyingBroker} onChange={(e: any)=>setF({...f,buyingBroker:e.target.value})}>{buyerList.length?buyerList.map((o: any)=><option key={o} value={o}>{o}</option>):<option value="">— No buyers registered —</option>}</select></label>{F("Source","source","text",SOURCES)}</div>
 <div style={{marginTop:8,padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}>
-<div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Auction Details (used by Publish to Internal Auction)</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{F("Zip Code","zipCode")}{F("Fuel Type","fuelType","text",FUEL_TYPES)}{F("Transmission","transmission")}{F("Driveline","driveline")}
-<label style={S.fl}>Drive<input style={S.fi} value={f.drive} onChange={(e: any)=>{const d=e.target.value;setF({...f,drive:d,driveline:driveToDriveline(d)||f.driveline});}}/></label>
+<div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Vehicle Specs <span style={{fontSize:11,fontWeight:400,color:"#6B7280"}}>(zip code is used as the vehicle location when publishing to auction)</span></div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{F("Zip Code","zipCode")}{F("Fuel Type","fuelType","text",FUEL_TYPES)}{F("Transmission","transmission","text",TRANSMISSION_TYPES)}{F("Driveline","driveline")}
+<label style={S.fl}>Drive<select style={S.fi} value={f.drive} onChange={(e: any)=>{const d=e.target.value;setF({...f,drive:d,driveline:driveToDriveline(d)||f.driveline});}}><option value="">— select —</option>{DRIVE_TYPES.map((dt: string)=><option key={dt} value={dt}>{dt}</option>)}</select></label>
 {F("Engine / Motor","motorTrailer")}</div>
 </div>
 <div style={{marginTop:12,padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}><div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Recon Services</div>
