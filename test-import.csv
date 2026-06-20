@@ -1,0 +1,9 @@
+STOCK #,VIN,YEAR,MAKE,MODEL,TRIM,COLOR,MILES,LOCATION,FROM,ORIGIN,BUYER,SELLER,SOLD TO,SALE DATE,ENTER DATE,D.O.G.,KICKED,NOTES
+FC001,1HGBH41JXMN109186,2024,Honda,Accord,Sport,Midnight Black,12450,PHX,Manheim Phoenix,AZ,Mike W,John D,,,2025-01-15,,,"Fresh trade, minor door ding passenger side"
+FC002,2T1BURHE0JC043821,2023,Toyota,Camry,XSE,Pearl White,8200,PHX,ADESA Phoenix,AZ,Mike W,Sarah L,,,2025-01-18,,,"Clean title, two keys"
+FC003,1G1ZD5ST4JF123456,2022,Chevrolet,Malibu,LT,Silver,31000,Dallas,Dealer Trade,TX,Chris R,Tom B,,,2025-02-01,,,
+FC004,3VWFE21C04M000001,2021,Volkswagen,Jetta,SEL,Deep Blue,44500,PHX,Carmax,AZ,Mike W,Amy K,Private Buyer,2025-03-10,2025-01-20,,,"Sold — buyer paid in full"
+FC005,5NPD84LF3JH123789,2023,Hyundai,Elantra,N Line,Solar Orange,19800,Dallas,Auction Block,TX,Chris R,,,,,2025-02-10,2025-03-01,,"Minor recon needed, bumper scuff"
+FC006,1FTFW1ET5DKE12345,2020,Ford,F-150,Lariat,Magnetic Gray,67200,PHX,Repo,AZ,Mike W,Bank of AZ,,,2024-12-05,,2024-12-28,,"Repo unit, full detail needed"
+FC007,WBA5A5C51FD123456,2019,BMW,3 Series,330i,Alpine White,52100,PHX,Private,AZ,Mike W,Bob T,,,2025-01-08,,,"CPO serviced, all records"
+FC008,1N4AL3AP2JC123456,2022,Nissan,Altima,SV,Brilliant Silver,27300,Dallas,Manheim Dallas,TX,Chris R,Lisa M,,,2025-02-14,2025-03-20,2025-02-14,,"Kicked from buyer — paint issue on hood"
