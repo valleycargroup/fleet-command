@@ -181,6 +181,10 @@ export async function sendVehicleToAuction(vehicle: any, opts: { replaceExisting
     headers: { 'Content-Type': 'application/json', 'x-fleet-command-api-key': apiKey },
     body: JSON.stringify(payload),
   });
-  const data = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, data, skippedNonUrlMedia };
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+  const data = isJson ? await res.json().catch(() => ({})) : {};
+  const ok = res.ok && isJson;
+  if (!ok) console.error(`[auction] Unexpected response ${res.status} content-type=${contentType} url=${res.url}`);
+  return { ok, status: res.status, data, skippedNonUrlMedia };
 }

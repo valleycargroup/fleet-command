@@ -62,8 +62,8 @@ function resolveBaseUrl(urls: { prod: string; dev: string; local: string }): str
 
 export function getAuctionBaseUrl(): string {
   return resolveBaseUrl({
-    prod: 'https://vehiclebuyersautoauction.com',
-    dev: 'https://dev.vehiclebuyersautoauction.com',
+    prod: 'https://api.vehiclebuyersautoauction.com',
+    dev: 'https://dev.api.vehiclebuyersautoauction.com',
     local: 'http://host.docker.internal:3001',
   });
 }
