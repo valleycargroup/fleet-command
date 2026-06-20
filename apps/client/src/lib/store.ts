@@ -60,6 +60,13 @@ export const useStore = create<any>((set, get) => ({
     setTimeout(() => set({ note: null }), 3500);
   },
 
+  // ============ CONFIRM MODAL ============
+  confirmModal: null as { title?: string; message: string; onConfirm: () => void; danger?: boolean } | null,
+  showConfirm: (message: string, onConfirm: () => void, title?: string, danger = true) => {
+    set({ confirmModal: { title, message, onConfirm, danger } });
+  },
+  closeConfirm: () => set({ confirmModal: null }),
+
   // ============ API HELPER ============
   api: async (path: string, method="GET", body: any=null) => {
     const token = sessionStorage.getItem("fc_token");

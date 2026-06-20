@@ -20,6 +20,7 @@ const upd = useStore((s: any) => s.upd);
 const deleteVehicle = useStore((s: any) => s.deleteVehicle);
 const setSelV = useStore((s: any) => s.setSelV);
 const setDeepLinkCat = useStore((s: any) => s.setDeepLinkCat);
+const showConfirm = useStore((s: any) => s.showConfirm);
 const deepLinkCat = useStore((s: any) => s.deepLinkCat);
 const deepLinkCr = useStore((s: any) => s.deepLinkCr);
 const setDeepLinkCr = useStore((s: any) => s.setDeepLinkCr);
@@ -46,10 +47,11 @@ const isVendorForCat = (catKey: string): boolean => {
 };
 const onBack = () => { setSelV(null); setDeepLinkCat(null); };
 const onUpdate = (u: any) => upd(v.id, u);
-const onDelete = () => {
-  if (!window.confirm(`Delete ${v.year || ''} ${v.make || ''} ${v.model || ''}${v.stockNumber ? ' ('+v.stockNumber+')' : ''}?\n\nThis will permanently remove the vehicle and all its photos. This cannot be undone.`)) return;
-  deleteVehicle(v);
-};
+const onDelete = () => showConfirm(
+  `This will permanently remove the vehicle and all its photos. This cannot be undone.`,
+  () => deleteVehicle(v),
+  `Delete ${v.year || ''} ${v.make || ''} ${v.model || ''}${v.stockNumber ? ' ('+v.stockNumber+')' : ''}`
+);
 const onClearDeepLink = () => setDeepLinkCat(null);
 const [crEditorOpen,setCrEditorOpen]=useState(false);const [crEditorMode,setCrEditorMode]=useState<'edit'|'view'>('edit');
 const openCr=(mode: 'edit'|'view')=>{setCrEditorMode(mode);setCrEditorOpen(true);};
@@ -396,7 +398,7 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
   const mainPhoto=photos[mainIdx];
   const movePhoto=(from: number,to: number)=>{const arr=[...photos];const[item]=arr.splice(from,1);arr.splice(to,0,item);onUpdate({photos:arr});};
   const setMain=(idx: number)=>onUpdate({photos:photos.map((x: any,xi: number)=>({...x,isMain:xi===idx}))});
-  const deletePhoto=async(pi: number,p: any)=>{if(!window.confirm("Delete this photo?"))return;if(p.key){try{const token=sessionStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});}catch{/* storage delete best-effort — still remove from list */}}onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo removed");};;
+  const deletePhoto=(pi: number,p: any)=>showConfirm("Remove this photo? This cannot be undone.",async()=>{if(p.key){try{const token=sessionStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});}catch{/* storage delete best-effort */}}onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo removed");},"Delete Photo");;
   if(photos.length===0)return <div style={{fontSize:13,color:"#4B5563",fontStyle:"italic"}}>No photos uploaded yet.</div>;
   if(photoManage)return <div>
     <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>Drag position using ← → buttons. First photo is sent as primary to auction. ⭐ = main display photo.</div>
@@ -635,7 +637,7 @@ onPhotos={(p: any)=>{const t={...v.reconTasks};t[cat.key]={...t[cat.key],photos:
 <div style={{display:"flex",flexDirection:"column",gap:10}}>
 <label style={S.fl}>Seller<select style={S.fi} value={sb} onChange={(e: any)=>setSb(e.target.value)}>{(()=>{const names=((allUsers||[]).filter((u: any)=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any,i: any,a: any)=>n&&a.indexOf(n)===i);return names.length?names.map((b: any)=><option key={b} value={b}>{b}</option>):<option value="">— No sellers registered —</option>;})()}</select></label>
 <label style={S.fl}>Sold To (Buying Dealer) *<input style={S.fi} value={st} onChange={(e: any)=>setSt(e.target.value)} placeholder="e.g. AutoMax Dealers"/></label></div>
-<div style={{display:"flex",gap:8,marginTop:12}}><button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>{const dealer=st||"TBD";if(!window.confirm("Mark as SOLD to "+dealer+"?"))return;const soldUpdate: any={status:"sold",soldDate:new Date().toISOString().split("T")[0],sellingBroker:sb,soldTo:dealer,kickedReturn:false,kicked:false,kickedFromCSV:false,kickedFromDealer:null};onUpdate(soldUpdate);setSm(false);notify(`Sold! ${st?`to ${st}`:""}`);if(typeof fireEmail==="function"){fireEmail("seller_vehicle_sold",{seller:sb,buyer:v.buyingBroker||"",vehicle:vData({...v,soldTo:dealer,soldDate:new Date().toISOString().split("T")[0]})});};}}>Confirm</button>
+<div style={{display:"flex",gap:8,marginTop:12}}><button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>{const dealer=st||"TBD";showConfirm(`Mark this vehicle as SOLD to ${dealer}?`,()=>{const soldUpdate: any={status:"sold",soldDate:new Date().toISOString().split("T")[0],sellingBroker:sb,soldTo:dealer,kickedReturn:false,kicked:false,kickedFromCSV:false,kickedFromDealer:null};onUpdate(soldUpdate);setSm(false);notify(`Sold! ${st?`to ${st}`:""}`);if(typeof fireEmail==="function"){fireEmail("seller_vehicle_sold",{seller:sb,buyer:v.buyingBroker||"",vehicle:vData({...v,soldTo:dealer,soldDate:new Date().toISOString().split("T")[0]})});}},"Mark as Sold",false);}}>Confirm</button>
 <button style={S.sm} onClick={()=>setSm(false)}>Cancel</button></div>
 </div></div>}{showKick&&<div style={S.ov} onClick={()=>setShowKick(false)}><div style={{...S.modal,maxWidth:500}} onClick={(e: any)=>e.stopPropagation()}>
 <h2 style={{color:"#FDBA74",fontSize:20,marginBottom:4}}>🔄 Kick Vehicle</h2>
@@ -651,7 +653,7 @@ onPhotos={(p: any)=>{const t={...v.reconTasks};t[cat.key]={...t[cat.key],photos:
 <button style={{flex:1,padding:"12px",borderRadius:6,border:"2px solid #F97316",background:"#7C2D12",color:"#FDBA74",fontSize:16,cursor:"pointer",fontWeight:800}} onClick={()=>{
 if(!kickReason.trim()){notify("⚠️ Please enter a reason for the kick");return;}
 const now=new Date().toISOString().split("T")[0];
-if(!window.confirm("KICK this vehicle from "+v.soldTo+"?")){{setShowKick(false);return;}}const kickRecord={dealer:v.soldTo,soldDate:v.soldDate,kickedDate:now,sellingBroker:v.sellingBroker,reason:kickReason.trim(),outbound:{...v.transport?.outbound},buyerApprovedShip:v.buyerApprovedShip,buyerApprovedDate:v.buyerApprovedDate};
+showConfirm(`Kick this vehicle from ${v.soldTo}? It will return to inventory.`,()=>{const kickRecord={dealer:v.soldTo,soldDate:v.soldDate,kickedDate:now,sellingBroker:v.sellingBroker,reason:kickReason.trim(),outbound:{...v.transport?.outbound},buyerApprovedShip:v.buyerApprovedShip,buyerApprovedDate:v.buyerApprovedDate};
 const history=[...(v.kickedHistory||[]),kickRecord];
 onUpdate({
 status:"in_recon",soldTo:null,soldDate:null,sellingBroker:"",deliveredDate:null,
@@ -664,7 +666,7 @@ outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false,datePickedUp:"",
 kickedHistory:history
 });
 setShowKick(false);setKickReason("");notify(`🔄 KICKED by ${v.soldTo} — vehicle back in inventory`);
-if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.sellingBroker||"",buyer:v.buyingBroker||"",vehicle:vData(v),kickReason:kickReason.trim(),kickedBy:v.soldTo});}
+if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.sellingBroker||"",buyer:v.buyingBroker||"",vehicle:vData(v),kickReason:kickReason.trim(),kickedBy:v.soldTo});}},"Confirm Kick");
 }}>🔄 Confirm Kick</button>
 <button style={{...S.sm,fontSize:14,padding:"12px 16px"}} onClick={()=>setShowKick(false)}>Cancel</button>
 </div>

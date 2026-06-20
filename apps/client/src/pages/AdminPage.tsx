@@ -17,6 +17,7 @@ const setRegVendors = useStore((s: any) => s.setRegVendors);
 const vendors = useStore((s: any) => s.vendors);
 const setVendors = useStore((s: any) => s.setVendors);
 const notify = useStore((s: any) => s.notify);
+const showConfirm = useStore((s: any) => s.showConfirm);
 const [tab,setTab]=useState("users");
 const [showAdd,setShowAdd]=useState(null as any);
 const [editUser,setEditUser]=useState(null as any);
@@ -51,8 +52,8 @@ const updateUser=async(f: any)=>{
   setBusy(false);
 };
 
-const deleteUser=async(u: any)=>{
-  if(!confirm("Remove "+u.firstName+" "+u.lastName+"?\n\nThey will no longer be able to log in. You can re-register them with the same email later."))return;
+const deleteUser=(u: any)=>{
+  showConfirm(`Remove ${u.firstName} ${u.lastName}? They will no longer be able to log in. You can re-register them with the same email later.`,async()=>{
   setBusy(true);
   try{
     const res=await fetch(API_URL+"/api/users/"+u.id,{method:"DELETE",headers:authHdrs()});
@@ -60,7 +61,7 @@ const deleteUser=async(u: any)=>{
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadUsers();notify("✅ User removed");
   }catch(e: any){notify("⚠️ "+e.message);}
-  setBusy(false);
+  setBusy(false);},"Remove User");
 };
 
 const reloadUsers=async()=>{
@@ -98,8 +99,8 @@ const updateVendor=async(f: any)=>{
   setBusy(false);
 };
 
-const deleteVendor=async(v: any)=>{
-  if(!confirm("Remove "+v.company+"?\n\nThey will be removed from vendor assignment dropdowns."))return;
+const deleteVendor=(v: any)=>{
+  showConfirm(`Remove ${v.company}? They will be removed from vendor assignment dropdowns.`,async()=>{
   setBusy(true);
   try{
     const res=await fetch(API_URL+"/api/vendors/"+v.id,{method:"DELETE",headers:authHdrs()});
@@ -107,7 +108,7 @@ const deleteVendor=async(v: any)=>{
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed"));setBusy(false);return;}
     await reloadVendors();notify("✅ Vendor removed");
   }catch(e: any){notify("⚠️ "+e.message);}
-  setBusy(false);
+  setBusy(false);},"Remove Vendor");
 };
 
 const reloadVendors=async()=>{

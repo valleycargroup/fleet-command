@@ -11,6 +11,7 @@ import { VendorsPage } from './pages/VendorsPage';
 import { AdminPage } from './pages/AdminPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PaymentsPage } from './pages/PaymentsPage';
+import { ConfirmModal } from './components/ConfirmModal';
 
 function App() {
   const currentUser = useStore(s => s.currentUser);
@@ -34,7 +35,7 @@ function App() {
   const apiReady = useStore(s => s.apiReady);
   const loading = useStore(s => s.loading);
   const csvUploading = useStore(s => s.csvUploading);
-  const { loadData, handleLogout, handleCSVUpload } = useStore(s => s);
+  const { loadData, handleLogout, handleCSVUpload, showConfirm } = useStore(s => s);
   const csvRef = useRef(null as any);
   const [showImportCrm, setShowImportCrm] = useState(false);
 
@@ -139,6 +140,7 @@ function App() {
 
   return <div style={S.app}>
     {note&&<div style={S.toast}>✉️ {note}</div>}
+    <ConfirmModal/>
     <header style={S.hdr}>
       <div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={S.logo}>🚗</div>
@@ -152,7 +154,7 @@ function App() {
           <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #7F1D1D",background:"transparent",color:"#F87171",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={handleLogout}>Logout</button>
           {isAdmin&&<><input ref={csvRef} type="file" accept=".csv,.tsv" style={{display:"none"}} onChange={(e: any)=>{handleCSVUpload(e.target.files[0]);if(csvRef.current)csvRef.current.value="";}}/>
           <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #166534",background:"transparent",color:"#34D399",fontSize:12,cursor:"pointer",fontWeight:600,opacity:csvUploading?0.5:1}} disabled={csvUploading} onClick={()=>csvRef.current?.click()}>{csvUploading?"Uploading...":"📄 CSV Upload"}</button></>}
-          {isAdmin&&<button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #78590A",background:"transparent",color:"#FBBF24",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={async()=>{if(window.confirm("Reload all data from server?"))await loadData();}}>🔄 Refresh</button>}
+          {isAdmin&&<button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #78590A",background:"transparent",color:"#FBBF24",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={()=>{showConfirm("Reload all data from server?",async()=>{await loadData();},"Refresh Data",false);}}>🔄 Refresh</button>}
         </div>
       </div>
     </header>
