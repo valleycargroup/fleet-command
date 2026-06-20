@@ -3,6 +3,7 @@ import db from '../lib/db';
 import { requireAuth } from '../lib/auth';
 import { sendVehicleToAuction } from '../lib/auctionExport';
 import { fetchCrmVehicle, crmVehicleToDraft, crmImportFieldsToFleetRow, driveToDriveline } from '../lib/crmImport';
+import { deleteFromStorage } from '../lib/storage';
 
 const router = Router();
 
@@ -123,6 +124,43 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const user = await requireAuth(req, res);
     if (!user) return;
     if (user.role === 'vendor') return res.status(403).json({ error: 'Forbidden' });
+
+    // Fetch the vehicle first so we can clean up stored files
+    const row = (await db.raw('SELECT photos, recon_data FROM vehicles WHERE id = ?', [req.params.id])).rows[0];
+    if (row) {
+      const keys: string[] = [];
+
+      // Vehicle gallery photos
+      const photos = Array.isArray(row.photos) ? row.photos : (typeof row.photos === 'string' ? JSON.parse(row.photos || '[]') : []);
+      for (const p of photos) {
+        if (p?.key) keys.push(p.key);
+      }
+
+      // Recon task photos stored via the upload API (data field is an https URL)
+      const recon: Record<string, any> = row.recon_data || {};
+      for (const task of Object.values(recon)) {
+        const collectFromList = (list: any[]) => {
+          for (const p of (list || [])) {
+            const url = typeof p === 'string' ? p : p?.data;
+            if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+              // Extract key from URL path (everything after /images/ or /files/)
+              const m = url.match(/\/(images|files|videos)\/.+$/);
+              if (m) keys.push(m[0].replace(/^\//, ''));
+            }
+          }
+        };
+        collectFromList(task?.photos);
+        for (const vn of (task?.vendors || [])) {
+          collectFromList(vn?.vendorPhotos);
+          collectFromList(vn?.beforePhotos);
+          collectFromList(vn?.afterPhotos);
+          collectFromList(vn?.progressPhotos);
+        }
+      }
+
+      // Best-effort deletion — don't fail the vehicle delete if storage cleanup errors
+      await Promise.allSettled(keys.map(k => deleteFromStorage(k)));
+    }
 
     await db.raw('DELETE FROM vehicles WHERE id = ?', [req.params.id]);
     res.json({ ok: true });

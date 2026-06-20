@@ -46,7 +46,10 @@ const isVendorForCat = (catKey: string): boolean => {
 };
 const onBack = () => { setSelV(null); setDeepLinkCat(null); };
 const onUpdate = (u: any) => upd(v.id, u);
-const onDelete = () => deleteVehicle(v);
+const onDelete = () => {
+  if (!window.confirm(`Delete ${v.year || ''} ${v.make || ''} ${v.model || ''}${v.stockNumber ? ' ('+v.stockNumber+')' : ''}?\n\nThis will permanently remove the vehicle and all its photos. This cannot be undone.`)) return;
+  deleteVehicle(v);
+};
 const onClearDeepLink = () => setDeepLinkCat(null);
 const [crEditorOpen,setCrEditorOpen]=useState(false);const [crEditorMode,setCrEditorMode]=useState<'edit'|'view'>('edit');
 const openCr=(mode: 'edit'|'view')=>{setCrEditorMode(mode);setCrEditorOpen(true);};
