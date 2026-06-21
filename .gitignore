@@ -21,5 +21,10 @@ Thumbs.db
 # Uploads (local dev only)
 apps/server/uploads/
 
+# Seed data — real user/vendor data, local only
+seed-users.json
+seed-vendors.json
+test-import.csv
+
 # TypeScript cache
 *.tsbuildinfo
