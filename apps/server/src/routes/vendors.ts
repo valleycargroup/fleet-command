@@ -273,15 +273,17 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/vendors/:id  (soft delete)
+// DELETE /api/vendors/:id  (soft delete — also deactivates linked vendor users)
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'admin' && !user.is_buyer && !user.is_seller)
+    if (user.role?.toLowerCase() !== 'admin' && !user.is_buyer && !user.is_seller)
       return res.status(403).json({ error: 'Forbidden' });
 
-    await db.raw('UPDATE vendors SET active = FALSE WHERE id = ?', [req.params.id]);
+    const id = Number(req.params.id);
+    await db.raw('UPDATE vendors SET active = FALSE WHERE id = ?', [id]);
+    await db.raw(`UPDATE users SET active = FALSE WHERE vendor_id = ? AND role = 'vendor'`, [id]);
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);

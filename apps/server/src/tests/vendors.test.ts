@@ -158,11 +158,26 @@ describe('DELETE /api/vendors/:id', () => {
     expect(res.status).toBe(401);
   });
 
-  it('soft-deletes the vendor', async () => {
+  it('returns 403 for vendor role', async () => {
+    const vendorOnly = { id: 3, email: 'v@test.com', role: 'vendor', is_buyer: false, is_seller: false };
+    mockDb.mockResolvedValueOnce({ rows: [vendorOnly] });
+    const res = await request(app).delete('/api/vendors/1').set(authHeader);
+    expect(res.status).toBe(403);
+  });
+
+  it('soft-deletes the vendor and deactivates linked vendor users', async () => {
     mockAuth();
-    mockDb.mockResolvedValueOnce({ rows: [] });
+    mockDb.mockResolvedValueOnce({ rows: [] }); // UPDATE vendors SET active = FALSE
+    mockDb.mockResolvedValueOnce({ rows: [] }); // UPDATE users SET active = FALSE
     const res = await request(app).delete('/api/vendors/1').set(authHeader);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
+
+    const vendorDeactivate = mockDb.mock.calls.find((c: any[]) => String(c[0]).includes('UPDATE vendors SET active = FALSE'));
+    expect(vendorDeactivate).toBeDefined();
+    expect(vendorDeactivate![1]).toContain(1);
+
+    const userDeactivate = mockDb.mock.calls.find((c: any[]) => String(c[0]).includes('UPDATE users SET active = FALSE'));
+    expect(userDeactivate).toBeDefined();
   });
 });
