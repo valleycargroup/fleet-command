@@ -7,7 +7,7 @@ import { useStore } from '../lib/store';
 
 export function PaymentsPage(){
 const vehicles = useStore((s: any) => s.vehicles);
-const vendors = useStore((s: any) => s.vendors);
+const regVendors = useStore((s: any) => s.regVendors);
 const notify = useStore((s: any) => s.notify);
 const fireEmail = useStore((s: any) => s.fireEmail);
 const currentUser = useStore((s: any) => s.currentUser);
@@ -25,7 +25,7 @@ const queue=useMemo(()=>{
       if(locFilter!=="all"&&v.location!==locFilter)return;
       const vendorName=task.lockedVendorName||"Unknown Vendor";
       const winnerVn=(task.vendors||[]).find((x: any)=>x.selected);
-      if(!groups[vendorName]){const vRec=vendors.find((vr: any)=>vr.name===vendorName);groups[vendorName]={name:vendorName,location:v.location,vendorEmail:winnerVn?.email,jobs:[],total:0,totalWS:0,totalRetail:0,deliveryMethod:vRec?.delivery_method||"USPS Mail",paymentTerms:vRec?.payment_terms||"weekly",cutoffDay:vRec?.cutoff_day||"Friday",cutoffTime:vRec?.cutoff_time||"5 PM"};}
+      if(!groups[vendorName]){const vRec=regVendors.find((vr: any)=>vr.company===vendorName);groups[vendorName]={name:vendorName,location:v.location,vendorEmail:winnerVn?.email,jobs:[],total:0,totalWS:0,totalRetail:0,deliveryMethod:vRec?.deliveryMethod||"USPS Mail",paymentTerms:vRec?.paymentTerms||"weekly",cutoffDay:vRec?.cutoffDay||"Friday",cutoffTime:vRec?.cutoffTime||"5 PM"};}
       const accLines=(winnerVn?.lineItems||[]).filter((x: any)=>x.accepted&&!x.declined);
       groups[vendorName].jobs.push({vehicleId:v.id,vehicle:v,categoryKey:cat.key,categoryLabel:cat.label,categoryIcon:cat.icon,lineItems:accLines,total:task.lockedTotal||0,ws:task.lockedWS||0,retail:task.lockedRetail||0,approvedBy:task.approvedBy,approvedDate:task.approvedPaymentDate});
       groups[vendorName].total+=task.lockedTotal||0;
@@ -34,7 +34,7 @@ const queue=useMemo(()=>{
     });
   });
   return Object.values(groups);
-},[vehicles,locFilter]);
+},[vehicles,locFilter,regVendors]);
 
 const phxCount=vehicles.filter((v: any)=>{return VCAT.some(c=>{const t=v.reconTasks?.[c.key];return t?.status==="complete"&&t?.approvedForPayment&&!t?.paid&&v.location==="PHX";});}).length;
 const dallasCount=vehicles.filter((v: any)=>{return VCAT.some(c=>{const t=v.reconTasks?.[c.key];return t?.status==="complete"&&t?.approvedForPayment&&!t?.paid&&v.location==="Dallas";});}).length;
