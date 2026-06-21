@@ -475,10 +475,11 @@ router.post('/upload-csv', async (req: Request, res: Response) => {
         const saleDate  = parseDate(getCol(row, colMap, 'SALE DATE'));
         const enterDate = parseDate(getCol(row, colMap, 'ENTER DATE'));
         const dogDate   = parseDate(getCol(row, colMap, 'D.O.G.'));
-        const kickedDate = parseDate(getCol(row, colMap, 'KICKED'));
+        const kickedDate    = parseDate(getCol(row, colMap, 'KICKED'));
+        const deliveredDate = parseDate(getCol(row, colMap, 'D-DELV'));
         const notes     = getCol(row, colMap, 'NOTES') || '';
         const isKicked  = !!kickedDate;
-        const status    = isKicked ? 'active' : (soldTo ? 'sold' : 'active');
+        const status    = isKicked ? 'active' : (deliveredDate ? 'delivered' : (soldTo ? 'sold' : 'active'));
         if (isKicked) kickedCount++;
 
         // VIN is the primary dedup key; fall back to stock number if no VIN
