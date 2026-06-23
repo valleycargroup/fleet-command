@@ -70,15 +70,7 @@ export async function logEmail(
 // ── Email Templates ──────────────────────────────────────────────────────────
 
 function baseLayout(title: string, body: string) {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:'Segoe UI',sans-serif;background:#0A0A14;color:#E5E7EB;padding:20px;">
-<div style="max-width:520px;margin:0 auto;background:#12121E;border-radius:16px;border:1px solid #2A2A3E;overflow:hidden;">
-  <div style="padding:24px;text-align:center;background:#1E3A5F">
-    <div style="font-size:24px;font-weight:700;color:#FFF">Fleet<span style="color:#3B82F6">Command</span></div>
-    <div style="margin-top:6px;font-size:13px;color:#93C5FD">${title}</div>
-  </div>
-  <div style="padding:24px">${body}</div>
-</div></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;"><table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0A0A14" style="background:#0A0A14;"><tr><td align="center" style="padding:20px;"><table width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;background:#12121E;border-radius:16px;border:1px solid #2A2A3E;overflow:hidden;"><tr><td align="center" bgcolor="#1E3A5F" style="background:#1E3A5F;padding:24px;"><div style="font-size:24px;font-weight:700;color:#FFF;font-family:Arial,sans-serif;">Fleet<span style="color:#3B82F6">Command</span></div><div style="margin-top:6px;font-size:13px;color:#93C5FD;font-family:Arial,sans-serif;">${title}</div></td></tr><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#E5E7EB;">${body}</td></tr></table></td></tr></table></body></html>`;
 }
 
 export function welcomeUserEmail(firstName: string, email: string, password: string, role: string, location: string) {

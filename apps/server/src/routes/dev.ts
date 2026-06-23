@@ -211,45 +211,40 @@ const STUB_DATA: Record<string, any> = {
 };
 
 router.post('/test-email', async (req: Request, res: Response) => {
-  const { type, to } = req.body as { type?: string; to?: string };
+  const { type, to, preview = true } = req.body as { type?: string; to?: string; preview?: boolean };
 
   if (!to) return res.status(400).json({ error: 'Missing "to" field' });
   if (!type || !ALL_TYPES.includes(type as any)) {
     return res.status(400).json({ error: `"type" must be one of: ${ALL_TYPES.join(', ')}` });
   }
 
+  let subject: string;
+  let html: string;
+
   // Base templates (welcome / password-reset)
   if (type === 'welcome-user') {
-    const { subject, html } = welcomeUserEmail('Test User', to, 'TestPass123!', 'admin', 'PHX');
-    const result = await sendEmail(to, subject, html);
-    if (!result.ok) return res.status(500).json({ error: result.error || 'Send failed' });
-    return res.json({ ok: true, type, to, subject });
-  }
-  if (type === 'welcome-vendor') {
-    const { subject, html } = welcomeVendorEmail('Acme Recon', 'Test Contact', to, 'TestPass123!', ['Paint', 'Detail']);
-    const result = await sendEmail(to, subject, html);
-    if (!result.ok) return res.status(500).json({ error: result.error || 'Send failed' });
-    return res.json({ ok: true, type, to, subject });
-  }
-  if (type === 'password-reset') {
-    const { subject, html } = passwordResetEmail('Test User', 'https://fleetcommandrecon.net/reset?token=test-token');
-    const result = await sendEmail(to, subject, html);
-    if (!result.ok) return res.status(500).json({ error: result.error || 'Send failed' });
-    return res.json({ ok: true, type, to, subject });
+    ({ subject, html } = welcomeUserEmail('Test User', to, 'TestPass123!', 'admin', 'PHX'));
+  } else if (type === 'welcome-vendor') {
+    ({ subject, html } = welcomeVendorEmail('Acme Recon', 'Test Contact', to, 'TestPass123!', ['Paint', 'Detail']));
+  } else if (type === 'password-reset') {
+    ({ subject, html } = passwordResetEmail('Test User', 'https://fleetcommandrecon.net/reset?token=test-token'));
+  } else {
+    // Event templates
+    const fn = EMAIL_TEMPLATES[type];
+    if (!fn) return res.status(400).json({ error: `Unknown type: ${type}` });
+    const stub = { ...(STUB_DATA[type] || {}), ...(req.body.data || {}) };
+    const rendered = fn(stub);
+    if (!rendered) return res.status(400).json({ error: 'Template returned null for stub data' });
+    ({ subject, html } = rendered);
   }
 
-  // Event templates
-  const fn = EMAIL_TEMPLATES[type];
-  if (!fn) return res.status(400).json({ error: `Unknown type: ${type}` });
+  if (preview) {
+    return res.set('Content-Type', 'text/html').send(html);
+  }
 
-  const stub = STUB_DATA[type] || {};
-  const rendered = fn(stub);
-  if (!rendered) return res.status(400).json({ error: 'Template returned null for stub data' });
-
-  const result = await sendEmail(to, rendered.subject, rendered.html);
+  const result = await sendEmail(to, subject, html);
   if (!result.ok) return res.status(500).json({ error: result.error || 'Send failed' });
-
-  res.json({ ok: true, type, to, subject: rendered.subject });
+  res.json({ ok: true, type, to, subject });
 });
 
 router.get('/test-email/types', (_req: Request, res: Response) => {

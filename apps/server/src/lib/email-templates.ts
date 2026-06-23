@@ -30,7 +30,7 @@ function vBlock(v: any): string {
 }
 
 function cta(text: string, id: any, bg: string, tc: string, cat?: string): string {
-  return `<div style="text-align:center;margin-top:24px"><a href="${vLink(id, cat)}" style="display:inline-block;padding:14px 44px;background:${bg};color:${tc};font-size:16px;font-weight:700;border-radius:10px;text-decoration:none;font-family:'DM Sans',sans-serif">${text}</a><div style="font-size:12px;color:#6B7280;margin-top:8px">Opens directly in Fleet Command</div></div>`;
+  return `<div style="text-align:center;margin-top:24px"><a href="${vLink(id, cat)}" style="display:inline-block;padding:14px 44px;background:${bg};color:${tc};font-size:16px;font-weight:700;border-radius:10px;text-decoration:none;font-family:Arial,sans-serif;">${text}</a><div style="font-size:12px;color:#6B7280;margin-top:8px;font-family:Arial,sans-serif;">Opens directly in Fleet Command</div></div>`;
 }
 
 function soldBnr(v: any): string {
@@ -44,24 +44,25 @@ function wsrt(ct: string): string {
 }
 
 function liRow(li: any, bc: string): string {
-  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0D0D1A;border-radius:8px;margin-bottom:6px;border-left:3px solid ${bc || '#3B82F6'}"><span style="font-size:14px;color:#E5E7EB">${li.desc} ${wsrt(li.costType)}${li.isPart ? ' <span style="font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;background:#4C1D95;color:#DDD6FE">PART</span>' : ''}</span><span style="font-size:15px;font-weight:700;color:#E5E7EB">$${li.price || 0}</span></div>`;
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="background:#0D0D1A;border-radius:8px;margin-bottom:6px;border-left:3px solid ${bc||'#3B82F6'};"><tr><td style="padding:10px 14px;font-size:14px;color:#E5E7EB;">${li.desc} ${wsrt(li.costType)}${li.isPart?' <span style="font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;background:#4C1D95;color:#DDD6FE">PART</span>':''}</td><td style="padding:10px 14px;font-size:15px;font-weight:700;color:#E5E7EB;text-align:right;white-space:nowrap;">$${li.price||0}</td></tr></table>`;
 }
 
 function totBar(l: string, a: number, bg: string, tc: string): string {
-  return `<div style="display:flex;justify-content:space-between;padding:14px;background:${bg};border-radius:8px;margin-top:10px"><span style="font-size:14px;font-weight:700;color:${tc}">${l}</span><span style="font-size:20px;font-weight:700;color:#FFF">$${(a || 0).toLocaleString()}</span></div>`;
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="background:${bg};border-radius:8px;margin-top:10px;"><tr><td style="padding:14px;font-size:14px;font-weight:700;color:${tc};">${l}</td><td style="padding:14px;font-size:20px;font-weight:700;color:#FFF;text-align:right;white-space:nowrap;">$${(a||0).toLocaleString()}</td></tr></table>`;
 }
 
 function shell(hBg: string, bBg: string, bC: string, bBd: string, bI: string, bT: string, body: string, extra?: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#0A0A14;color:#E5E7EB;min-height:100vh;display:flex;justify-content:center;padding:20px}.email{max-width:600px;width:100%;background:#12121E;border-radius:16px;overflow:hidden;border:1px solid #2A2A3E}</style></head><body><div class="email"><div style="background:linear-gradient(135deg,${hBg} 0%,#0D0D1A 100%);padding:28px;text-align:center"><div style="font-size:26px;font-weight:700;color:#FFF">Fleet<span style="color:#3B82F6">Command</span></div><div style="display:inline-block;margin-top:12px;padding:8px 22px;border-radius:20px;font-size:15px;font-weight:700;background:${bBg};color:${bC};border:2px solid ${bBd}">${bI} ${bT}</div></div>${extra || ''}<div style="padding:28px">${body}</div><div style="padding:20px 28px;background:#0A0A14;text-align:center;border-top:1px solid #2A2A3E"><div style="font-size:12px;color:#4B5563;line-height:1.6">Valley Car Group — PHX &bull; Dallas</div></div></div></body></html>`;
+  const extraRow = extra ? `<tr><td style="padding:0;">${extra}</td></tr>` : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;"><table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0A0A14" style="background:#0A0A14;"><tr><td align="center" style="padding:20px;"><table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#12121E;border-radius:16px;border:1px solid #2A2A3E;overflow:hidden;"><tr><td align="center" bgcolor="${hBg}" style="background:${hBg};padding:28px;"><div style="font-size:26px;font-weight:700;color:#FFF;font-family:Arial,sans-serif;">Fleet<span style="color:#3B82F6">Command</span></div><div style="display:inline-block;margin-top:12px;padding:8px 22px;border-radius:20px;font-size:15px;font-weight:700;background:${bBg};color:${bC};border:2px solid ${bBd};font-family:Arial,sans-serif;">${bI} ${bT}</div></td></tr>${extraRow}<tr><td style="padding:28px;font-family:Arial,sans-serif;color:#E5E7EB;">${body}</td></tr><tr><td align="center" bgcolor="#0A0A14" style="background:#0A0A14;padding:20px 28px;border-top:1px solid #2A2A3E;"><div style="font-size:12px;color:#4B5563;line-height:1.6;font-family:Arial,sans-serif;">Valley Car Group — PHX &bull; Dallas</div></td></tr></table></td></tr></table></body></html>`;
 }
 
 function dRow(v: any, rHtml: string, bc: string): string {
-  return `<a href="${vLink(v.id)}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#0D0D1A;border-radius:8px;margin-bottom:6px;text-decoration:none;border-left:3px solid ${bc || '#3B82F6'}"><div><b style="color:#FFF;font-size:13px">${v.year} ${v.make} ${v.model}</b><br><span style="font-size:11px;color:#6B7280">VIN: ${v.vin8 || v.stock_number}${v.soldTo || v.sold_to ? ' • Sold to: ' + (v.soldTo || v.sold_to) : ''}</span></div><div style="text-align:right">${rHtml}</div></a>`;
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="background:#0D0D1A;border-radius:8px;margin-bottom:6px;border-left:3px solid ${bc||'#3B82F6'};"><tr><td style="padding:12px;"><a href="${vLink(v.id)}" style="text-decoration:none;"><b style="color:#FFF;font-size:13px;">${v.year} ${v.make} ${v.model}</b></a><br><span style="font-size:11px;color:#6B7280;">VIN: ${v.vin8||v.stock_number}${v.soldTo||v.sold_to?' • Sold to: '+(v.soldTo||v.sold_to):''}</span></td><td style="padding:12px;text-align:right;">${rHtml}</td></tr></table>`;
 }
 
 function dSec(t: string, c: string, n: number, rows: string): string {
   if (!rows) return '';
-  return `<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:13px;font-weight:700;color:${c};text-transform:uppercase;letter-spacing:1px">${t}</span><span style="font-size:10px;padding:3px 10px;border-radius:10px;font-weight:600;background:${c}22;color:${c}">${n}</span></div>${rows}</div>`;
+  return `<div style="margin-bottom:22px"><div style="margin-bottom:10px;"><span style="font-size:13px;font-weight:700;color:${c};text-transform:uppercase;letter-spacing:1px;">${t}</span> <span style="font-size:10px;padding:3px 10px;border-radius:10px;font-weight:600;background:${c}22;color:${c};">${n}</span></div>${rows}</div>`;
 }
 
 function dTag(t: string, bg: string, c: string): string {
