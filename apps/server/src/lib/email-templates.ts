@@ -16,6 +16,7 @@ function fmtDate(d: string | null | undefined): string {
 }
 
 function vLink(id: any, cat?: string): string {
+  if (!id) return APP_URL;
   return `${APP_URL}?vehicle=${id}${cat ? '&cat=' + cat : ''}`;
 }
 
@@ -328,13 +329,13 @@ export const TEMPLATES: Record<string, EmailTemplate> = {
   dealer_vehicle_shipped: (d) => ({
     subject: `🚛 Vehicle Shipped — ETA ${fmtDate(d.transport?.eta)} — ${d.vehicle.year} ${d.vehicle.make} ${d.vehicle.model}`,
     html: shell('#0D3B1E', '#166534', '#6EE7B7', '#34D399', '🚛', 'Your Vehicle Has Shipped',
-      `<div style="font-size:18px;font-weight:500;color:#FFF;margin-bottom:8px;word-break:keep-all;overflow-wrap:anywhere">${d.dealer},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin-bottom:20px">Your vehicle is on its way.</div>${vBlock(d.vehicle)}<div style="padding:20px;background:#0D3B1E;border:2px solid #166534;border-radius:12px;text-align:center;margin-bottom:20px"><div style="font-size:12px;color:#6EE7B7;text-transform:uppercase;letter-spacing:2px;font-weight:700">Estimated Arrival</div><div style="font-size:28px;font-weight:700;color:#34D399;margin-top:4px">${fmtDate(d.transport?.eta)}</div></div><div style="background:#0D0D1A;border-radius:10px;border:1px solid #2A2A3E;padding:16px"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">🚛 Transport</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:#6B7280"><div>Company<br><b style="color:#E5E7EB;font-size:14px">${d.transport?.company || '—'}</b></div><div>Phone<br><b style="color:#E5E7EB;font-size:14px">${d.transport?.phone || '—'}</b></div></div></div><div style="font-size:13px;color:#6B7280;margin-top:12px;text-align:center">Picked up: ${fmtDate(d.pickedUpDate)}</div>`),
+      `<div style="font-size:18px;font-weight:500;color:#FFF;margin-bottom:8px;word-break:keep-all;overflow-wrap:anywhere">${d.dealer},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin-bottom:20px">Your vehicle is on its way.</div>${vBlock(d.vehicle)}<div style="padding:20px;background:#0D3B1E;border:2px solid #166534;border-radius:12px;text-align:center;margin-bottom:20px"><div style="font-size:12px;color:#6EE7B7;text-transform:uppercase;letter-spacing:2px;font-weight:700">Estimated Arrival</div><div style="font-size:28px;font-weight:700;color:#34D399;margin-top:4px">${fmtDate(d.transport?.eta)}</div></div><div style="background:#0D0D1A;border-radius:10px;border:1px solid #2A2A3E;padding:16px"><div style="font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">🚛 Transport</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:#6B7280"><div>Company<br><b style="color:#E5E7EB;font-size:14px">${d.transport?.company || '—'}</b></div><div>Phone<br><b style="color:#E5E7EB;font-size:14px">${d.transport?.phone || '—'}</b></div></div></div><div style="font-size:13px;color:#6B7280;margin-top:12px;text-align:center">Picked up: ${fmtDate(d.pickedUpDate)}</div>${cta('View Vehicle →', d.vehicle.id, '#34D399', '#0D0D1A')}`),
   }),
 
   dealer_vehicle_delivered: (d) => ({
     subject: `✅ Vehicle Delivered — ${d.vehicle.year} ${d.vehicle.make} ${d.vehicle.model}`,
     html: shell('#0D3B1E', '#166534', '#6EE7B7', '#34D399', '✅', 'Vehicle Delivered',
-      `<div style="font-size:18px;font-weight:500;color:#FFF;margin-bottom:8px;word-break:keep-all;overflow-wrap:anywhere">${d.dealer},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin-bottom:20px">Your vehicle has been delivered. Thank you!</div>${vBlock(d.vehicle)}<div style="padding:24px;background:#0D3B1E;border:2px solid #166534;border-radius:12px;text-align:center"><div style="font-size:48px;margin-bottom:8px">✅</div><div style="font-size:22px;font-weight:700;color:#34D399">Delivered Successfully</div><div style="font-size:14px;color:#6EE7B7;margin-top:6px">${fmtDate(d.deliveredDate)}</div></div>`),
+      `<div style="font-size:18px;font-weight:500;color:#FFF;margin-bottom:8px;word-break:keep-all;overflow-wrap:anywhere">${d.dealer},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin-bottom:20px">Your vehicle has been delivered. Thank you!</div>${vBlock(d.vehicle)}<div style="padding:24px;background:#0D3B1E;border:2px solid #166534;border-radius:12px;text-align:center"><div style="font-size:48px;margin-bottom:8px">✅</div><div style="font-size:22px;font-weight:700;color:#34D399">Delivered Successfully</div><div style="font-size:14px;color:#6EE7B7;margin-top:6px">${fmtDate(d.deliveredDate)}</div></div>${cta('View Vehicle →', d.vehicle.id, '#34D399', '#0D0D1A')}`),
   }),
 
   parts_request_to_pm: (d) => ({

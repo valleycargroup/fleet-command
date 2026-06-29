@@ -46,8 +46,9 @@ async function resolveRecipients(type: string, data: any, fallbackTo: string | n
     const buyerTypes = [
       'buyer_work_complete', 'buyer_recon_complete', 'buyer_bid_submitted',
       'buyer_vendor_declined', 'buyer_approved_shipping', 'transport_inbound_set',
-      'shipping_hold', 'vehicle_grounded', 'driveway_outbound_shipped',
-      'driveway_outbound_delivered', 'retail_vehicle_shipped', 'retail_vehicle_delivered',
+      'shipping_hold', 'vehicle_grounded', 'driveway_inbound_pickedup',
+      'driveway_outbound_shipped', 'driveway_outbound_delivered',
+      'retail_vehicle_shipped', 'retail_vehicle_delivered',
       'dealer_vehicle_shipped', 'dealer_vehicle_delivered', 'parts_quoted_to_buyer',
     ];
     if (buyerTypes.includes(type)) {
@@ -122,7 +123,7 @@ async function resolveRecipients(type: string, data: any, fallbackTo: string | n
       if (se) recipients.add(se.toLowerCase());
     }
 
-    if (type === 'seller_vehicle_kicked') {
+    if (type === 'seller_vehicle_kicked' || type === 'seller_vehicle_sold') {
       const be = await findUserEmailByName(data?.buyer);
       if (be) recipients.add(be.toLowerCase());
     }
