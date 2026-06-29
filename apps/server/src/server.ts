@@ -1,6 +1,7 @@
 import http from 'http';
 import app from './app';
 import './config/env';
+import { startScheduler } from './lib/scheduler';
 
 const PORT = process.env.PORT ?? 5001;
 
@@ -10,6 +11,7 @@ server.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`Fleet Command server running on http://localhost:${PORT}`);
   console.log(`======================================================\n`);
+  startScheduler();
 }).on('error', (err) => {
   console.error(`\nServer failed to start on port ${PORT}:`, (err as NodeJS.ErrnoException).message);
   if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
