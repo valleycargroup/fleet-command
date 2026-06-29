@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { VCAT, ARB_SOURCES, DRIVE_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, driveToDriveline, driveToLongForm, fuelNormalize, API_URL } from '../lib/constants';
 const isVideo = (url: string) => /\.(mp4|mov|avi|webm|mkv|m4v|ogg|ogv|3gp)(\?|$)/i.test(url || '');
-import { fmtDate, vData } from '../lib/utils';
+import { fmtDate, vData, linkifyText } from '../lib/utils';
 import { S } from '../lib/styles';
 import { DateIn } from './DateIn';
 import { ReconCategory } from './ReconCategory';
@@ -457,7 +457,7 @@ if(isVendor&&!isMyTask){
       <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#1A1A2E",color:sColor,border:"1px solid "+sColor,fontWeight:700}}>{sLabel}</span>
     </div>
     {sv&&<div style={{fontSize:13,color:"#93C5FD",fontWeight:600,marginBottom:4}}>🔧 {sv.name}</div>}
-    {_task.notes&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:6,fontStyle:"italic"}}>"{_task.notes}"</div>}
+    {_task.notes&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:6,fontStyle:"italic"}}>"{linkifyText(_task.notes)}"</div>}
     {workTasks.length>0&&<div style={{marginBottom:6}}>
       {workTasks.map((wt: any,wi: number)=>{
         const li=(sv?.lineItems||[]).find((x: any)=>x.id===wt.id);

@@ -1,4 +1,29 @@
+import React from 'react';
+
 export const fmtDate = (d: any) => d ? d.slice(5,7)+"/"+d.slice(8,10)+"/"+d.slice(2,4) : "—";
+
+// Phase 4: auto-detect URLs in text and return spans/anchors for rendering.
+// Usage: <>{linkifyText(someString)}</>
+const URL_RE = /https?:\/\/[^\s<>"']+/g;
+export function linkifyText(text: string): (string | React.ReactElement)[] {
+  if (!text) return [text];
+  const parts: (string | React.ReactElement)[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <a key={m.index} href={m[0]} target="_blank" rel="noopener noreferrer"
+        style={{ color: '#3B82F6', textDecoration: 'underline', wordBreak: 'break-all' }}>
+        {m[0]}
+      </a>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
 
 export const smartDate = (val: any) => {
   if(!val) return "";

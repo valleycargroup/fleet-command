@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { API_URL, VCAT } from '../lib/constants';
-import { fmtDate, stColor, stLabel, vData } from '../lib/utils';
+import { fmtDate, stColor, stLabel, vData, linkifyText } from '../lib/utils';
 import { S } from '../lib/styles';
 import { DateIn } from './DateIn';
 import { useStore, selectRoles } from '../lib/store';
@@ -316,6 +316,7 @@ return <>
 </>;
 })()}
 {!isOEM&&<div style={{marginBottom:8,borderRadius:6,border:`1px solid ${task.noteUnread?"#F59E0B":"#2A2A3E"}`}}><div style={{padding:"8px 10px",cursor:"pointer",background:task.noteUnread?"rgba(245,158,11,0.1)":"rgba(255,255,255,0.03)"}} onClick={()=>{setNo(!no);setNv(task.notes||"");if(task.noteUnread)onNotes(task.notes||"",true);}}><span style={{fontSize:13,fontWeight:700,color:task.noteUnread?"#F59E0B":"#9CA3AF"}}>{task.noteUnread?"🔔 NEW NOTE":"📝 NOTES"}</span></div>
+{!no&&task.notes&&<div style={{padding:"6px 10px",borderTop:"1px solid #2A2A3E",fontSize:12,color:"#9CA3AF",lineHeight:1.6,wordBreak:"break-word"}}>{linkifyText(task.notes)}</div>}
 {no&&<div style={{padding:8,borderTop:"1px solid #2A2A3E"}}><textarea style={{...S.fi,width:"100%",minHeight:60,boxSizing:"border-box"}} value={nv} onChange={(e: any)=>setNv(e.target.value)}/>
 <button style={{...S.btn,fontSize:12,marginTop:4}} onClick={()=>{onNotes(nv,false,true);setNo(false);}}>Save</button></div>}</div>}
 {!isOEM&&task.status==="assigned"&&<div style={{padding:12,background:"#3B3510",borderRadius:8,border:"2px solid #6B5F0A"}}>
