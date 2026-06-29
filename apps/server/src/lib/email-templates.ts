@@ -397,6 +397,28 @@ export const TEMPLATES: Record<string, EmailTemplate> = {
       `<div style="font-size:18px;font-weight:500;color:#FFF;margin-bottom:8px;word-break:keep-all;overflow-wrap:anywhere">${d.vendor?.name || 'Vendor'},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin-bottom:20px">${d.disputedBy || 'Buyer'} has disputed your completed work. Please review and address.</div>${vBlock(d.vehicle)}${contactBlock(d.buyerContact, d.seller)}<div style="padding:18px;background:#3B1515;border:2px solid #7F1D1D;border-radius:12px;margin-bottom:16px"><div style="font-size:12px;color:#FCA5A5;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Reason for dispute</div><div style="font-size:14px;color:#FFF;line-height:1.6;background:#0D0D1A;padding:12px;border-radius:8px;border-left:3px solid #EF4444">${d.reason}</div><div style="font-size:11px;color:#FDBA74;margin-top:10px">Disputed by ${d.disputedBy || 'Buyer'} on ${fmtDate(d.disputedDate)}</div></div><div style="padding:12px;background:#0D0D1A;border:1px dashed #7F1D1D;border-radius:8px;text-align:center"><div style="font-size:13px;color:#FCA5A5;font-weight:700">Work status reverted to "In Progress"</div><div style="font-size:11px;color:#9CA3AF;margin-top:4px">Please address the issue and re-submit when complete</div></div>${cta('View Job →', d.vehicle.id, '#EF4444', '#FFF', d.categoryKey)}`),
   }),
 
+  vendor_payment_pending_digest: (d) => {
+    const soldJobs  = (d.jobs || []).filter((j: any) => j.status === 'sold');
+    const otherJobs = (d.jobs || []).filter((j: any) => j.status !== 'sold');
+    const soldBanner = soldJobs.length > 0
+      ? `<div style="background:#7F1D1D;padding:10px 20px;text-align:center;font-size:13px;font-weight:700;color:#FCA5A5;letter-spacing:1px;">🔴 ${soldJobs.length} SOLD VEHICLE${soldJobs.length > 1 ? 'S' : ''} — BUYER WAITING — PRIORITY</div>`
+      : '';
+    const jobRow = (j: any) => {
+      const link = j.vehicleId
+        ? `<a href="${d.appUrl || APP_URL}?vehicle=${j.vehicleId}" style="color:#3B82F6;text-decoration:none;font-size:13px;font-weight:700;">${j.year} ${j.make} ${j.model} ${j.trim || ''}</a>`
+        : `<span style="color:#FFF;font-size:13px;font-weight:700;">${j.year} ${j.make} ${j.model} ${j.trim || ''}</span>`;
+      const soldTag = j.soldTo
+        ? `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#7F1D1D;color:#FCA5A5;border-radius:4px;font-size:10px;font-weight:700;">SOLD → ${j.soldTo}</span>`
+        : '';
+      return `<table width="100%" cellpadding="0" cellspacing="0" style="background:#0D0D1A;border-radius:8px;border-left:3px solid #34D399;margin-bottom:6px;"><tr><td style="padding:12px;"><div style="margin-bottom:4px;">${link}${soldTag}</div><div style="font-size:11px;color:#6B7280;font-family:monospace;">VIN ${j.vin8 || '—'} • ${j.color || ''} • ${(j.miles || 0).toLocaleString()} mi • ${j.location || ''}</div><div style="font-size:11px;color:#9CA3AF;margin-top:4px;">${j.categoryIcon} ${j.categoryLabel} — Approved ${j.approvedDate ? j.approvedDate : '—'} by ${j.approvedBy || 'Buyer'}</div></td><td style="padding:12px;text-align:right;white-space:nowrap;"><div style="font-size:16px;font-weight:700;color:#FBBF24;">$${(j.lockedTotal || 0).toLocaleString()}</div><div style="font-size:10px;color:#6B7280;margin-top:2px;">W/S $${(j.lockedWS||0).toLocaleString()} • RT $${(j.lockedRetail||0).toLocaleString()}</div></td></tr></table>`;
+    };
+    const body = `<div style="font-size:18px;font-weight:700;color:#FFF;margin:0 0 8px;">${d.vendorName},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin:0 0 20px;">The following jobs have been approved and are pending payment. This is a summary of your outstanding balance — payment will be issued per your agreed terms.</div>${soldJobs.length > 0 ? `<div style="font-size:11px;color:#FCA5A5;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px;">🔴 Sold Vehicles — Priority</div>${soldJobs.map(jobRow).join('')}<div style="height:12px;"></div>` : ''}${otherJobs.length > 0 ? `<div style="font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px;">Pending Jobs</div>${otherJobs.map(jobRow).join('')}` : ''}${totBar(`Total Outstanding (${(d.jobs||[]).length} job${(d.jobs||[]).length===1?'':'s'})`, d.total || 0, '#166534', '#6EE7B7')}<div style="margin-top:16px;padding:12px;background:#1A1A2E;border-radius:8px;border-left:3px solid #3B82F6;font-size:12px;color:#9CA3AF;line-height:1.7;">Payment terms: <b style="color:#FFF;">${d.paymentTerms === 'completion' ? 'On completion' : 'Weekly'}</b> — If you have questions about this balance, please contact your Fleet Command administrator.</div>`;
+    return {
+      subject: `💰 ${(d.jobs||[]).length} Job${(d.jobs||[]).length===1?'':'s'} Pending Payment — $${(d.total||0).toLocaleString()} — ${d.vendorName}`,
+      html: shell('#0D3B1E', '#166534', '#6EE7B7', '#34D399', '💰', 'Pending Payment', body, soldBanner),
+    };
+  },
+
   vendor_payment_receipt: (d) => ({
     subject: `💸 Payment Sent — Check #${d.checkNumber} — $${(d.totalPaid || 0).toLocaleString()} to ${d.vendor?.name || 'Vendor'}`,
     html: shell('#0D3B1E', '#166534', '#6EE7B7', '#34D399', '💸', 'Payment Sent',
