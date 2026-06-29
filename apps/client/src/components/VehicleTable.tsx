@@ -58,25 +58,73 @@ const list = useMemo(() => {
   if (fLoc !== "All") l = l.filter((v: any) => v.location === fLoc);
   if (search) { const q = search.toLowerCase(); l = l.filter((v: any) => (v.fullVin||v.vin8||"").toLowerCase().includes(q)||v.vin8.toLowerCase().includes(q)||`${v.year} ${v.make} ${v.model}`.toLowerCase().includes(q)||v.buyingBroker.toLowerCase().includes(q)||(v.sellingBroker||"").toLowerCase().includes(q)||(v.soldTo||"").toLowerCase().includes(q)); }
   if (myCrOnly) l = l.filter((v: any) => v.crAssignedTo && v.crAssignedTo === currentUser?.id && !isCrDone(v));
+  // Phase 3 sort — priority tiers agreed 2026-06-29:
+  // 1. Kicked + Delivered (returned after delivery — pulled back to main tab)
+  // 2. Kicked + Not Yet Resold
+  // 3. Sold + Active/Incomplete Recon (buyer waiting — oldest sale date first)
+  // 4. Sold + No Pending Recon (ready to ship)
+  // 5. Active + Past-Due Recon (ETA missed, not sold)
+  // 6. Active + Incomplete Recon — On Ground
+  // 7. Active + Incomplete Recon — Inbound (by ETA)
+  // Delivered tab: newest delivered date first (unchanged)
   l.sort((a: any, b: any) => {
     if (tab === "delivered") { const da=a.deliveredDate||"",db=b.deliveredDate||""; return da>db?-1:da<db?1:0; }
-    const ak=(a.kickedHistory||[]).length>0&&a.status!=="sold"&&a.status!=="delivered";
-    const bk=(b.kickedHistory||[]).length>0&&b.status!=="sold"&&b.status!=="delivered";
-    if(ak&&!bk)return -1; if(!ak&&bk)return 1;
-    if(ak&&bk){const ka=(a.kickedHistory||[]).slice(-1)[0]?.kickedDate||"",kb=(b.kickedHistory||[]).slice(-1)[0]?.kickedDate||"";return ka>kb?-1:ka<kb?1:0;}
-    const as2=a.status==="sold",bs2=b.status==="sold";
-    if(as2&&!bs2)return -1; if(!as2&&bs2)return 1;
-    if(as2&&bs2){const sa=a.soldDate||"9999",sb2=b.soldDate||"9999";return sa<sb2?-1:sa>sb2?1:0;}
-    const ag=a.transport?.inbound?.delivered&&a.status!=="sold";
-    const bg=b.transport?.inbound?.delivered&&b.status!=="sold";
-    if(ag&&!bg)return -1; if(!ag&&bg)return 1;
-    if(ag&&bg){const da=a.purchaseDate||"9999",db=b.purchaseDate||"9999";return da<db?-1:da>db?1:0;}
-    const ae=a.transport?.inbound?.set&&!a.transport?.inbound?.delivered;
-    const be=b.transport?.inbound?.set&&!b.transport?.inbound?.delivered;
-    if(ae&&!be)return -1; if(!ae&&be)return 1;
-    if(ae&&be){const ea=a.transport?.inbound?.eta||"9999",eb=b.transport?.inbound?.eta||"9999";return ea<eb?-1:ea>eb?1:0;}
-    const da=a.purchaseDate||"",db=b.purchaseDate||"";
-    return da>db?-1:da<db?1:0;
+    const vehicleSortPriority = (v: any): number => {
+      const hasKickHistory = (v.kickedReturn||(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV));
+      const isDelivered = v.status==="delivered";
+      const isSold = v.status==="sold";
+      // Tier 1: kicked AND delivered (came back after delivery)
+      if (hasKickHistory && isDelivered) return 1;
+      // Tier 2: kicked, not yet resold (no sold status)
+      if (hasKickHistory && !isSold && !isDelivered) return 2;
+      // Tiers 3-4: sold vehicles
+      if (isSold) {
+        const rc = VCAT.filter(c => v.reconTasks[c.key]?.needed);
+        const hasIncompleteRecon = rc.some(c => v.reconTasks[c.key]?.status !== "complete");
+        return hasIncompleteRecon ? 3 : 4; // 3=buyer waiting on recon, 4=ready to ship
+      }
+      // Tier 5: active + past-due recon (ETA set and missed)
+      const rc = VCAT.filter(c => v.reconTasks[c.key]?.needed);
+      const isPastDue = rc.some(c => {
+        const t = v.reconTasks[c.key];
+        if (!t || t.status === "complete") return false;
+        const sv2 = (t.vendors||[]).find((x: any) => x.selected);
+        const eta = sv2?.etaDone || t.etaComplete;
+        if (!eta) return false;
+        let d = new Date(eta);
+        if (d.getFullYear() < 100) d.setFullYear(d.getFullYear() + 2000);
+        return d < new Date();
+      });
+      if (isPastDue) return 5;
+      // Tier 6: on ground (inbound delivered)
+      if (v.transport?.inbound?.delivered) return 6;
+      // Tier 7: inbound transport set (not yet arrived)
+      if (v.transport?.inbound?.set && !v.transport?.inbound?.delivered) return 7;
+      // Tier 8: everything else
+      return 8;
+    };
+    const pa = vehicleSortPriority(a), pb = vehicleSortPriority(b);
+    if (pa !== pb) return pa - pb;
+    // Secondary sort within each tier
+    if (pa === 1 || pa === 2) {
+      // Kicked: most recently kicked first
+      const ka=(a.kickedHistory||[]).slice(-1)[0]?.kickedDate||"";
+      const kb=(b.kickedHistory||[]).slice(-1)[0]?.kickedDate||"";
+      return ka>kb?-1:ka<kb?1:0;
+    }
+    if (pa === 3 || pa === 4) {
+      // Sold: oldest sale date first (longest waiting buyer)
+      const sa=a.soldDate||"9999",sb=b.soldDate||"9999";
+      return sa<sb?-1:sa>sb?1:0;
+    }
+    if (pa === 7) {
+      // Inbound: soonest ETA first
+      const ea=a.transport?.inbound?.eta||"9999",eb=b.transport?.inbound?.eta||"9999";
+      return ea<eb?-1:ea>eb?1:0;
+    }
+    // Default: oldest purchase date first
+    const da=a.purchaseDate||"9999",db=b.purchaseDate||"9999";
+    return da<db?-1:da>db?1:0;
   });
   return l;
 }, [vehicles, tab, fLoc, search, currentUser, myCrOnly]);
@@ -92,7 +140,8 @@ const inboundCount=list.filter((v: any)=>v.transport?.inbound?.set&&!v.transport
 const onGroundCount=list.filter((v: any)=>v.transport?.inbound?.delivered&&v.status!=="delivered").length;
 const outSetCount=list.filter((v: any)=>v.transport?.outbound?.set&&!v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
 const pickedUpCount=list.filter((v: any)=>v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered).length;
-const getPriority=(v: any)=>{const isKicked=(v.kickedReturn||(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV))&&v.status!=="sold"&&v.status!=="delivered";if(isKicked)return -1;const sold=v.status==="sold"||v.status==="delivered";const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const pastDue=rc.some(c=>{const t=v.reconTasks[c.key];if(!t||t.status==="complete")return false;const sv2=(t.vendors||[]).find((x: any)=>x.selected);const eta=sv2?.etaDone||t.etaComplete;if(!eta)return false;let d=new Date(eta);if(d.getFullYear()<100)d.setFullYear(d.getFullYear()+2000);return d<new Date();});if(sold&&pastDue)return 0;if(sold&&rc.some(c=>v.reconTasks[c.key]?.status!=="complete"))return 1;if(pastDue)return 2;return 3;};
+// getPriority mirrors vehicleSortPriority tiers for column-sort consistency
+const getPriority=(v: any)=>{const hasKick=(v.kickedReturn||(v.kickedHistory||[]).length>0||(v.kicked||v.kickedFromCSV));if(hasKick&&v.status==="delivered")return 1;if(hasKick&&v.status!=="sold"&&v.status!=="delivered")return 2;if(v.status==="sold"){const rc2=VCAT.filter(c=>v.reconTasks[c.key]?.needed);return rc2.some(c=>v.reconTasks[c.key]?.status!=="complete")?3:4;}const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed);const pastDue=rc.some(c=>{const t=v.reconTasks[c.key];if(!t||t.status==="complete")return false;const sv2=(t.vendors||[]).find((x: any)=>x.selected);const eta=sv2?.etaDone||t.etaComplete;if(!eta)return false;let d=new Date(eta);if(d.getFullYear()<100)d.setFullYear(d.getFullYear()+2000);return d<new Date();});if(pastDue)return 5;if(v.transport?.inbound?.delivered)return 6;if(v.transport?.inbound?.set&&!v.transport?.inbound?.delivered)return 7;return 8;};
 const isMyVendorRecord=(vn: any)=>{
   if(!isVendor||!currentUser)return false;
   if(currentUser.vendor_id)return vn.id==='vn_'+currentUser.vendor_id;
