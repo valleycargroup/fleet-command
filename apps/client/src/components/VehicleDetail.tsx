@@ -26,6 +26,7 @@ const deepLinkCr = useStore((s: any) => s.deepLinkCr);
 const setDeepLinkCr = useStore((s: any) => s.setDeepLinkCr);
 const { isAdmin, isVendor } = useStore(selectRoles);
 const regVendors = useStore((s: any) => s.regVendors);
+const dealers = useStore((s: any) => s.dealers);
 const isVendorForCat = (catKey: string): boolean => {
   if (!isVendor || !currentUser) return true;
   const task = v.reconTasks?.[catKey];
@@ -182,9 +183,11 @@ transport:{...v.transport,outbound:{set:false,destination:"",eta:"",cost:0,picke
 </div>)}
 {(v.soldTo&&v.soldTo!=="null"&&v.status==="sold")&&(()=>{
 const isReSold=(v.kickedHistory||[]).length>0;
+const matchDealer=dealers.find((d: any)=>d.name?.toLowerCase()===v.soldTo?.toLowerCase());
 return <div style={{padding:"12px 18px",borderRadius:10,background:"#0D3B1E",border:"2px solid #166534",minWidth:260}}>
 <div style={{fontSize:13,color:"#6EE7B7",textTransform:"uppercase",letterSpacing:2,fontWeight:600}}>{isReSold?"🔄 Re-Sold To":"Sold To"}</div>
 <div style={{fontSize:28,fontWeight:900,color:"#34D399",marginTop:4}}>{v.soldTo}</div>
+{matchDealer?.responsible_for_pickup&&<div style={{marginTop:6,display:"inline-block",padding:"3px 10px",borderRadius:4,background:"#1D4ED8",color:"#93C5FD",fontSize:12,fontWeight:700}}>🚗 Dealer Responsible for Pickup</div>}
 {v.soldDate&&<div style={{fontSize:16,color:"#6EE7B7",marginTop:6,fontWeight:600}}>📅 Sold: {fmtDate(v.soldDate)}</div>}
 </div>;})()}
 </div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}><div style={{...S.card,borderTop:`4px solid ${inb?.delivered?"#34D399":inb?.set?"#FBBF24":"#EF4444"}`,padding:18}}>

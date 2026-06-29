@@ -26,6 +26,7 @@ export const useStore = create<any>((set, get) => ({
   users: [] as any[],
   allUsers: [] as any[],
   regVendors: [] as any[],
+  dealers: [] as any[],
   apiReady: false,
   loading: false,
   csvUploading: false,
@@ -34,6 +35,15 @@ export const useStore = create<any>((set, get) => ({
   setUsers: (users: any[]) => set({ users }),
   setAllUsers: (allUsers: any[]) => set({ allUsers }),
   setRegVendors: (regVendors: any[]) => set({ regVendors }),
+  setDealers: (dealers: any[]) => set({ dealers }),
+
+  fetchDealers: async () => {
+    const { api } = get();
+    try {
+      const res = await api('/api/dealers');
+      set({ dealers: res.dealers || [] });
+    } catch (e) { console.error('fetchDealers failed:', e); }
+  },
 
   // ============ UI ============
   tab: "active",
@@ -145,10 +155,11 @@ export const useStore = create<any>((set, get) => ({
     set({ loading: true });
     try {
       const hdrs={"Content-Type":"application/json","Authorization":"Bearer "+token};
-      const [vRes,vnRes,uRes]=await Promise.all([
+      const [vRes,vnRes,uRes,dlRes]=await Promise.all([
         fetch(API_URL+"/api/vehicles",{headers:hdrs}).then(r=>r.json()),
         fetch(API_URL+"/api/vendors",{headers:hdrs}).then(r=>r.json()),
         fetch(API_URL+"/api/users",{headers:hdrs}).then(r=>r.json()),
+        fetch(API_URL+"/api/dealers",{headers:hdrs}).then(r=>r.json()).catch(()=>({dealers:[]})),
       ]);
       const mapped=(vRes.vehicles||[]).map((v: any)=>mapVehicle(v));
       const vnMap: any={};
@@ -162,7 +173,7 @@ export const useStore = create<any>((set, get) => ({
       const mappedUsers=(uRes.users||[]).map((u: any)=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location,isBuyer:!!u.is_buyer,isSeller:!!u.is_seller,vendorTag:u.vendor_tag||null,vendorId:u.vendor_id||null}));
       const currentSelV=get().selV;
       const freshSelV=currentSelV?mapped.find((v: any)=>v._dbId===currentSelV._dbId)||currentSelV:null;
-      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, apiReady:true, selV:freshSelV });
+      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, dealers:dlRes.dealers||[], apiReady:true, selV:freshSelV });
     } catch(e) {
       console.error("API load failed, falling back to localStorage:", e);
       try{const sv=localStorage.getItem("fc_vehicles");if(sv){const p=JSON.parse(sv);if(p&&p.length>0)set({vehicles:p});}}catch(e2){}

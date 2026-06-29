@@ -11,6 +11,7 @@ import reportsRouter from './reports';
 import uploadsRouter from './uploads';
 import emailSendRouter from './email-send';
 import paymentsRouter from './payments';
+import dealersRouter from './dealers';
 import devRouter from './dev';
 
 const apiLimiter = rateLimit({
@@ -35,6 +36,7 @@ router.use('/reports', reportsRouter);
 router.use('/uploads', uploadsRouter);
 router.use('/email', emailSendRouter);
 router.use('/payments', paymentsRouter);
+router.use('/dealers', dealersRouter);
 
 if (process.env.NODE_ENV !== 'production') {
   router.use('/dev', devRouter);

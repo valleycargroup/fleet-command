@@ -8,6 +8,7 @@ import { AddVehicleModal } from './components/AddVehicleModal';
 import { ImportCrmModal } from './components/ImportCrmModal';
 import { VehicleDetail } from './components/VehicleDetail';
 import { VendorsPage } from './pages/VendorsPage';
+import { DealersPage } from './pages/DealersPage';
 import { AdminPage } from './pages/AdminPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PaymentsPage } from './pages/PaymentsPage';
@@ -166,6 +167,7 @@ function App() {
         {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ Register</button>}
         {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 Reports</button>}
         {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 Payment Queue</button>}
+        {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 Dealers</button>}
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{position:"relative"}}>
@@ -184,6 +186,7 @@ function App() {
       {tab==="register"?<AdminPage/>
       :tab==="reports"?<ReportsPage/>
       :tab==="payments"?<PaymentsPage/>
+      :tab==="dealers"?<DealersPage/>
       :tab==="vendors"?<VendorsPage/>
       :(tab==="active"||tab==="delivered")?<div style={{display:"flex",gap:0,height:"calc(100vh - 120px)"}}>
         <div style={{flex:selV?"0 0 35%":"1",overflow:"auto",borderRight:selV?"2px solid #2A2A3E":"none"}}>
