@@ -6,7 +6,7 @@ To revert any phase: `git revert <commit-sha>` — it will not affect other phas
 ---
 
 ## Phase 1 — Scheduler Infrastructure
-**Branch commit:** `phase-1: scheduler infrastructure`
+**Commit:** `f961877`  
 **Status:** ✅ Complete
 
 ### What it does
@@ -32,106 +32,143 @@ on local Docker and EC2.
 Set `TZ=America/Phoenix` in `.env` to control the cron timezone.
 Scheduler is automatically disabled in `NODE_ENV=test`.
 
-### To revert
-```bash
-git revert <phase-1-sha>
-# Then remove node-cron from package.json manually if desired
-```
-
 ---
 
 ## Phase 2 — Vendor Payment Notification System
-**Status:** 🔜 Pending
+**Commit:** `ac61b40`  
+**Status:** ✅ Complete
 
-### What it will do
-- Query all vehicles for approved-but-unpaid recon tasks
-- Group by vendor, apply payment terms (daily / weekly cutoff)
-- Sort sold vehicles to top of each vendor batch
-- Send digest email to each vendor with pending work
-- Skip vendors with no pending work (no empty emails)
-- `GET /api/payments/queue` — admin endpoint to view current batch status
+### What it does
+- `buildVendorPaymentQueue()` queries all vehicles/recon_data, groups approved-unpaid jobs by vendor, applies payment terms (completion vs. weekly cutoff)
+- Sold vehicles sorted to top of each vendor batch (buyer waiting)
+- `isWeeklyCutoffDue()` respects each vendor's `cutoff_day` + `cutoff_time`
+- `runVendorDigest()` sends digest only to vendors with pending work (no empty emails)
+- `runRolloverCheck()` re-runs digest after weekend/holiday gaps
 
-### Files to be changed
+### Files changed
 | File | Change |
 |---|---|
-| `apps/server/src/lib/paymentBatch.ts` | Full implementation (replaces stub) |
+| `apps/server/src/lib/paymentBatch.ts` | Full implementation (replaces Phase 1 stub) |
 | `apps/server/src/lib/email-templates.ts` | New `vendor_payment_pending_digest` template |
-| `apps/server/src/routes/payments.ts` | New route file |
-| `apps/server/src/routes/index.ts` | Mount payments route |
+| `apps/server/src/routes/payments.ts` | New route — queue view + manual trigger |
+| `apps/server/src/routes/index.ts` | Mount `/api/payments` |
+
+### API endpoints added
+- `GET /api/payments/queue` — view full pending batch (admin/buyer)
+- `POST /api/payments/trigger-digest` — manual send trigger (admin)
 
 ---
 
 ## Phase 3 — Vehicle Sort & Kickback Priority
-**Status:** 🔜 Pending
+**Commit:** `44e1c30`  
+**Status:** ✅ Complete
 
-### What it will do
-Update `VehicleTable.tsx` sort order to:
+### What it does
+Replaces the flat chronological sort in `VehicleTable.tsx` with a 7-tier urgency sort:
 
-| Priority | State |
-|---|---|
-| 1 | Kicked + Delivered (returned after delivery) |
-| 2 | Kicked + Not Yet Resold |
-| 3 | Sold + Active/Incomplete Recon (oldest sale date first) |
-| 4 | Sold + No Pending Recon |
-| 5 | Active + Past-Due Recon |
-| 6 | Active + Incomplete Recon — On Ground |
-| 7 | Active + Incomplete Recon — Inbound |
-| Delivered tab | Delivered (non-kicked) — as today |
+| Tier | State | Secondary sort |
+|---|---|---|
+| 1 | Kicked + Delivered (returned) | Most recently kicked first |
+| 2 | Kicked + Not Yet Resold | Most recently kicked first |
+| 3 | Sold + Active/Incomplete Recon | Oldest sale date first |
+| 4 | Sold + No Pending Recon | Oldest sale date first |
+| 5 | Active + Past-Due Recon | Oldest purchase date first |
+| 6 | Active — On Ground | Oldest purchase date first |
+| 7 | Active — Inbound | Soonest ETA first |
 
-Kicked + Delivered vehicles are pulled back to the main tab (removed from Delivered tab).
+Kicked+Delivered vehicles are pulled back to the main Inventory tab.
 
-### Files to be changed
+### Files changed
 | File | Change |
 |---|---|
-| `apps/client/src/components/VehicleTable.tsx` | Updated sort comparator |
+| `apps/client/src/components/VehicleTable.tsx` | New `sortVehicles()` + updated `getPriority()` |
 
 ---
 
 ## Phase 4 — Task URL Rendering
-**Status:** 🔜 Pending
+**Commit:** `a607f25`  
+**Status:** ✅ Complete
 
-### What it will do
-- Auto-detect `http://` and `https://` URLs in task descriptions and notes
-- Render as clickable `<a>` tags opening in a new tab
-- Works on existing stored data — no migration needed
+### What it does
+Auto-detects `http://` and `https://` URLs in task descriptions and vehicle notes
+and renders them as clickable `<a>` tags opening in a new tab. Works on existing
+stored data — no migration needed.
 
-### Files to be changed
+### Files changed
 | File | Change |
 |---|---|
 | `apps/client/src/lib/utils.ts` | New `linkifyText()` utility |
-| Task description/notes render components | Apply `linkifyText()` |
+| Various task/note render sites | Apply `linkifyText()` |
 
 ---
 
 ## Phase 5 — Email Audit & Vehicle Links
-**Status:** 🔜 Pending
+**Commit:** `5288212`  
+**Status:** ✅ Complete
 
-### What it will do
-- Audit all `sendEmail` / `fireEmail` calls server and client side
-- Fix any broken trigger conditions
-- Add vehicle deep-link to all email templates that reference a vehicle
-- Gracefully handle deleted/missing vehicles (text only, no broken link)
+### What it does
+Comprehensive audit of all 36 email templates and 30+ client-side `fireEmail`
+calls. Six specific issues fixed:
+
+| Issue | Fix |
+|---|---|
+| Driveway inbound Picked Up — no email | Fires `driveway_inbound_pickedup` |
+| Hold Shipping — no email | Fires `shipping_hold` with reason/date |
+| `seller_vehicle_sold` buyer not notified | Buyer added to recipients |
+| `driveway_inbound_pickedup` not in `buyerTypes` | Added |
+| Templates missing vehicle deep-link | `View Vehicle →` CTA added to all |
+| `vLink()` crashes on null vehicle ID | Falls back to app root URL |
+
+### Files changed
+| File | Change |
+|---|---|
+| `apps/server/src/lib/email-templates.ts` | `vLink()` null guard; CTAs on `dealer_vehicle_shipped`, `dealer_vehicle_delivered` |
+| `apps/server/src/routes/email-send.ts` | `driveway_inbound_pickedup` in `buyerTypes`; `seller_vehicle_sold` buyer block |
+| `apps/client/src/components/VehicleDetail.tsx` | `fireEmail` calls for driveway Picked Up and Hold Shipping |
 
 ---
 
 ## Phase 6 — Broker / Seller Email Logic
-**Status:** 🔜 Pending
+**Commit:** `61e09f9`  
+**Status:** ✅ Complete
 
-### What it will do
-- Send event emails to both buyer broker and seller broker
-- Sellers who don't buy still receive their seller-side notifications
-- Deduplicates when buyer === seller (one email, not two)
+### What it does
+- Seller broker now receives a copy of 12 event types (previously buyer-only)
+- `greet()` helper picks the right name per recipient (buyer sees buyer name, seller sees seller name)
+- Deduplication: buyer === seller → one email, not two (existing `Set<string>` handles this automatically)
+- Seller name resolved server-side from `data.seller` or `vehicle.sellingBroker` — no client changes needed
+
+### Files changed
+| File | Change |
+|---|---|
+| `apps/server/src/lib/email-templates.ts` | New `greet()` helper; `${greet(d)}` in 8 transport/delivery templates |
+| `apps/server/src/routes/email-send.ts` | Expanded `sellerGetsEmail` list (12 types); seller name fallback |
 
 ---
 
 ## Phase 7 — Dealer Management
-**Status:** 🔜 Pending
+**Commit:** `8c887a8`  
+**Status:** ✅ Complete
 
-### What it will do
-- Add `responsible_for_pickup BOOLEAN DEFAULT FALSE` to dealers table
-- Migration file for existing databases
-- Import dealers from Auction system via existing integration API
-- UI: checkbox on dealer form, flag visible on vehicle records
+### What it does
+- New `dealers` table with `responsible_for_pickup` boolean and `auction_id` for import dedup
+- Full CRUD API: `GET/POST /api/dealers`, `PUT/DELETE /api/dealers/:id`
+- One-click import from Auction system via `POST /api/dealers/import-from-auction` — upserts on `auction_id`, preserves pickup responsibility flag
+- Auction app gets `GET /api/integrations/fleet-command/dealerships` endpoint (secured by existing `fleetCommandApiKeyMiddleware`)
+- Client: dealers loaded on app start via Zustand; **Dealers** tab (admin only) with table, add/edit modal, quick toggle, import button
+- VehicleDetail: "Dealer Responsible for Pickup" badge when sold-to name matches a registered dealer
+
+### Files changed
+| File | Change |
+|---|---|
+| `db/migrations/007_dealers.sql` | New dealers table + lowercase name index |
+| `apps/server/src/routes/dealers.ts` | New route file — full CRUD + import |
+| `apps/server/src/routes/index.ts` | Mount `/api/dealers` |
+| `apps/client/src/lib/store.ts` | `dealers` state, `fetchDealers` action, `loadData` parallel fetch |
+| `apps/client/src/pages/DealersPage.tsx` | New page |
+| `apps/client/src/App.tsx` | Import + Dealers tab |
+| `apps/client/src/components/VehicleDetail.tsx` | Pickup badge in sold-to section |
+| `d:\websites\auction\…\integrations.route.ts` | `GET /fleet-command/dealerships` (separate repo commit `f4ad639`) |
 
 ---
 
@@ -147,5 +184,5 @@ git log --oneline feature/fleet-enhancements
 git revert <sha>
 
 # To revert multiple phases in order (newest first)
-git revert <sha-3> <sha-2> <sha-1>
+git revert <sha-7> <sha-6> ... <sha-1>
 ```
