@@ -117,9 +117,17 @@ async function resolveRecipients(type: string, data: any, fallbackTo: string | n
       }
     }
 
-    const sellerGetsEmail = ['vehicle_grounded', 'buyer_recon_complete', 'seller_vehicle_sold', 'seller_vehicle_kicked'];
+    const sellerGetsEmail = [
+      'vehicle_grounded', 'transport_inbound_set',
+      'buyer_recon_complete', 'buyer_approved_shipping',
+      'driveway_outbound_shipped', 'driveway_outbound_delivered',
+      'retail_vehicle_shipped', 'retail_vehicle_delivered',
+      'dealer_vehicle_shipped', 'dealer_vehicle_delivered',
+      'seller_vehicle_sold', 'seller_vehicle_kicked',
+    ];
     if (sellerGetsEmail.includes(type)) {
-      const se = await findUserEmailByName(data?.seller);
+      const sellerName = data?.seller || data?.vehicle?.sellingBroker;
+      const se = await findUserEmailByName(sellerName);
       if (se) recipients.add(se.toLowerCase());
     }
 
