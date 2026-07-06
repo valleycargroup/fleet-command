@@ -3,6 +3,13 @@ import request from 'supertest';
 
 vi.mock('../lib/db', () => ({ default: { raw: vi.fn() } }));
 vi.mock('bcryptjs', () => ({ default: { hash: vi.fn().mockResolvedValue('$2b$hash'), compare: vi.fn() } }));
+vi.mock('../lib/email', () => ({
+  sendEmail: vi.fn().mockResolvedValue({ ok: true, messageId: 'test-id' }),
+  logEmail: vi.fn().mockResolvedValue(undefined),
+  welcomeVendorEmail: vi.fn().mockReturnValue({ subject: 'Welcome', html: '<p>Welcome</p>' }),
+  APP_URL: 'https://test.example.com',
+}));
+vi.mock('../lib/ws', () => ({ broadcast: vi.fn() }));
 
 import app from '../app';
 import db from '../lib/db';
@@ -175,7 +182,7 @@ describe('DELETE /api/vendors/:id', () => {
 
     const vendorDeactivate = mockDb.mock.calls.find((c: any[]) => String(c[0]).includes('UPDATE vendors SET active = FALSE'));
     expect(vendorDeactivate).toBeDefined();
-    expect(vendorDeactivate![1]).toContain(1);
+    expect(vendorDeactivate![1]).toContain('1');
 
     const userDeactivate = mockDb.mock.calls.find((c: any[]) => String(c[0]).includes('UPDATE users SET active = FALSE'));
     expect(userDeactivate).toBeDefined();

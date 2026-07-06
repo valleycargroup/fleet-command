@@ -1,22 +1,97 @@
 import { create } from 'zustand';
 import { API_URL, VCAT } from './constants';
-import { tryParse, vData } from './utils';
+import { tryParse } from './utils';
+
+// ============ SYNC DEBOUNCE ============
+const _syncTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
+// ============ WEBSOCKET ============
+let _ws: WebSocket | null = null;
+let _wsBackoff = 1000;
+let _wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function _mapVendors(vendors: any[]) {
+  const vnMap: any = {};
+  VCAT.forEach(c => { vnMap[c.key] = []; });
+  const regVList: any[] = [];
+  vendors.forEach((vn: any) => {
+    const cats = vn.categories ? tryParse(vn.categories, []) : [];
+    cats.forEach((ck: any) => { if (vnMap[ck]) vnMap[ck].push({ id: 'vn_' + vn.id, name: vn.name, email: vn.email || '', phone: vn.phone || '' }); });
+    regVList.push({ id: vn.id, company: vn.name, contact: vn.contact_name || '', email: vn.email || '', cell: vn.phone || '', officePhone: vn.office_phone || '', address: vn.location || '', categories: cats, primaryUserId: vn.primary_user_id || null, paymentTerms: vn.payment_terms || 'weekly', cutoffDay: vn.cutoff_day || 'Friday', cutoffTime: vn.cutoff_time || '5 PM', deliveryMethod: vn.delivery_method || 'USPS Mail', paymentInfo: vn.payment_info || {}, emailPrefs: vn.email_prefs || {} });
+  });
+  return { vnMap, regVList };
+}
+
+function _mapUsers(users: any[]) {
+  return users.map((u: any) => ({
+    id: u.id, firstName: u.first_name, lastName: u.last_name,
+    name: u.first_name + ' ' + u.last_name,
+    email: u.email, cell: u.phone, role: u.role, location: u.location,
+    isBuyer: !!u.is_buyer, isSeller: !!u.is_seller,
+    vendorTag: u.vendor_tag || null, vendorId: u.vendor_id || null,
+  }));
+}
+
+export function disconnectWebSocket() {
+  if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
+  if (_ws) { _ws.onclose = null; _ws.close(); _ws = null; }
+  _wsBackoff = 1000;
+}
+
+export function connectWebSocket() {
+  if (_ws && (_ws.readyState === WebSocket.CONNECTING || _ws.readyState === WebSocket.OPEN)) return;
+  const wsUrl = API_URL.replace(/^https?/, m => m === 'https' ? 'wss' : 'ws') + '/ws';
+  try {
+    _ws = new WebSocket(wsUrl);
+  } catch { return; }
+
+  _ws.onopen = () => {
+    _wsBackoff = 1000;
+    const s = useStore.getState();
+    s.refreshVehicles();
+    s.refreshVendors();
+    s.refreshUsers();
+  };
+
+  _ws.onmessage = (event: MessageEvent) => {
+    try {
+      const msg = JSON.parse(event.data as string);
+      const s = useStore.getState();
+      if (msg.type === 'VEHICLES_UPDATED') s.refreshVehicles();
+      else if (msg.type === 'VENDORS_UPDATED') s.refreshVendors();
+      else if (msg.type === 'USERS_UPDATED') s.refreshUsers();
+    } catch {}
+  };
+
+  _ws.onclose = () => {
+    _ws = null;
+    if (!useStore.getState().currentUser) return;
+    _wsReconnectTimer = setTimeout(() => {
+      _wsBackoff = Math.min(_wsBackoff * 2, 30000);
+      connectWebSocket();
+    }, _wsBackoff);
+  };
+
+  _ws.onerror = () => { try { _ws?.close(); } catch {} };
+}
 
 export const useStore = create<any>((set, get) => ({
 
   // ============ AUTH ============
-  currentUser: (()=>{try{const s=sessionStorage.getItem("fc_user");if(s)return JSON.parse(s);}catch(e){}return null;})(),
-  authToken: sessionStorage.getItem("fc_token")||null,
+  currentUser: (()=>{try{const s=localStorage.getItem("fc_user");if(s){const u=JSON.parse(s);setTimeout(connectWebSocket,500);return u;}}catch(e){}return null;})(),
+  authToken: localStorage.getItem("fc_token")||null,
 
   handleLogin: (user: any, token: string) => {
-    sessionStorage.setItem("fc_token", token);
-    sessionStorage.setItem("fc_user", JSON.stringify(user));
+    localStorage.setItem("fc_token", token);
+    localStorage.setItem("fc_user", JSON.stringify(user));
     set({ currentUser: user, authToken: token });
+    setTimeout(connectWebSocket, 500);
   },
 
   handleLogout: () => {
-    sessionStorage.removeItem("fc_token");
-    sessionStorage.removeItem("fc_user");
+    localStorage.removeItem("fc_token");
+    localStorage.removeItem("fc_user");
+    disconnectWebSocket();
     set({ currentUser: null, authToken: null });
   },
 
@@ -26,6 +101,8 @@ export const useStore = create<any>((set, get) => ({
   users: [] as any[],
   allUsers: [] as any[],
   regVendors: [] as any[],
+  dealers: [] as any[],
+  siteSettings: {} as Record<string, string>,
   apiReady: false,
   loading: false,
   csvUploading: false,
@@ -34,6 +111,16 @@ export const useStore = create<any>((set, get) => ({
   setUsers: (users: any[]) => set({ users }),
   setAllUsers: (allUsers: any[]) => set({ allUsers }),
   setRegVendors: (regVendors: any[]) => set({ regVendors }),
+  setDealers: (dealers: any[]) => set({ dealers }),
+  setSiteSettings: (siteSettings: Record<string, string>) => set({ siteSettings }),
+
+  fetchDealers: async () => {
+    const { api } = get();
+    try {
+      const res = await api('/api/dealers');
+      set({ dealers: res.dealers || [] });
+    } catch (e) { console.error('fetchDealers failed:', e); }
+  },
 
   // ============ UI ============
   tab: "active",
@@ -62,14 +149,14 @@ export const useStore = create<any>((set, get) => ({
 
   // ============ CONFIRM MODAL ============
   confirmModal: null as { title?: string; message: string; onConfirm: () => void; danger?: boolean } | null,
-  showConfirm: (message: string, onConfirm: () => void, title?: string, danger = true) => {
-    set({ confirmModal: { title, message, onConfirm, danger } });
+  showConfirm: (message: string, onConfirm: () => void, title?: string, danger = true, confirmLabel?: string) => {
+    set({ confirmModal: { title, message, onConfirm, danger, confirmLabel } });
   },
   closeConfirm: () => set({ confirmModal: null }),
 
   // ============ API HELPER ============
   api: async (path: string, method="GET", body: any=null) => {
-    const token = sessionStorage.getItem("fc_token");
+    const token = localStorage.getItem("fc_token");
     const opts: any = { method, headers: { "Content-Type": "application/json" } };
     if (token) opts.headers["Authorization"] = "Bearer " + token;
     if (body) opts.body = JSON.stringify(body);
@@ -99,8 +186,8 @@ export const useStore = create<any>((set, get) => ({
       if(parsed&&(parsed.inbound||parsed.outbound))transport=JSON.parse(JSON.stringify(parsed));
     }
     return {
-      id:"db_"+(v._rowid||v.id),_dbId:v._rowid||v.id,
-      vin8:v.vin?(v.vin.length>8?v.vin.slice(-8):v.vin):(v.stock_number||""),
+      id:"db_"+v.id,_dbId:v.id,
+      vin8:v.vin?(v.vin.length>8?v.vin.slice(-8):v.vin):"",
       fullVin:v.vin||"",stockNumber:v.stock_number||"",
       year:v.year||0,make:v.make||"",model:v.model||"",trim:v.trim||"",
       miles:v.miles||0,color:v.color||"",
@@ -140,35 +227,68 @@ export const useStore = create<any>((set, get) => ({
   // ============ LOAD ALL DATA ============
   loadData: async () => {
     const { mapVehicle } = get();
-    const token = sessionStorage.getItem("fc_token");
+    const token = localStorage.getItem("fc_token");
     if (!token) return;
     set({ loading: true });
     try {
       const hdrs={"Content-Type":"application/json","Authorization":"Bearer "+token};
-      const [vRes,vnRes,uRes]=await Promise.all([
+      const [vRes,vnRes,uRes,dlRes,stRes]=await Promise.all([
         fetch(API_URL+"/api/vehicles",{headers:hdrs}).then(r=>r.json()),
         fetch(API_URL+"/api/vendors",{headers:hdrs}).then(r=>r.json()),
         fetch(API_URL+"/api/users",{headers:hdrs}).then(r=>r.json()),
+        fetch(API_URL+"/api/dealers",{headers:hdrs}).then(r=>r.json()).catch(()=>({dealers:[]})),
+        fetch(API_URL+"/api/settings",{headers:hdrs}).then(r=>r.json()).catch(()=>({data:{}})),
       ]);
       const mapped=(vRes.vehicles||[]).map((v: any)=>mapVehicle(v));
-      const vnMap: any={};
-      VCAT.forEach(c=>{vnMap[c.key]=[];});
-      const regVList: any[]=[];
-      (vnRes.vendors||[]).forEach((vn: any)=>{
-        const cats=vn.categories?tryParse(vn.categories,[]):[];
-        cats.forEach((ck: any)=>{if(vnMap[ck])vnMap[ck].push({id:"vn_"+vn.id,name:vn.name,email:vn.email||"",phone:vn.phone||""});});
-        regVList.push({id:vn.id,company:vn.name,contact:vn.contact_name||"",email:vn.email||"",cell:vn.phone||"",officePhone:vn.office_phone||"",address:vn.location||"",categories:cats,primaryUserId:vn.primary_user_id||null,paymentTerms:vn.payment_terms||"weekly",cutoffDay:vn.cutoff_day||"Friday",cutoffTime:vn.cutoff_time||"5 PM",deliveryMethod:vn.delivery_method||"USPS Mail"});
-      });
-      const mappedUsers=(uRes.users||[]).map((u: any)=>({id:u.id,firstName:u.first_name,lastName:u.last_name,name:u.first_name+" "+u.last_name,email:u.email,cell:u.phone,role:u.role,location:u.location,isBuyer:!!u.is_buyer,isSeller:!!u.is_seller,vendorTag:u.vendor_tag||null,vendorId:u.vendor_id||null}));
+      const { vnMap, regVList } = _mapVendors(vnRes.vendors||[]);
+      const mappedUsers = _mapUsers(uRes.users||[]);
       const currentSelV=get().selV;
       const freshSelV=currentSelV?mapped.find((v: any)=>v._dbId===currentSelV._dbId)||currentSelV:null;
-      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, apiReady:true, selV:freshSelV });
+      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, dealers:dlRes.dealers||[], siteSettings:stRes.data||{}, apiReady:true, selV:freshSelV });
     } catch(e) {
       console.error("API load failed, falling back to localStorage:", e);
       try{const sv=localStorage.getItem("fc_vehicles");if(sv){const p=JSON.parse(sv);if(p&&p.length>0)set({vehicles:p});}}catch(e2){}
       try{const sv=localStorage.getItem("fc_vendors");if(sv)set({vendors:JSON.parse(sv)});}catch(e2){}
     }
     set({ loading: false });
+  },
+
+  // ============ TARGETED REFRESH (used by WebSocket events) ============
+  refreshVehicles: async () => {
+    const { api, mapVehicle } = get();
+    try {
+      const data = await api('/api/vehicles');
+      const deletedIds = (window as any)._deletedDbIds || [];
+      const mapped = (data.vehicles || []).map((v: any) => mapVehicle(v)).filter((v: any) => !deletedIds.includes(v._dbId));
+      const currentSelV = get().selV;
+      const freshSelV = currentSelV ? mapped.find((v: any) => v._dbId === currentSelV._dbId) || currentSelV : null;
+      set((prev: any) => {
+        if (prev.vehicles.length !== mapped.length) return { vehicles: mapped, selV: freshSelV };
+        for (let i = 0; i < mapped.length; i++) {
+          const p = prev.vehicles.find((x: any) => x._dbId === mapped[i]._dbId);
+          if (!p || JSON.stringify(p._raw) !== JSON.stringify(mapped[i]._raw)) return { vehicles: mapped, selV: freshSelV };
+        }
+        return prev;
+      });
+    } catch {}
+  },
+
+  refreshVendors: async () => {
+    const { api } = get();
+    try {
+      const data = await api('/api/vendors');
+      const { vnMap, regVList } = _mapVendors(data.vendors || []);
+      set({ vendors: vnMap, regVendors: regVList });
+    } catch {}
+  },
+
+  refreshUsers: async () => {
+    const { api } = get();
+    try {
+      const data = await api('/api/users');
+      const mapped = _mapUsers(data.users || []);
+      set({ users: mapped, allUsers: mapped });
+    } catch {}
   },
 
   // ============ SYNC VEHICLE TO API ============
@@ -198,15 +318,19 @@ export const useStore = create<any>((set, get) => ({
     } catch(e) { console.error("Sync failed:", e); }
   },
 
-  // ============ UPDATE VEHICLE (local + sync) ============
-  upd: (id: any, updates: any) => {
+  // ============ UPDATE VEHICLE (local + debounced sync) ============
+  upd: (id: any, updates: any, syncDelay = 1500) => {
     set((state: any) => {
       const vehicles = state.vehicles.map((v: any) => v.id===id ? {...v,...updates} : v);
       const selV = state.selV?.id===id ? {...state.selV,...updates} : state.selV;
       return { vehicles, selV };
     });
-    const updated = get().vehicles.find((v: any) => v.id===id);
-    if (updated) get().syncVehicle(updated);
+    if (_syncTimers[id]) clearTimeout(_syncTimers[id]);
+    _syncTimers[id] = setTimeout(() => {
+      delete _syncTimers[id];
+      const fresh = get().vehicles.find((v: any) => v.id===id);
+      if (fresh) get().syncVehicle(fresh);
+    }, syncDelay);
   },
 
   // ============ ADD VEHICLE ============
@@ -214,7 +338,7 @@ export const useStore = create<any>((set, get) => ({
     const { api, apiReady, notify } = get();
     if (apiReady) {
       const res = await api("/api/vehicles", "POST", {
-        vin:v.fullVin||v.vin8||"", stock_number:v.vin8||"",
+        vin:v.fullVin||v.vin8||"", stock_number:v.stockNumber||v.vin8||"",
         year:v.year, make:v.make, model:v.model, trim:v.trim||"",
         color:v.color, miles:v.miles, location:v.location,
         zip_code:v.zipCode||null, fuel_type:v.fuelType||null, transmission:v.transmission||null,
@@ -324,8 +448,9 @@ export const useStore = create<any>((set, get) => ({
 // Selector: derive role flags from currentUser
 export const selectRoles = (s: any) => {
   const u = s.currentUser;
-  const isAdmin = u?.role==="Admin"||u?.role==="admin"||!!(u?.is_buyer&&u?.is_seller);
+  const isTechSupport = ["Tech Support","tech_support","TechSupport","techsupport"].includes(u?.role||"");
+  const isAdmin = u?.role==="Admin"||u?.role==="admin"||!!(u?.is_buyer&&u?.is_seller)||isTechSupport;
   const isVendor = u?.role==="Vendor"||u?.role==="vendor";
   const isAP = u?.role==="ap"||u?.role==="AP"||u?.is_ap;
-  return { isAdmin, isVendor, isAP };
+  return { isAdmin, isVendor, isAP, isTechSupport };
 };

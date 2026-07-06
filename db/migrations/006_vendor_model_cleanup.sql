@@ -1,7 +1,7 @@
 -- Vendor model cleanup: move contact info from vendors to users, add primary_user_id
 
 -- 1. Add primary_user_id FK on vendors
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS primary_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE vendors ADD COLUMN IF NOT EXISTS primary_user_id UUID REFERENCES users(id) ON DELETE SET NULL;
 
 -- 2. Backfill primary_user_id from existing linked vendor users
 UPDATE vendors v

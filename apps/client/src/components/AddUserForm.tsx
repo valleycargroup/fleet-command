@@ -10,12 +10,16 @@ interface UserFormData {
   role: string;
   location: string;
   password: string;
+  vendorId?: string;
+  makePrimary?: boolean;
 }
 
 interface Props {
   onSave: (data: UserFormData) => void;
   onClose: () => void;
-  initial?: Partial<UserFormData> & { role?: string };
+  initial?: Partial<UserFormData> & { role?: string; vendorId?: any; id?: any };
+  vendorList?: Array<{ id: any; company: string; primaryUserId?: any }>;
+  canEditEmail?: boolean;
 }
 
 function normalizeRole(r: any): string {
@@ -25,16 +29,22 @@ function normalizeRole(r: any): string {
   if (lc === 'buyer/seller') return 'Buyer/Seller';
   if (lc === 'buyer') return 'Buyer';
   if (lc === 'seller') return 'Seller';
+  if (lc === 'ap') return 'Accounts Payable';
+  if (lc === 'techsupport' || lc === 'tech support' || lc === 'tech_support') return 'TechSupport';
+  if (lc === 'vendor') return 'Vendor';
   return 'Admin';
 }
 
-export function AddUserForm({ onSave, onClose, initial }: Props) {
+export function AddUserForm({ onSave, onClose, initial, vendorList, canEditEmail }: Props) {
   const isEdit = !!initial;
+
+  const initVendorId = initial?.vendorId ? String(initial.vendorId) : '';
+  const initIsPrimary = !!(initVendorId && vendorList?.find(v => String(v.id) === initVendorId && String(v.primaryUserId) === String(initial?.id)));
 
   const [f, setF] = useState<UserFormData>(() =>
     initial
-      ? { ...initial, role: normalizeRole(initial.role), password: '' } as UserFormData
-      : { firstName: '', lastName: '', email: '', cell: '', role: 'Admin', location: LOCATIONS[0], password: '' }
+      ? { ...initial, role: normalizeRole(initial.role), password: '', vendorId: initVendorId, makePrimary: initIsPrimary } as UserFormData
+      : { firstName: '', lastName: '', email: '', cell: '', role: 'Admin', location: LOCATIONS[0], password: '', vendorId: '', makePrimary: false }
   );
 
   const set = (field: keyof UserFormData) => (e: { target: { value: string } }) =>
@@ -54,12 +64,13 @@ export function AddUserForm({ onSave, onClose, initial }: Props) {
   const fieldStyle = { ...S.fi, fontSize: 16, padding: 10 };
 
   return (
-    <div style={S.ov} onClick={onClose}>
+    <div style={S.ov}>
       <div style={{ ...S.modal, maxWidth: 500 }} onClick={e => e.stopPropagation()}>
 
-        <h2 style={{ color: '#E5E7EB', fontSize: 20, marginBottom: 12 }}>
-          {isEdit ? '✏️ Edit User' : '👤 Register User / Admin'}
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 style={{ color: '#E5E7EB', fontSize: 20, margin: 0 }}>{isEdit ? '✏️ Edit User' : '👤 Register User / Admin'}</h2>
+          <button style={{ background: 'transparent', border: 'none', color: '#6B7280', fontSize: 20, cursor: 'pointer', padding: '2px 6px', borderRadius: 4, lineHeight: 1 }} onClick={onClose}>✕</button>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
 
@@ -74,8 +85,9 @@ export function AddUserForm({ onSave, onClose, initial }: Props) {
           </label>
 
           <label style={S.fl}>Email (Username) *
-            <input style={fieldStyle} autoComplete="off" name="fc_email_reg" type="text"
-              value={f.email} onChange={set('email')} disabled={isEdit} />
+            <input style={{...fieldStyle,...(isEdit&&!canEditEmail?{opacity:0.5,cursor:"not-allowed"}:{})}} autoComplete="off" name="fc_email_reg" type="text"
+              value={f.email} onChange={set('email')} disabled={isEdit && !canEditEmail} />
+            {isEdit&&canEditEmail&&<span style={{fontSize:10,color:"#F59E0B",marginTop:2}}>⚠️ Changing email changes their login</span>}
           </label>
 
           <label style={S.fl}>Cell # *
@@ -96,6 +108,8 @@ export function AddUserForm({ onSave, onClose, initial }: Props) {
               <option>Seller</option>
               <option>Buyer/Seller</option>
               <option>Accounts Payable</option>
+              <option>TechSupport</option>
+              <option>Vendor</option>
             </select>
           </label>
 
@@ -106,6 +120,32 @@ export function AddUserForm({ onSave, onClose, initial }: Props) {
           </label>
 
         </div>
+
+        {f.role === 'Vendor' && vendorList && vendorList.length > 0 && (
+          <div style={{ marginTop: 10, padding: 12, background: '#0D0D1A', borderRadius: 8, border: '1px solid #2A2A3E' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', marginBottom: 8, letterSpacing: '.5px', textTransform: 'uppercase' }}>Vendor Shop Assignment</div>
+            <select style={{ ...fieldStyle, width: '100%' }} value={f.vendorId || ''}
+              onChange={e => {
+                const newVid = e.target.value;
+                const nowPrimary = !!(newVid && vendorList?.find(v => String(v.id) === newVid && String(v.primaryUserId) === String(initial?.id)));
+                setF(p => ({ ...p, vendorId: newVid, makePrimary: nowPrimary }));
+              }}>
+              <option value="">— Unassigned —</option>
+              {vendorList.map((v: any) => <option key={v.id} value={String(v.id)}>{v.company}</option>)}
+            </select>
+            {f.vendorId && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={!!f.makePrimary}
+                  onChange={e => setF(p => ({ ...p, makePrimary: e.target.checked }))}
+                  style={{ accentColor: '#3B82F6', width: 15, height: 15 }} />
+                <span style={{ fontSize: 13, color: '#9CA3AF' }}>Primary contact for this shop</span>
+                {initIsPrimary && f.vendorId === initVendorId && (
+                  <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#1E3A5F', color: '#60A5FA', fontWeight: 700 }}>current</span>
+                )}
+              </label>
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           <button style={{ ...S.btn, flex: 1, fontSize: 16, padding: 12 }} onClick={handleSave}>

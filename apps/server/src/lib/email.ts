@@ -5,7 +5,7 @@ const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || process.env.FROM_EMAIL || 
 const FROM_NAME = process.env.SENDGRID_FROM_NAME || 'Fleet Command';
 export const APP_URL = process.env.APP_URL || 'https://fleetcommandrecon.net';
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string; messageId?: string }> {
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
     console.warn('[email] SENDGRID_API_KEY not set — skipping send');
@@ -34,8 +34,9 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       (res) => {
         const ok = res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300;
         if (!ok) console.error('[email] SendGrid responded with status', res.statusCode);
+        const messageId = res.headers['x-message-id'] as string | undefined;
         res.resume();
-        resolve({ ok });
+        resolve({ ok, messageId });
       }
     );
 
@@ -55,12 +56,18 @@ export async function logEmail(
   vehicleId: number | null,
   subject: string | null,
   status: string,
-  error: string | null = null
+  error: string | null = null,
+  meta?: { name?: string; role?: string; vendor?: string },
+  triggeredBy: 'manual' | 'cron' = 'manual',
+  sendgridId?: string,
+  bodyHtml?: string
 ) {
   try {
     await db.raw(
-      `INSERT INTO email_log (email_type, recipient, vehicle_id, subject, status, error) VALUES (?, ?, ?, ?, ?, ?)`,
-      [emailType, recipient, vehicleId, subject, status, error]
+      `INSERT INTO email_log (email_type, recipient, vehicle_id, subject, status, error, recipient_name, recipient_role, recipient_vendor, triggered_by, sendgrid_message_id, body_html)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [emailType, recipient, vehicleId, subject, status, error,
+       meta?.name || null, meta?.role || null, meta?.vendor || null, triggeredBy, sendgridId || null, bodyHtml || null]
     );
   } catch (e) {
     console.error('[email] log failed:', e);

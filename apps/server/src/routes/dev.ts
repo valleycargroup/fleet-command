@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import db from '../lib/db';
+import { generateToken } from '../lib/auth';
 import { sendEmail, welcomeUserEmail, welcomeVendorEmail, passwordResetEmail } from '../lib/email';
 import { TEMPLATES as EMAIL_TEMPLATES } from '../lib/email-templates';
 
@@ -209,6 +211,64 @@ const STUB_DATA: Record<string, any> = {
     }],
   },
 };
+
+// GET /api/dev/users — list all active users for the dev switcher
+router.get('/users', async (_req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Not Found' });
+  try {
+    const users = (await db.raw(
+      `SELECT u.id, u.email, u.first_name, u.last_name, u.role, u.is_buyer, u.is_seller, u.is_ap, u.vendor_tag,
+              v.name AS vendor_name
+       FROM users u
+       LEFT JOIN vendors v ON v.id = u.vendor_id
+       WHERE u.active = TRUE ORDER BY u.role, u.first_name`
+    )).rows;
+    res.json({ users });
+  } catch (e: any) {
+    console.error('[dev/users]', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/dev/switch-user — instant session swap for QA testing (non-production only)
+router.post('/switch-user', async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not Found' });
+  }
+  const { email } = req.body as { email?: string };
+  if (!email) return res.status(400).json({ error: 'Missing email' });
+
+  try {
+    const user = (await db.raw(
+      'SELECT * FROM users WHERE email = ? AND active = TRUE',
+      [email.toLowerCase().trim()]
+    )).rows[0];
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const token = generateToken();
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await db.raw(
+      'INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)',
+      [user.id, token, expires]
+    );
+
+    res.json({
+      ok: true, token,
+      user: {
+        id: user.id, email: user.email,
+        first_name: user.first_name, last_name: user.last_name,
+        role: user.role, is_buyer: user.is_buyer, is_seller: user.is_seller,
+        is_ap: user.is_ap, location: user.location,
+        vendor_tag: user.vendor_tag, vendor_id: user.vendor_id ?? null,
+        must_change_password: user.must_change_password,
+      },
+    });
+  } catch (e: any) {
+    console.error('[dev/switch-user]', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 router.post('/test-email', async (req: Request, res: Response) => {
   const { type, to, preview = true } = req.body as { type?: string; to?: string; preview?: boolean };

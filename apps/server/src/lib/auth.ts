@@ -20,7 +20,7 @@ export async function verifyPassword(pw: string, stored: string): Promise<boolea
 }
 
 // Called after a legacy SHA-256 login succeeds — upgrades the stored hash to bcrypt
-export async function upgradePasswordHash(userId: number, pw: string): Promise<void> {
+export async function upgradePasswordHash(userId: string, pw: string): Promise<void> {
   const hash = await hashPassword(pw);
   await db.raw('UPDATE users SET password_hash = ? WHERE id = ?', [hash, userId]);
 }

@@ -57,12 +57,17 @@ function parseConnConfig() {
 	try { url = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null; } catch (_) {}
 
 	let host = url?.hostname || process.env.DB_HOST || 'localhost';
-	const port = url?.port || process.env.DB_PORT || '5432';
+	let port = url?.port || process.env.DB_PORT || '5432';
 	const database = (url?.pathname || '').replace(/^\//, '') || process.env.DB_NAME || 'postgres';
 	const user = url?.username || process.env.DB_USER || 'postgres';
 	const password = decodeURIComponent(url?.password || '') || process.env.DB_PASSWORD || '';
 
-	if (host === 'db' && !isDockerRuntime()) host = 'localhost';
+	if (host === 'db' && !isDockerRuntime()) {
+		// DATABASE_URL uses the Docker-internal port (5432); switch to the
+		// host-mapped port from DB_PORT so createTables works outside Docker.
+		host = 'localhost';
+		if (process.env.DB_PORT) port = process.env.DB_PORT;
+	}
 
 	const sslmode = ['localhost', '127.0.0.1'].includes(host) ? 'disable' : 'require';
 	return { host, port, database, user, password, sslmode };

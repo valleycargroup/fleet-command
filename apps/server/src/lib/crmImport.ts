@@ -16,6 +16,7 @@ import { getCrmBaseUrl, getApiKey } from './integrationConfig';
 
 export type CrmVehicle = {
   vin: string;
+  stock_number?: string | null;
   year?: number | null;
   make?: string;
   model?: string;
@@ -86,6 +87,7 @@ export function crmVehicleToDraft(crm: CrmVehicle, fleetUsers: FleetUser[]) {
   const matchedBuyer = matchCrmBuyer(crm.buyer, fleetUsers);
   return {
     vin: crm.vin,
+    stockNumber: crm.stock_number || '',
     year: crm.year || '',
     make: crm.make || '',
     model: crm.model || '',
@@ -109,6 +111,7 @@ export function crmVehicleToDraft(crm: CrmVehicle, fleetUsers: FleetUser[]) {
 
 export type CrmImportFields = {
   vin: string;
+  stockNumber?: string;
   year?: number | string | null;
   make?: string;
   model?: string;
@@ -314,7 +317,7 @@ function buildConditionReportFromCrm(
 }
 
 export function crmImportFieldsToFleetRow(fields: CrmImportFields) {
-  const stockNumber = `CRM-${(fields.vin || '').slice(-6).toUpperCase()}`;
+  const stockNumber = fields.stockNumber?.trim() || (fields.vin || '').slice(-8).toUpperCase();
   const conditionReport = buildConditionReportFromCrm(
     fields.reconChecklist || {},
     fields.reconConditions || []

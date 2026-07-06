@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { VCAT, ARB_SOURCES, DRIVE_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, driveToDriveline, driveToLongForm, fuelNormalize, API_URL } from '../lib/constants';
+import { VCAT, ARB_SOURCES, DRIVE_TYPES, FUEL_TYPES, TRANSMISSION_TYPES, LOCATIONS, COLORS, driveToDriveline, driveToLongForm, fuelNormalize, API_URL } from '../lib/constants';
 const isVideo = (url: string) => /\.(mp4|mov|avi|webm|mkv|m4v|ogg|ogv|3gp)(\?|$)/i.test(url || '');
-import { fmtDate, vData } from '../lib/utils';
+import { fmtDate, vData, linkifyText } from '../lib/utils';
 import { S } from '../lib/styles';
 import { DateIn } from './DateIn';
 import { ReconCategory } from './ReconCategory';
@@ -26,23 +26,24 @@ const deepLinkCr = useStore((s: any) => s.deepLinkCr);
 const setDeepLinkCr = useStore((s: any) => s.setDeepLinkCr);
 const { isAdmin, isVendor } = useStore(selectRoles);
 const regVendors = useStore((s: any) => s.regVendors);
+const dealers = useStore((s: any) => s.dealers);
 const isVendorForCat = (catKey: string): boolean => {
   if (!isVendor || !currentUser) return true;
   const task = v.reconTasks?.[catKey];
   if (!task?.needed) return false;
-  // Primary: vendor_id FK (set on all vendor users going forward)
   const myVendorId = currentUser.vendor_id ? 'vn_' + currentUser.vendor_id : null;
-  // Fallback: resolve via regVendors by email/vendor_tag (covers users before vendor_id was added)
   const ce = (currentUser.email || '').toLowerCase();
   const vtag = (currentUser.vendor_tag || '').toLowerCase();
-  const myReg = !myVendorId ? (regVendors || []).find((rv: any) =>
-    (ce && (rv.email || '').toLowerCase() === ce) ||
-    (vtag && (rv.company || '').toLowerCase() === vtag)
-  ) : null;
+  const myReg = (regVendors || []).find((rv: any) =>
+    (myVendorId && ('vn_' + rv.id) === myVendorId) ||
+    (!myVendorId && ((ce && (rv.email || '').toLowerCase() === ce) || (vtag && (rv.company || '').toLowerCase() === vtag)))
+  );
   const resolvedId = myVendorId || (myReg ? 'vn_' + myReg.id : null);
+  const myVendorName = (myReg?.company || myReg?.name || '').toLowerCase();
   return (task.vendors || []).some((vn: any) =>
     (resolvedId && vn.id === resolvedId) ||
-    (ce && (vn.email || '').toLowerCase() === ce)
+    (ce && (vn.email || '').toLowerCase() === ce) ||
+    (myVendorName && (vn.name || '').toLowerCase() === myVendorName)
   );
 };
 const onBack = () => { setSelV(null); setDeepLinkCat(null); };
@@ -59,6 +60,15 @@ useEffect(()=>{if(deepLinkCr){openCr('view');setDeepLinkCr(false);}},[deepLinkCr
 const [auctionForm,setAuctionForm]=useState(()=>{const drv=driveToLongForm(v.drive||'')||"";return{zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||""};});
 const [sm,setSm]=useState(false);const [sb,setSb]=useState(()=>{const names=((allUsers||[]).filter((u: any)=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any)=>n);return names[0]||"";});const [st,setSt]=useState("");const [includeCR,setIncludeCR]=useState(true);
 const [showKick,setShowKick]=useState(false);const [kickReason,setKickReason]=useState("");const [lbImg2,setLbImg2]=useState(null as any);const [photoUploading,setPhotoUploading]=useState(false);const [photoManage,setPhotoManage]=useState(false);
+const [showEdit,setShowEdit]=useState(false);const [editForm,setEditForm]=useState({} as any);const [sellerMode,setSellerMode]=useState<"user"|"manual">("user");
+const openEdit=()=>{
+  const sellerUsers=((allUsers||[]).filter((u: any)=>u.isSeller||u.is_seller||(u.role||'').toLowerCase()==='seller'||(u.role||'').toLowerCase()==='admin').map((u: any)=>(u.firstName+(u.lastName?' '+u.lastName:'')).trim())).filter(Boolean);
+  const curSeller=v.sellingBroker||'';
+  const matchesUser=sellerUsers.includes(curSeller)||!curSeller;
+  setSellerMode(matchesUser?'user':'manual');
+  setEditForm({stockNumber:v.stockNumber||v.stock_number||'',year:String(v.year||''),make:v.make||'',model:v.model||'',trim:v.trim||'',color:v.color||COLORS[0],miles:String(v.miles||0),location:v.location||LOCATIONS[0],buyingBroker:v.buyingBroker||'',sellingBroker:curSeller,zipCode:v.zipCode||'',fuelType:fuelNormalize(v.fuelType||''),transmission:v.transmission||'',driveline:v.driveline||'',drive:driveToLongForm(v.drive||'')||'',motorTrailer:v.motorTrailer||''});
+  setShowEdit(true);
+};
 const [editInb,setEditInb]=useState(true);const [editOut,setEditOut]=useState(true);const [editRetail,setEditRetail]=useState(false);const [retailForm,setRetailForm]=useState(v.transport?.retail||{});
 const [showArbForm,setShowArbForm]=useState(false);const [arbSource,setArbSource]=useState(v.arb?.source||"");const [arbCustom,setArbCustom]=useState("");const [arbReason,setArbReason]=useState("");const [arbCloseReason,setArbCloseReason]=useState("");
 const saveInb=(newInb: any)=>{setInbForm(newInb);const curOut=v.transport?.outbound||{};const syncOut=curOut.isDriveway?{...curOut,readyDate:newInb.driverwayClearDate||curOut.readyDate||"",eta:newInb.drivewayEta||curOut.eta||"",set:!!(newInb.driverwayClearDate||curOut.readyDate),pickedUp:newInb.drivewayPickedUp||curOut.pickedUp||false,datePickedUp:newInb.drivewayPickedUpDate||curOut.datePickedUp||""}:curOut;const locUp=newInb.destination?{location:newInb.destination}:{};onUpdate({...locUp,transport:{inbound:newInb,outbound:syncOut}});};
@@ -140,7 +150,7 @@ if(typeof fireEmail==="function"){
   const items=(sv3?.lineItems||[]).filter((x: any)=>x.accepted);const total=items.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
   const findItems2=(sv3?.vendorFindings||[]).filter((x: any)=>x.approved);const findTotal2=findItems2.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
   fireEmail("buyer_work_complete",{buyer:v.buyingBroker||"Buyer",vendor:{name:sv3?.name||"Vendor"},vehicle:vData(v),category:catName,categoryKey:ck,lineItems:[...items.map((x: any)=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...findItems2.map((x: any)=>({desc:"🔍 "+x.desc,price:x.price,costType:x.findingCostType||"ws"}))],totalCost:total+findTotal2});
-  if(allDone){const summary=rcNeeded2.map(c=>{const ct=t[c.key];const sv2=(ct.vendors||[]).find((x: any)=>x.selected);const cost=(sv2?.lineItems||[]).filter((x: any)=>x.accepted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const fCost=(sv2?.vendorFindings||[]).filter((x: any)=>x.approved).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);return {icon:c.icon,category:c.label,vendor:sv2?.name||"—",cost:cost+fCost};});const totalRecon=summary.reduce((s: any,x: any)=>s+x.cost,0);fireEmail("buyer_recon_complete",{buyer:v.buyingBroker||"Buyer",seller:v.sellingBroker||"",vehicle:vData(v),reconSummary:summary,totalReconCost:totalRecon});}
+  if(allDone){const summary=rcNeeded2.map(c=>{const ct=t[c.key];const sv2=(ct.vendors||[]).find((x: any)=>x.selected)||(ct.vendors||[])[0];const liCost=(sv2?.lineItems||[]).filter((x: any)=>x.accepted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const fCost=(sv2?.vendorFindings||[]).filter((x: any)=>x.approved).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const cost=liCost+fCost>0?liCost+fCost:Number(sv2?.estimate)||Number(ct.estimate)||0;return {icon:c.icon,category:c.label,vendor:sv2?.name||"—",cost};});const totalRecon=summary.reduce((s: any,x: any)=>s+x.cost,0);fireEmail("buyer_recon_complete",{buyer:v.buyingBroker||"Buyer",seller:v.sellingBroker||"",vehicle:vData(v),reconSummary:summary,totalReconCost:totalRecon});}
 }};
 const tog=(ck: any)=>{const t={...v.reconTasks};const cur=t[ck]||{};if(cur.needed){t[ck]={...cur,needed:false,status:"na"};}else{t[ck]={...cur,needed:true,status:cur.completedRounds?.length>0?"unassigned":"unassigned",vendorId:null,vendorName:null,estimate:null,notes:"",photos:cur.photos||[]};}onUpdate({reconTasks:t});};
 const inb=v.transport?.inbound,outb=v.transport?.outbound;
@@ -149,6 +159,7 @@ const sel=(t.vendors||[]).find((vn: any)=>vn.selected);return s+(sel?Number(sel.
 const inbCost=inb?.cost||0;const outbCost=outb?.cost||0;
 return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button style={{padding:"10px 20px",fontSize:16,fontWeight:700,borderRadius:8,background:"#1E3A5F",color:"#93C5FD",border:"2px solid #3B82F6",cursor:"pointer"}} onClick={onBack}>← Back</button>
 {isAdmin&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:700,borderRadius:8,background:"#3B2F10",color:"#FDE68A",border:"1px solid #78590A",cursor:"pointer"}} onClick={()=>{const drv=driveToLongForm(v.drive||'')||"";setAuctionForm({zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||""});setShowAuction(true);}}>🏛️ Publish to Internal Auction</button>}
+{isAdmin&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:600,borderRadius:8,background:"transparent",color:"#93C5FD",border:"1px solid #1E3A5F",cursor:"pointer"}} onClick={openEdit}>✏️ Edit</button>}
 {isAdmin&&onDelete&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:600,borderRadius:8,background:"transparent",color:"#F87171",border:"1px solid #7F1D1D",cursor:"pointer"}} onClick={onDelete}>🗑️ Delete</button>}</div>
 {(v.status==="sold"||v.status==="delivered")?<div style={{margin:"10px 0",padding:"10px 14px",borderRadius:8,background:"#0D3B1E33",borderLeft:"4px solid #34D399",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:13,color:"#34D399",fontWeight:700,marginBottom:2}}>💰 SOLD — Customer waiting</div><div style={{fontSize:12,color:"#6EE7B7"}}>Sold to {v.soldTo||"—"}{v.soldDate?" on "+fmtDate(v.soldDate):""}</div></div><span style={{fontSize:11,padding:"6px 12px",borderRadius:6,background:"#166534",color:"#6EE7B7",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Priority</span></div>
 :<div style={{margin:"10px 0",padding:"10px 14px",borderRadius:8,background:"#1A1A2E",borderLeft:"4px solid #6B7280",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><div style={{fontSize:13,color:"#9CA3AF",fontWeight:700,marginBottom:2}}>📦 IN INVENTORY — Not yet sold</div><div style={{fontSize:12,color:"#6B7280"}}>Standard turnaround</div></div><span style={{fontSize:11,padding:"6px 12px",borderRadius:6,background:"#2A2A3E",color:"#9CA3AF",fontWeight:700,letterSpacing:1,textTransform:"uppercase"}}>Standard</span></div>}
@@ -157,7 +168,9 @@ return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button styl
 <div style={{display:"flex",gap:20,flexWrap:"wrap",color:"#E5E7EB",fontSize:17,marginTop:8}}>
 <span>VIN: <b style={{fontFamily:"monospace"}}>{v.fullVin||v.vin8}</b></span><span>Color: <b>{v.color}</b></span><span>Miles: <b>{v.miles.toLocaleString()}</b></span>
 <span>Location: <b>{v.location}</b></span><span>Buyer: <b>{v.buyingBroker}</b></span>
-{v.sellingBroker&&<span>Seller: <b>{v.sellingBroker}</b></span>}</div></div>
+{v.sellingBroker&&<span>Seller: <b>{v.sellingBroker}</b></span>}
+{isAdmin&&<button style={{background:"none",border:"none",cursor:"pointer",fontSize:15,padding:"0 4px",color:"#4B5563",lineHeight:1,marginLeft:4}} title="Edit vehicle" onClick={openEdit}>✏️</button>}
+</div></div>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
 {!isVendor&&v.status!=="sold"&&v.status!=="delivered"&&<button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>setSm(true)}>Mark Sold</button>}
 {!isVendor&&v.status==="sold"&&<button style={{...S.btn,background:"#166534"}} onClick={()=>{onUpdate({status:"delivered",deliveredDate:new Date().toISOString().split("T")[0]});notify("On Ground");
@@ -182,9 +195,11 @@ transport:{...v.transport,outbound:{set:false,destination:"",eta:"",cost:0,picke
 </div>)}
 {(v.soldTo&&v.soldTo!=="null"&&v.status==="sold")&&(()=>{
 const isReSold=(v.kickedHistory||[]).length>0;
+const matchDealer=dealers.find((d: any)=>d.name?.toLowerCase()===v.soldTo?.toLowerCase());
 return <div style={{padding:"12px 18px",borderRadius:10,background:"#0D3B1E",border:"2px solid #166534",minWidth:260}}>
 <div style={{fontSize:13,color:"#6EE7B7",textTransform:"uppercase",letterSpacing:2,fontWeight:600}}>{isReSold?"🔄 Re-Sold To":"Sold To"}</div>
 <div style={{fontSize:28,fontWeight:900,color:"#34D399",marginTop:4}}>{v.soldTo}</div>
+{matchDealer?.responsible_for_pickup&&<div style={{marginTop:6,display:"inline-block",padding:"3px 10px",borderRadius:4,background:"#1D4ED8",color:"#93C5FD",fontSize:12,fontWeight:700}}>🚗 Dealer Responsible for Pickup</div>}
 {v.soldDate&&<div style={{fontSize:16,color:"#6EE7B7",marginTop:6,fontWeight:600}}>📅 Sold: {fmtDate(v.soldDate)}</div>}
 </div>;})()}
 </div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}><div style={{...S.card,borderTop:`4px solid ${inb?.delivered?"#34D399":inb?.set?"#FBBF24":"#EF4444"}`,padding:18}}>
@@ -203,6 +218,8 @@ return <div style={{padding:"12px 18px",borderRadius:10,background:"#0D3B1E",bor
 <option value="">Select location...</option>
 <option value="PHX">PHX</option>
 <option value="Dallas">Dallas</option>
+{dealers.length>0&&<option disabled>──────────</option>}
+{dealers.map((d: any)=><option key={d.id} value={d.name}>🏢 {d.name}{d.responsible_for_pickup?' (picks up)':''}</option>)}
 </select></label>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
 <label style={{...S.fl,fontSize:15}}>Company *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={inbForm.company||""} onChange={(e: any)=>setInbForm({...inbForm,company:e.target.value})} onBlur={()=>saveInb(inbForm)} placeholder="Company"/></label>
@@ -227,13 +244,15 @@ return <div style={{padding:"12px 18px",borderRadius:10,background:"#0D3B1E",bor
 <option value="">Select destination...</option>
 <option value="PHX">PHX</option>
 <option value="Dallas">Dallas</option>
-{v.soldTo&&<option value={v.soldTo}>🏢 {v.soldTo} (Buying Dealer)</option>}
+{v.soldTo&&!dealers.find((d: any)=>d.name===v.soldTo)&&<option value={v.soldTo}>🏢 {v.soldTo}</option>}
+{dealers.length>0&&<option disabled>──────────</option>}
+{dealers.map((d: any)=><option key={d.id} value={d.name}>🏢 {d.name}{d.responsible_for_pickup?' (picks up)':''}</option>)}
 </select></label>
 {inbForm.drivewayDest&&<div style={{marginTop:8}}>
 <label style={{...S.fl,fontSize:15}}>Clear to Pick Up Date<DateIn style={{fontSize:18,padding:"10px 14px"}} value={inbForm.driverwayClearDate||""} onChange={(v2: any)=>{const nf={...inbForm,driverwayClearDate:v2};setInbForm(nf);saveInb(nf);}}/></label>
 {inbForm.driverwayClearDate&&<div style={{fontSize:14,color:"#DDD6FE",fontWeight:600,marginTop:4}}>✅ Clear: {fmtDate(inbForm.driverwayClearDate)}</div>}
 {inbForm.driverwayClearDate&&<label style={{...S.fl,fontSize:15,marginTop:8}}>ETA Pick Up<DateIn style={{fontSize:18,padding:"10px 14px"}} value={inbForm.drivewayEta||""} onChange={(v2: any)=>{const nf={...inbForm,drivewayEta:v2};setInbForm(nf);saveInb(nf);}}/></label>}
-{inbForm.drivewayEta&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:17,color:"#E5E7EB",fontWeight:600,marginTop:8}}><input type="checkbox" style={{width:20,height:20}} checked={inbForm.drivewayPickedUp||false} onChange={(e: any)=>{const now=new Date().toISOString().split("T")[0];if(e.target.checked){const nf2={...inbForm,drivewayPickedUp:true,drivewayPickedUpDate:now};setInbForm(nf2);saveInb(nf2);const outb=v.transport?.outbound||{};if(outb.isDriveway){onUpdate({transport:{...v.transport,outbound:{...outb,pickedUp:true,datePickedUp:now,readyDate:outb.readyDate||inbForm.driverwayClearDate||"",eta:outb.eta||inbForm.drivewayEta||"",set:true}}});}}else{const nf2={...inbForm,drivewayPickedUp:false,drivewayPickedUpDate:""};setInbForm(nf2);saveInb(nf2);}}}/> Picked Up</label>}
+{inbForm.drivewayEta&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:17,color:"#E5E7EB",fontWeight:600,marginTop:8}}><input type="checkbox" style={{width:20,height:20}} checked={inbForm.drivewayPickedUp||false} onChange={(e: any)=>{const now=new Date().toISOString().split("T")[0];if(e.target.checked){const nf2={...inbForm,drivewayPickedUp:true,drivewayPickedUpDate:now};setInbForm(nf2);saveInb(nf2);if(typeof fireEmail==="function")fireEmail("driveway_inbound_pickedup",{buyer:v.buyingBroker||"",vehicle:vData(v),destination:nf2.drivewayDest||v.soldTo||"",dwCompany:nf2.dwCompany||"",pickedUpDate:now});const outb=v.transport?.outbound||{};if(outb.isDriveway){onUpdate({transport:{...v.transport,outbound:{...outb,pickedUp:true,datePickedUp:now,readyDate:outb.readyDate||inbForm.driverwayClearDate||"",eta:outb.eta||inbForm.drivewayEta||"",set:true}}});}}else{const nf2={...inbForm,drivewayPickedUp:false,drivewayPickedUpDate:""};setInbForm(nf2);saveInb(nf2);}}}/> Picked Up</label>}
 {inbForm.drivewayPickedUp&&<div style={{fontSize:15,color:"#34D399",fontWeight:700,marginTop:6}}>📅 Picked Up: {fmtDate(inbForm.drivewayPickedUpDate)}</div>}
 </div>}
 </div>}
@@ -262,7 +281,7 @@ if(typeof fireEmail==="function")fireEmail("buyer_approved_shipping",{buyer:v.bu
 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
 <span style={{padding:"8px 16px",borderRadius:8,background:"#166534",color:"#6EE7B7",fontSize:16,fontWeight:800}}>✅ BUYER APPROVED SHIPPING {v.buyerApprovedDate?fmtDate(v.buyerApprovedDate):""}</span>
 <button style={{padding:"8px 16px",borderRadius:8,background:"#7F1D1D",color:"#FCA5A5",fontSize:14,fontWeight:800,border:"none",cursor:"pointer"}}
-onClick={()=>{onUpdate({buyerApprovedShip:false,buyerApprovedDate:null,shippingHoldDate:new Date().toISOString().split("T")[0],shippingHoldBy:v.buyingBroker});notify("🛑 Shipping on HOLD — buyer unapproved");}}>
+onClick={()=>{const holdDate=new Date().toISOString().split("T")[0];onUpdate({buyerApprovedShip:false,buyerApprovedDate:null,shippingHoldDate:holdDate,shippingHoldBy:v.buyingBroker});notify("🛑 Shipping on HOLD — buyer unapproved");if(typeof fireEmail==="function")fireEmail("shipping_hold",{buyer:v.buyingBroker||"",vehicle:vData(v),reason:"Buyer unapproved shipping",holdBy:v.buyingBroker||"Buyer",holdDate});}}>
 🛑 Hold Shipping</button>
 </div>
 :v.noReconNeeded?
@@ -272,23 +291,42 @@ onClick={()=>{onUpdate({buyerApprovedShip:false,buyerApprovedDate:null,shippingH
 :null}
 </div>
 {true?<div style={{display:"grid",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+{!outForm.dealerHandling&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
 <label style={{...S.fl,fontSize:15}}>Company *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={outForm.company||""} onChange={(e: any)=>setOutForm({...outForm,company:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Company"/></label>
 <label style={{...S.fl,fontSize:15}}>Phone *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={outForm.phone||""} onChange={(e: any)=>setOutForm({...outForm,phone:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Phone #"/></label>
 <label style={{...S.fl,fontSize:15}}>Email *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={outForm.email||""} onChange={(e: any)=>setOutForm({...outForm,email:e.target.value})} onBlur={()=>saveOut(outForm)} placeholder="Email"/></label>
-</div>
-<label style={{...S.fl,fontSize:15}}>Destination{outForm.isRetail&&outForm.deliveryAddress?<div style={{fontSize:14,fontWeight:700,color:"#67E8F9",padding:"10px 14px",background:"#0D2B3E",borderRadius:6,border:"1px solid #164E63"}}>🏪 {outForm.customerName||"Customer"} — {outForm.deliveryAddress}</div>:outForm.isDriveway&&v.soldTo?<div style={{fontSize:14,fontWeight:700,color:"#34D399",padding:"10px 14px",background:"#0D3B1E",borderRadius:6,border:"1px solid #166534"}}>🏢 {v.soldTo} (Buying Dealer)</div>:v.soldTo?<div style={{fontSize:14,fontWeight:700,color:"#34D399",padding:"10px 14px",background:"#0D3B1E",borderRadius:6,border:"1px solid #166534"}}>🏢 {v.soldTo}</div>:<div style={{fontSize:14,color:"#6B7280",padding:"10px 14px",background:"#0D0D1A",borderRadius:6,border:"1px solid #2A2A3E"}}>No buyer — sell vehicle first</div>}</label>
+</div>}
+<label style={{...S.fl,fontSize:15}}>Destination
+{outForm.isRetail&&outForm.deliveryAddress
+  ?<div style={{fontSize:14,fontWeight:700,color:"#67E8F9",padding:"10px 14px",background:"#0D2B3E",borderRadius:6,border:"1px solid #164E63"}}>🏪 {outForm.customerName||"Customer"} — {outForm.deliveryAddress}</div>
+  :<select style={{...S.fi,fontSize:15,padding:"10px 14px"}} value={outForm.destination||v.soldTo||""} onChange={(e: any)=>{const nf={...outForm,destination:e.target.value};setOutForm(nf);saveOut(nf);}}>
+    <option value="">Select destination…</option>
+    <option value="PHX">PHX</option>
+    <option value="Dallas">Dallas</option>
+    {v.soldTo&&!dealers.find((d: any)=>d.name===v.soldTo)&&<option value={v.soldTo}>🏢 {v.soldTo}</option>}
+    {dealers.length>0&&<option disabled>──────────</option>}
+    {dealers.map((d: any)=><option key={d.id} value={d.name}>🏢 {d.name}{d.responsible_for_pickup?' (picks up)':''}</option>)}
+  </select>
+}</label>
 <label style={{...S.fl,fontSize:15}}>Shipping From *<select style={{...S.fi,fontSize:18,padding:"10px 14px"}} value={outForm.shippingFrom||""} onChange={(e: any)=>{const nf={...outForm,shippingFrom:e.target.value};setOutForm(nf);saveOut(nf);}}><option value="">Select...</option><option value="PHX">PHX</option><option value="Dallas">Dallas</option></select></label>
 <label style={{...S.fl,fontSize:15}}>Cost ($)<input style={{...S.fi,fontSize:18,padding:"10px 14px"}} type="number" value={outForm.cost===0?"":outForm.cost||""} onChange={(e: any)=>{const val=e.target.value===""?0:parseFloat(e.target.value);setOutForm({...outForm,cost:val});}} onBlur={()=>saveOut(outForm)}/></label>
-<div style={{display:"flex",gap:8}}>
-<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,border:!outForm.isDriveway&&!outForm.isRetail?"2px solid #3B82F6":"2px solid #2A2A3E",background:!outForm.isDriveway&&!outForm.isRetail?"#1E3A5F":"#0D0D1A",color:!outForm.isDriveway&&!outForm.isRetail?"#93C5FD":"#6B7280"}}
+{(()=>{const soldToDealer=dealers.find((d: any)=>d.name===v.soldTo);const dealerPicksUp=soldToDealer?.responsible_for_pickup;return dealerPicksUp&&!outForm.dealerHandling&&!outForm.buyerPickup?<div style={{padding:"10px 14px",borderRadius:8,background:"#052E16",border:"1px solid #166534",marginBottom:8,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>🏢</span><div><div style={{fontSize:13,fontWeight:700,color:"#34D399"}}>{v.soldTo} handles their own pickup</div><div style={{fontSize:11,color:"#6B7280"}}>Dealer is marked as pickup-responsible — no transport company needed</div></div><button style={{...S.sm,fontSize:11,marginLeft:"auto"}} onClick={()=>{const nf={...outForm,dealerHandling:true,isDriveway:false,isRetail:false,buyerPickup:false,company:v.soldTo||""};setOutForm(nf);saveOut(nf);}}>Set as Dealer P/U</button></div>:null;})()}
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+<button style={{flex:1,minWidth:100,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:15,fontWeight:700,border:!outForm.isDriveway&&!outForm.isRetail&&!outForm.dealerHandling?"2px solid #3B82F6":"2px solid #2A2A3E",background:!outForm.isDriveway&&!outForm.isRetail&&!outForm.dealerHandling?"#1E3A5F":"#0D0D1A",color:!outForm.isDriveway&&!outForm.isRetail&&!outForm.dealerHandling?"#93C5FD":"#6B7280"}}
 onClick={()=>{const nf={...outForm,isDriveway:false,isRetail:false,dealerHandling:false};setOutForm(nf);saveOut(nf);}}>🚛 Lot Pick Up</button>
-<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,border:outForm.dealerHandling?"2px solid #34D399":"2px solid #2A2A3E",background:outForm.dealerHandling?"#0D3B1E":"#0D0D1A",color:outForm.dealerHandling?"#34D399":"#6B7280"}} onClick={()=>{const nf={...outForm,dealerHandling:true,isDriveway:false,isRetail:false,company:v.soldTo||""};setOutForm(nf);saveOut(nf);}}>🏢 Dealer P/U</button>
-<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,border:outForm.isDriveway?"2px solid #7C3AED":"2px solid #2A2A3E",background:outForm.isDriveway?"#4C1D95":"#0D0D1A",color:outForm.isDriveway?"#DDD6FE":"#6B7280"}}
-onClick={()=>{const inb2=v.transport?.inbound||{};const dest=v.soldTo||outForm.destination||"";setOutForm({...outForm,isDriveway:true,isRetail:false,destination:dest,readyDate:inb2.driverwayClearDate||outForm.readyDate||"",eta:inb2.drivewayEta||outForm.eta||"",set:!!(inb2.driverwayClearDate||outForm.readyDate),pickedUp:inb2.drivewayPickedUp||outForm.pickedUp||false,datePickedUp:inb2.drivewayPickedUpDate||outForm.datePickedUp||""});}}>🏠 Driveway Delivery</button>
-<button style={{flex:1,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:16,fontWeight:700,border:outForm.isRetail?"2px solid #06B6D4":"2px solid #2A2A3E",background:outForm.isRetail?"#164E63":"#0D0D1A",color:outForm.isRetail?"#67E8F9":"#6B7280"}}
-onClick={()=>{const nf={...outForm,isDriveway:false,isRetail:true};setOutForm(nf);saveOut(nf);}}>🏪 Retail Delivery</button>
+<button style={{flex:1,minWidth:100,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:15,fontWeight:700,border:outForm.dealerHandling?"2px solid #34D399":"2px solid #2A2A3E",background:outForm.dealerHandling?"#0D3B1E":"#0D0D1A",color:outForm.dealerHandling?"#34D399":"#6B7280"}} onClick={()=>{const nf={...outForm,dealerHandling:true,isDriveway:false,isRetail:false,buyerPickup:false,company:v.soldTo||""};setOutForm(nf);saveOut(nf);}}>🏢 Dealer P/U</button>
+<button style={{flex:1,minWidth:100,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:15,fontWeight:700,border:outForm.isDriveway?"2px solid #7C3AED":"2px solid #2A2A3E",background:outForm.isDriveway?"#4C1D95":"#0D0D1A",color:outForm.isDriveway?"#DDD6FE":"#6B7280"}}
+onClick={()=>{const inb2=v.transport?.inbound||{};const dest=v.soldTo||outForm.destination||"";setOutForm({...outForm,isDriveway:true,isRetail:false,dealerHandling:false,destination:dest,readyDate:inb2.driverwayClearDate||outForm.readyDate||"",eta:inb2.drivewayEta||outForm.eta||"",set:!!(inb2.driverwayClearDate||outForm.readyDate),pickedUp:inb2.drivewayPickedUp||outForm.pickedUp||false,datePickedUp:inb2.drivewayPickedUpDate||outForm.datePickedUp||""});}}>🏠 Driveway</button>
+<button style={{flex:1,minWidth:100,padding:12,borderRadius:8,cursor:"pointer",textAlign:"center",fontSize:15,fontWeight:700,border:outForm.isRetail?"2px solid #06B6D4":"2px solid #2A2A3E",background:outForm.isRetail?"#164E63":"#0D0D1A",color:outForm.isRetail?"#67E8F9":"#6B7280"}}
+onClick={()=>{const nf={...outForm,isDriveway:false,isRetail:true,dealerHandling:false};setOutForm(nf);saveOut(nf);}}>🏪 Retail</button>
 </div>
+{outForm.dealerHandling&&<div style={{padding:"12px 16px",borderRadius:8,background:"#052E16",border:"2px solid #34D399",display:"flex",alignItems:"center",gap:10}}>
+  <span style={{fontSize:22}}>🏢</span>
+  <div>
+    <div style={{fontSize:14,fontWeight:700,color:"#34D399"}}>Dealer Pickup — {v.soldTo||"Dealer"}</div>
+    <div style={{fontSize:12,color:"#9CA3AF",marginTop:2}}>Dealer is responsible for arranging their own transport from our lot</div>
+  </div>
+</div>}
 <div style={{padding:14,background:"#1A1A2E",borderRadius:8,border:`1px solid ${outForm.isDriveway?"#4C1D95":"#2A2A3E"}`}}>
 <div style={{fontSize:16,fontWeight:700,color:"#E5E7EB",marginBottom:10}}>{outForm.isDriveway?"🏠 Driveway Steps":outForm.isRetail?"🏪 Retail Delivery Steps":"📋 Lot Pick Up Steps"}</div>
 <div style={{padding:"10px 12px",marginBottom:8,borderRadius:6,background:outForm.readyDate?"#0D3B1E":"#0D0D1A",border:`1px solid ${outForm.readyDate?"#166534":"#2A2A3E"}`}}>
@@ -336,7 +374,7 @@ return <div style={{width:"100%"}}>
 {!v.noReconNeeded?
 rcNeeded.length>0?<div style={{fontSize:14,color:"#6B7280"}}>☐ No Recon Needed <span style={{fontSize:12,color:"#F87171"}}>(recon already assigned — remove tasks first)</span></div>
 :<label style={{display:"flex",alignItems:"center",gap:10,fontSize:18,color:"#E5E7EB",fontWeight:700,cursor:"pointer"}}>
-<input type="checkbox" style={{width:22,height:22}} checked={false} onChange={()=>{const today=new Date().toISOString().split("T")[0];const upd: any={noReconNeeded:true,noReconSetBy:(currentUser?.first_name||currentUser?.firstName||""),noReconSetDate:today};if(!v.transport?.outbound?.readyDate){upd.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{set:false}),readyDate:today}};}onUpdate(upd);notify("✅ No Recon Needed — Ready to Ship");}}/>
+<input type="checkbox" style={{width:22,height:22}} checked={false} onChange={()=>{showConfirm(`Mark this vehicle as No Recon Needed? This will set it as ready to ship and notify the buyer. This action can be undone by unchecking the box.`,()=>{const today=new Date().toISOString().split("T")[0];const upd: any={noReconNeeded:true,noReconSetBy:(currentUser?.first_name||currentUser?.firstName||""),noReconSetDate:today};if(!v.transport?.outbound?.readyDate){upd.transport={...(v.transport||{}),outbound:{...(v.transport?.outbound||{set:false}),readyDate:today}};}onUpdate(upd);notify("✅ No Recon Needed — Ready to Ship");if(typeof fireEmail==="function")fireEmail("buyer_recon_complete",{buyer:v.buyingBroker||"",seller:v.sellingBroker||"",vehicle:vData(v),reconSummary:[],totalReconCost:0});},"⚠️ Confirm No Recon Needed",false,"✅ Confirm");}}/>
 No Recon Needed
 </label>
 :<div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -374,7 +412,7 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
   if(!files.length)return;
   setPhotoUploading(true);
   try{
-    const token=sessionStorage.getItem("fc_token")||"";
+    const token=localStorage.getItem("fc_token")||"";
     const fd=new FormData();
     files.forEach(f=>fd.append("files",f));
     const resp=await fetch(API_URL+"/api/uploads/many?folder=images",{method:"POST",headers:{"Authorization":"Bearer "+token},body:fd});
@@ -398,7 +436,7 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
   const mainPhoto=photos[mainIdx];
   const movePhoto=(from: number,to: number)=>{const arr=[...photos];const[item]=arr.splice(from,1);arr.splice(to,0,item);onUpdate({photos:arr});};
   const setMain=(idx: number)=>onUpdate({photos:photos.map((x: any,xi: number)=>({...x,isMain:xi===idx}))});
-  const deletePhoto=(pi: number,p: any)=>showConfirm("Remove this photo? This cannot be undone.",async()=>{if(p.key){try{const token=sessionStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});}catch{/* storage delete best-effort */}}onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo removed");},"Delete Photo");;
+  const deletePhoto=(pi: number,p: any)=>showConfirm("Remove this photo? This cannot be undone.",async()=>{if(p.key){try{const token=localStorage.getItem("fc_token")||"";const parts=p.key.split("/");await fetch(API_URL+"/api/uploads/"+parts[0]+"/"+parts.slice(1).join("/"),{method:"DELETE",headers:{"Authorization":"Bearer "+token}});}catch{/* storage delete best-effort */}}onUpdate({photos:photos.filter((_: any,i: number)=>i!==pi)});notify("🗑 Photo removed");},"Delete Photo");;
   if(photos.length===0)return <div style={{fontSize:13,color:"#4B5563",fontStyle:"italic"}}>No photos uploaded yet.</div>;
   if(photoManage)return <div>
     <div style={{fontSize:12,color:"#6B7280",marginBottom:10}}>Drag position using ← → buttons. First photo is sent as primary to auction. ⭐ = main display photo.</div>
@@ -420,7 +458,7 @@ onClick={()=>{onUpdate({noReconNeeded:false,noReconSetBy:null,noReconSetDate:nul
     </div>
   </div>;
   return <div>
-    <div style={{position:"relative",width:"100%",paddingBottom:"56%",background:"#0D0D1A",borderRadius:8,overflow:"hidden",marginBottom:10,cursor:"pointer"}} onClick={()=>setLbImg2({data:mainPhoto.url,type:isVideo(mainPhoto.url)?"video":"image"})}>
+    <div style={{position:"relative",width:"100%",height:380,background:"#0D0D1A",borderRadius:8,overflow:"hidden",marginBottom:10,cursor:"pointer"}} onClick={()=>setLbImg2({data:mainPhoto.url,type:isVideo(mainPhoto.url)?"video":"image"})}>
       {isVideo(mainPhoto.url)?<><video src={mainPhoto.url} preload="metadata" muted style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain"}}/><div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.35)",fontSize:36,color:"#fff",pointerEvents:"none"}}>▶</div></>:<img src={mainPhoto.url} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain"}}/>}
     </div>
     <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
@@ -457,12 +495,12 @@ if(isVendor&&!isMyTask){
       <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#1A1A2E",color:sColor,border:"1px solid "+sColor,fontWeight:700}}>{sLabel}</span>
     </div>
     {sv&&<div style={{fontSize:13,color:"#93C5FD",fontWeight:600,marginBottom:4}}>🔧 {sv.name}</div>}
-    {_task.notes&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:6,fontStyle:"italic"}}>"{_task.notes}"</div>}
+    {_task.notes&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:6,fontStyle:"italic"}}>"{linkifyText(_task.notes)}"</div>}
     {workTasks.length>0&&<div style={{marginBottom:6}}>
       {workTasks.map((wt: any,wi: number)=>{
         const li=(sv?.lineItems||[]).find((x: any)=>x.id===wt.id);
         return <div key={wi} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#E5E7EB",padding:"3px 0",borderBottom:"1px solid #1A1A2E"}}>
-          <span style={{color:"#9CA3AF"}}>{wt.desc||"—"}</span>
+          <span style={{color:"#9CA3AF"}}>{wt.desc||"—"}{wt.notes&&<span style={{display:"block",fontSize:11,color:"#6B7280",marginTop:1}}>{linkifyText(wt.notes)}</span>}</span>
           {li?.price>0?<span style={{color:"#FBBF24",fontWeight:600}}>${(Number(li.price)||0).toLocaleString()}</span>:<span style={{color:"#4B5563"}}>—</span>}
         </div>;
       })}
@@ -631,16 +669,19 @@ onNotes={(n: any,clearUnread: any,setUnread: any)=>{const t={...v.reconTasks};if
 onPhotos={(p: any)=>{const t={...v.reconTasks};t[cat.key]={...t[cat.key],photos:p};onUpdate({reconTasks:t});}}
 />})}
 </div>}
-{crEditorOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}} onClick={()=>setCrEditorOpen(false)}><div style={{background:"#12122A",border:"2px solid #1E3A5F",borderRadius:12,padding:24,width:"95%",maxWidth:800,maxHeight:"90vh",overflowY:"auto"}} onClick={(e: any)=>e.stopPropagation()}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><span style={{fontWeight:800,color:"#E5E7EB",fontSize:20}}>📋 Condition Report — {v.year} {v.make} {v.model}</span><button style={{...S.sm,fontSize:18}} onClick={()=>setCrEditorOpen(false)}>✕</button></div><ConditionReportEditor startMode={crEditorMode}/></div></div>}
-{sm&&<div style={S.ov} onClick={()=>setSm(false)}><div style={{...S.modal,maxWidth:400}} onClick={(e: any)=>e.stopPropagation()}>
-<h2 style={{color:"#E5E7EB",fontSize:16,marginBottom:12}}>Mark as Sold</h2>
+{crEditorOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}}><div style={{background:"#12122A",border:"2px solid #1E3A5F",borderRadius:12,padding:24,width:"95%",maxWidth:800,maxHeight:"90vh",overflowY:"auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><span style={{fontWeight:800,color:"#E5E7EB",fontSize:20}}>📋 Condition Report — {v.year} {v.make} {v.model}</span><button style={{...S.sm,fontSize:18}} onClick={()=>setCrEditorOpen(false)}>✕</button></div><ConditionReportEditor startMode={crEditorMode}/></div></div>}
+{sm&&<div style={S.ov}><div style={{...S.modal,maxWidth:400}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h2 style={{color:"#E5E7EB",fontSize:16,margin:0}}>Mark as Sold</h2><button style={{background:"transparent",border:"none",color:"#6B7280",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:4,lineHeight:1}} onClick={()=>setSm(false)}>✕</button></div>
 <div style={{display:"flex",flexDirection:"column",gap:10}}>
 <label style={S.fl}>Seller<select style={S.fi} value={sb} onChange={(e: any)=>setSb(e.target.value)}>{(()=>{const names=((allUsers||[]).filter((u: any)=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any,i: any,a: any)=>n&&a.indexOf(n)===i);return names.length?names.map((b: any)=><option key={b} value={b}>{b}</option>):<option value="">— No sellers registered —</option>;})()}</select></label>
-<label style={S.fl}>Sold To (Buying Dealer) *<input style={S.fi} value={st} onChange={(e: any)=>setSt(e.target.value)} placeholder="e.g. AutoMax Dealers"/></label></div>
+<label style={S.fl}>Sold To (Buying Dealer) *
+<input style={S.fi} list="dealer-list" value={st} onChange={(e: any)=>setSt(e.target.value)} placeholder="e.g. AutoMax Dealers"/>
+<datalist id="dealer-list">{dealers.map((d: any)=><option key={d.id} value={d.name}/>)}</datalist>
+</label></div>
 <div style={{display:"flex",gap:8,marginTop:12}}><button style={{...S.btn,background:"#7F1D1D"}} onClick={()=>{const dealer=st||"TBD";showConfirm(`Mark this vehicle as SOLD to ${dealer}?`,()=>{const soldUpdate: any={status:"sold",soldDate:new Date().toISOString().split("T")[0],sellingBroker:sb,soldTo:dealer,kickedReturn:false,kicked:false,kickedFromCSV:false,kickedFromDealer:null};onUpdate(soldUpdate);setSm(false);notify(`Sold! ${st?`to ${st}`:""}`);if(typeof fireEmail==="function"){fireEmail("seller_vehicle_sold",{seller:sb,buyer:v.buyingBroker||"",vehicle:vData({...v,soldTo:dealer,soldDate:new Date().toISOString().split("T")[0]})});}},"Mark as Sold",false);}}>Confirm</button>
 <button style={S.sm} onClick={()=>setSm(false)}>Cancel</button></div>
-</div></div>}{showKick&&<div style={S.ov} onClick={()=>setShowKick(false)}><div style={{...S.modal,maxWidth:500}} onClick={(e: any)=>e.stopPropagation()}>
-<h2 style={{color:"#FDBA74",fontSize:20,marginBottom:4}}>🔄 Kick Vehicle</h2>
+</div></div>}{showKick&&<div style={S.ov}><div style={{...S.modal,maxWidth:500}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><h2 style={{color:"#FDBA74",fontSize:20,margin:0}}>🔄 Kick Vehicle</h2><button style={{background:"transparent",border:"none",color:"#6B7280",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:4,lineHeight:1}} onClick={()=>setShowKick(false)}>✕</button></div>
 <div style={{fontSize:14,color:"#9CA3AF",marginBottom:12}}>Vehicle will be removed from {v.soldTo} and returned to inventory</div>
 <div style={{padding:12,background:"#3B1515",borderRadius:8,border:"1px solid #7F1D1D",marginBottom:12}}>
 <div style={{fontSize:13,color:"#FCA5A5"}}>Dealer: <b style={{fontSize:18,color:"#F87171"}}>{v.soldTo}</b></div>
@@ -666,7 +707,7 @@ outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false,datePickedUp:"",
 kickedHistory:history
 });
 setShowKick(false);setKickReason("");notify(`🔄 KICKED by ${v.soldTo} — vehicle back in inventory`);
-if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.sellingBroker||"",buyer:v.buyingBroker||"",vehicle:vData(v),kickReason:kickReason.trim(),kickedBy:v.soldTo});}},"Confirm Kick");
+if(typeof fireEmail==="function"){fireEmail("seller_vehicle_kicked",{seller:v.sellingBroker||"",buyer:v.buyingBroker||"",vehicle:vData(v),kickReason:kickReason.trim(),kickedBy:v.soldTo});}},"Confirm Kick",true,"🔄 Kick Vehicle");
 }}>🔄 Confirm Kick</button>
 <button style={{...S.sm,fontSize:14,padding:"12px 16px"}} onClick={()=>setShowKick(false)}>Cancel</button>
 </div>
@@ -690,8 +731,8 @@ if(!hasCR)warnings.push({label:"No condition report",sev:"warn"});
 else if(!crDone)warnings.push({label:"Condition report not marked complete",sev:"warn"});
 if(missingFields.length)warnings.push({label:`Missing: ${missingFields.join(", ")}`,sev:"error"});
 const hasErrors=warnings.some(w=>w.sev==="error");
-return <div style={S.ov} onClick={()=>!auctionSending&&setShowAuction(false)}><div style={{...S.modal,maxWidth:560,maxHeight:"90vh",overflowY:"auto"}} onClick={(e: any)=>e.stopPropagation()}>
-<h2 style={{color:"#FDE68A",fontSize:18,marginBottom:4}}>🏛️ Publish to Internal Auction</h2>
+return <div style={S.ov}><div style={{...S.modal,maxWidth:560,maxHeight:"90vh",overflowY:"auto"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><h2 style={{color:"#FDE68A",fontSize:18,margin:0}}>🏛️ Publish to Internal Auction</h2><button style={{background:"transparent",border:"none",color:"#6B7280",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:4,lineHeight:1}} onClick={()=>setShowAuction(false)}>✕</button></div>
 
 {/* Vehicle summary */}
 <div style={{background:"#0D0D1A",border:"1px solid #2A2A3E",borderRadius:8,padding:"10px 14px",marginBottom:12,fontSize:13}}>
@@ -777,5 +818,50 @@ finally{setAuctionSending(false);}
 <div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={(e: any)=>e.stopPropagation()}>
 {lbImg2.type==="video"?<video key={lbImg2.data} src={lbImg2.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={(e: any)=>e.stopPropagation()}/>:<img src={lbImg2.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
 <button style={{position:"fixed",top:12,right:12,width:48,height:48,borderRadius:"50%",background:"#EF4444",border:"none",color:"#FFF",fontSize:24,cursor:"pointer"}} onClick={()=>setLbImg2(null)}>✕</button></div></div>}
+{showEdit&&(()=>{
+const buyerUsers=((allUsers||[]).filter((u: any)=>u.isBuyer||u.is_buyer||(u.role||'').toLowerCase()==='buyer'||(u.role||'').toLowerCase()==='admin').map((u: any)=>(u.firstName+(u.lastName?' '+u.lastName:'')).trim())).filter(Boolean);
+const sellerUsers=((allUsers||[]).filter((u: any)=>u.isSeller||u.is_seller||(u.role||'').toLowerCase()==='seller'||(u.role||'').toLowerCase()==='admin').map((u: any)=>(u.firstName+(u.lastName?' '+u.lastName:'')).trim())).filter(Boolean);
+const ef=(k: string)=>({...S.fi} as any);
+return <div style={{...S.ov,overflowY:"auto",alignItems:"flex-start",paddingTop:30}}><div style={{...S.modal,maxWidth:580,marginBottom:30}} onClick={(e:any)=>e.stopPropagation()}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+<h2 style={{color:"#E5E7EB",fontSize:18,margin:0}}>✏️ Edit Vehicle</h2>
+<button style={{background:"transparent",border:"none",color:"#6B7280",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:4,lineHeight:1}} onClick={()=>setShowEdit(false)}>✕</button>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"end",marginBottom:8}}>
+<label style={S.fl}>Stock #<input style={ef("stockNumber")} value={editForm.stockNumber} onChange={(e:any)=>setEditForm({...editForm,stockNumber:e.target.value.toUpperCase()})}/></label>
+<label style={S.fl}>Year<input style={ef("year")} type="number" value={editForm.year} onChange={(e:any)=>setEditForm({...editForm,year:e.target.value})}/></label>
+<label style={S.fl}>Make<input style={ef("make")} value={editForm.make} onChange={(e:any)=>setEditForm({...editForm,make:e.target.value})}/></label>
+<label style={S.fl}>Model<input style={ef("model")} value={editForm.model} onChange={(e:any)=>setEditForm({...editForm,model:e.target.value})}/></label>
+<label style={S.fl}>Trim<input style={ef("trim")} value={editForm.trim} onChange={(e:any)=>setEditForm({...editForm,trim:e.target.value})}/></label>
+<label style={S.fl}>Color<select style={S.fi} value={editForm.color} onChange={(e:any)=>setEditForm({...editForm,color:e.target.value})}>{COLORS.map((c:string)=><option key={c}>{c}</option>)}</select></label>
+<label style={S.fl}>Miles<input style={ef("miles")} type="number" value={editForm.miles} onChange={(e:any)=>setEditForm({...editForm,miles:e.target.value})}/></label>
+<label style={S.fl}>Location<select style={S.fi} value={editForm.location} onChange={(e:any)=>setEditForm({...editForm,location:e.target.value})}>{LOCATIONS.map((l:string)=><option key={l}>{l}</option>)}</select></label>
+<label style={S.fl}>Buyer<select style={S.fi} value={editForm.buyingBroker} onChange={(e:any)=>setEditForm({...editForm,buyingBroker:e.target.value})}>{buyerUsers.map((n:string)=><option key={n}>{n}</option>)}</select></label>
+<label style={S.fl}>Seller
+  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+    <select style={{...S.fi,flex:1}} value={sellerMode==="manual"?"__manual__":editForm.sellingBroker} onChange={(e:any)=>{if(e.target.value==="__manual__"){setSellerMode("manual");setEditForm({...editForm,sellingBroker:""});}else{setSellerMode("user");setEditForm({...editForm,sellingBroker:e.target.value});}}}>
+      {sellerUsers.map((n:string)=><option key={n} value={n}>{n}</option>)}
+      <option value="__manual__">— Enter email/name —</option>
+    </select>
+  </div>
+  {sellerMode==="manual"&&<input style={{...ef("sellingBroker"),marginTop:4}} placeholder="Email or name" value={editForm.sellingBroker} onChange={(e:any)=>setEditForm({...editForm,sellingBroker:e.target.value})}/>}
+</label>
+</div>
+<div style={{marginTop:8,padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}>
+<div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Vehicle Specs <span style={{fontSize:11,fontWeight:400,color:"#6B7280"}}>(zip used as auction location)</span></div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+<label style={S.fl}>Zip Code<input style={ef("zipCode")} value={editForm.zipCode} onChange={(e:any)=>setEditForm({...editForm,zipCode:e.target.value})}/></label>
+<label style={S.fl}>Fuel Type<select style={S.fi} value={editForm.fuelType} onChange={(e:any)=>setEditForm({...editForm,fuelType:e.target.value})}>{FUEL_TYPES.map((t:string)=><option key={t}>{t}</option>)}</select></label>
+<label style={S.fl}>Transmission<select style={S.fi} value={editForm.transmission} onChange={(e:any)=>setEditForm({...editForm,transmission:e.target.value})}>{TRANSMISSION_TYPES.map((t:string)=><option key={t}>{t}</option>)}</select></label>
+<label style={S.fl}>Engine / Motor<input style={ef("motorTrailer")} value={editForm.motorTrailer} onChange={(e:any)=>setEditForm({...editForm,motorTrailer:e.target.value})}/></label>
+<label style={S.fl}>Drive<select style={S.fi} value={editForm.drive} onChange={(e:any)=>{const d=e.target.value;setEditForm({...editForm,drive:d,driveline:driveToDriveline(d)||editForm.driveline});}}><option value="">— select —</option>{DRIVE_TYPES.map((d:string)=><option key={d}>{d}</option>)}</select></label>
+<label style={S.fl}>Driveline (auto)<input style={ef("driveline")} value={editForm.driveline} onChange={(e:any)=>setEditForm({...editForm,driveline:e.target.value})}/></label>
+</div>
+</div>
+<div style={{display:"flex",gap:8,marginTop:12,position:"sticky",bottom:0,background:"#12122A",padding:"10px 0"}}>
+<button style={{...S.btn,flex:1,padding:12,fontSize:15}} onClick={()=>{onUpdate({stockNumber:editForm.stockNumber.trim()||v.stockNumber,year:Number(editForm.year)||v.year,make:editForm.make.trim()||v.make,model:editForm.model.trim()||v.model,trim:editForm.trim,color:editForm.color,miles:Number(editForm.miles)||0,location:editForm.location,buyingBroker:editForm.buyingBroker,sellingBroker:editForm.sellingBroker,zipCode:editForm.zipCode,fuelType:editForm.fuelType,transmission:editForm.transmission,driveline:editForm.driveline,drive:editForm.drive,motorTrailer:editForm.motorTrailer});setShowEdit(false);notify("✅ Vehicle updated");}}>Save Changes</button>
+<button style={{...S.sm,padding:12}} onClick={()=>setShowEdit(false)}>Cancel</button>
+</div>
+</div></div>;})()}
 </div>;
 }

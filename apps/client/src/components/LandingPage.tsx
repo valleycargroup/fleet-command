@@ -52,7 +52,7 @@ const doLogin=async()=>{
     if(!r.ok){setLoginErr(d.error||"Login failed");setLoading(false);return;}
     setPendingToken(d.token);setPendingUser(d.user);
     if(d.user.must_change_password){setShowChangePw(true);setShowLogin(false);setLoading(false);return;}
-    sessionStorage.setItem("fc_token",d.token);sessionStorage.setItem("fc_user",JSON.stringify(d.user));
+    localStorage.setItem("fc_token",d.token);localStorage.setItem("fc_user",JSON.stringify(d.user));
     onLogin(d.user,d.token);
   }catch(e){setLoginErr("Network error — check connection");setLoading(false);}
   setLoading(false);
@@ -67,7 +67,7 @@ const doChangePw=async()=>{
   try{
     const r=await fetch(API_URL+"/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+pendingToken},body:JSON.stringify({new_password:newPw})});
     if(!r.ok){const d=await r.json();setPwErr(d.error||"Failed");setLoading(false);return;}
-    sessionStorage.setItem("fc_token",pendingToken);sessionStorage.setItem("fc_user",JSON.stringify(pendingUser));
+    localStorage.setItem("fc_token",pendingToken);localStorage.setItem("fc_user",JSON.stringify(pendingUser));
     onLogin(pendingUser,pendingToken);
   }catch(e){setPwErr("Network error");}
   setLoading(false);

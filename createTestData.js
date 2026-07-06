@@ -67,11 +67,14 @@ function buildSqlVars(isMinimal) {
 
 const args = process.argv.slice(2);
 const isMinimal = args.includes('--minimal') || process.env.TEST_DATA_PROFILE === 'minimal';
+const isPlan    = args.includes('--plan')    || process.env.TEST_DATA_PROFILE === 'plan';
 
 const purgeFile = path.resolve(__dirname, 'db', 'test-data-purge.sql');
-const testDataFile = isMinimal
-	? path.resolve(__dirname, 'db', 'test-data.minimal.sql')
-	: path.resolve(__dirname, 'db', 'test-data.sql');
+const testDataFile = isPlan
+	? path.resolve(__dirname, 'db', 'test-data.plan.sql')
+	: isMinimal
+		? path.resolve(__dirname, 'db', 'test-data.minimal.sql')
+		: path.resolve(__dirname, 'db', 'test-data.sql');
 
 for (const f of [purgeFile, testDataFile]) {
 	if (!fs.existsSync(f)) {
@@ -96,11 +99,17 @@ function parseFromEnv() {
 	const user = url?.username || process.env.DB_USER;
 	const password = url?.password || process.env.DB_PASSWORD || '';
 	let host = url?.hostname || process.env.DB_HOST || 'localhost';
-	const port = url?.port || process.env.DB_PORT || '5432';
 	const database =
 		(url?.pathname || '').replace(/^\//, '') || process.env.DB_NAME || 'postgres';
 
-	if (host === 'db' && !isDockerRuntime()) host = 'localhost';
+	// When host is 'db' (Docker service name) and we're running outside Docker,
+	// rewrite to localhost and use the EXTERNAL port (DB_PORT in .env) rather
+	// than the internal URL port — they differ (5434 external vs 5432 internal).
+	let port = url?.port || process.env.DB_PORT || '5432';
+	if (host === 'db' && !isDockerRuntime()) {
+		host = 'localhost';
+		port = process.env.DB_PORT || port;
+	}
 
 	const sslmode =
 		process.env.DB_SSLMODE ||
@@ -132,17 +141,47 @@ function runLocalPsql(conn, filePath) {
 	return result.status === 0;
 }
 
+// Preferred Docker fallback: copy the file into the already-running db container
+// and run psql inside it. Works on Windows Docker Desktop (no --network host needed).
+function runDockerExecPsql(conn, filePath) {
+	const containerName = 'fleet-command-db-1';
+	const remotePath = `/tmp/seed_${Date.now()}.sql`;
+
+	// Check the container is running first
+	const check = spawnSync('docker', ['inspect', '--format={{.State.Running}}', containerName], {
+		encoding: 'utf8',
+	});
+	if (check.status !== 0 || check.stdout.trim() !== 'true') {
+		console.log(`[test-data] Container ${containerName} not running — skipping docker exec fallback`);
+		return false;
+	}
+
+	// Copy the SQL file into the container
+	const cp = spawnSync('docker', ['cp', filePath, `${containerName}:${remotePath}`], {
+		stdio: 'inherit',
+	});
+	if (cp.status !== 0) return false;
+
+	// Run psql inside the container
+	const run = spawnSync(
+		'docker',
+		['exec', containerName, 'sh', '-c',
+			`psql -U ${conn.user} -d ${conn.database} -v ON_ERROR_STOP=1 -f ${remotePath} && rm -f ${remotePath}`],
+		{ stdio: 'inherit', env: { ...process.env, PGPASSWORD: conn.password || '' } }
+	);
+	return run.status === 0;
+}
+
+// Last-resort fallback: spin up a throwaway postgres container.
+// Works on Linux (--network host) but NOT on Windows Docker Desktop.
 function runDockerPsql(conn, filePath) {
 	const dbDir = path.resolve(__dirname, 'db');
 	const vars = buildSqlVars(isMinimal);
 
 	const args = [
-		'run',
-		'--rm',
-		'-v',
-		`${dbDir}:/db:ro`,
-		'-e',
-		`PGPASSWORD=${conn.password || ''}`,
+		'run', '--rm',
+		'-v', `${dbDir}:/db:ro`,
+		'-e', `PGPASSWORD=${conn.password || ''}`,
 	];
 
 	if (['localhost', '127.0.0.1'].includes(conn.host)) {
@@ -163,9 +202,13 @@ function runDockerPsql(conn, filePath) {
 
 function runPsqlWithFallback(conn, filePath) {
 	console.log(`[test-data] Applying ${path.relative(__dirname, filePath)} ...`);
-	const okLocal = runLocalPsql(conn, filePath);
-	if (okLocal) return true;
-	console.log('[test-data] Local psql not available or failed; falling back to dockerized psql...');
+
+	if (runLocalPsql(conn, filePath)) return true;
+
+	console.log('[test-data] Local psql not found; trying docker exec into fleet-command-db-1...');
+	if (runDockerExecPsql(conn, filePath)) return true;
+
+	console.log('[test-data] docker exec failed; trying docker run (Linux only)...');
 	return runDockerPsql(conn, filePath);
 }
 
@@ -174,7 +217,7 @@ function main() {
 	console.log(
 		`[test-data] Target: ${conn.host}:${conn.port}/${conn.database} (sslmode=${conn.sslmode})`
 	);
-	console.log(`[test-data] Profile: ${isMinimal ? 'minimal' : 'full'}`);
+	console.log(`[test-data] Profile: ${isPlan ? 'plan' : isMinimal ? 'minimal' : 'full'}`);
 
 	console.log('[test-data] Running purge...');
 	const purgeOk = runPsqlWithFallback(conn, purgeFile);

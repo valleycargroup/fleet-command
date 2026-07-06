@@ -115,7 +115,7 @@ router.post('/forgot-password', authLimiter, async (req: Request, res: Response)
     const resetUrl = `${APP_URL}?reset=${resetToken}`;
     const { subject, html } = passwordResetEmail(user.first_name, resetUrl);
     const emailRes = await sendEmail(user.email, subject, html);
-    await logEmail('forgot_password', user.email, null, subject, emailRes.ok ? 'sent' : 'failed');
+    await logEmail('forgot_password', user.email, null, subject, emailRes.ok ? 'sent' : 'failed', null, { name: `${user.first_name} ${user.last_name||''}`.trim(), role: user.role }, 'manual', emailRes.messageId, html);
 
     res.json({ ok: true, message: 'If that email exists, a reset link was sent.' });
   } catch (e: any) {

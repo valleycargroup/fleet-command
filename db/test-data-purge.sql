@@ -32,6 +32,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='auctions') THEN
     EXECUTE 'TRUNCATE TABLE auctions RESTART IDENTITY CASCADE';
   END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='dealers') THEN
+    EXECUTE 'TRUNCATE TABLE dealers RESTART IDENTITY CASCADE';
+  END IF;
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='users') THEN
     EXECUTE 'TRUNCATE TABLE users RESTART IDENTITY CASCADE';
   END IF;
