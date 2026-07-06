@@ -72,7 +72,7 @@ export function getCrmBaseUrl(): string {
   const localHost = process.env.CRM_LOCAL_HOST || 'host.docker.internal';
   return resolveBaseUrl({
     prod: 'https://api.crm.valleycargroup.net',
-    dev: 'https://dev.crm.valleycargroup.net',
+    dev: 'https://dev.api.crm.valleycargroup.net',
     local: `http://${localHost}:5001`,
   });
 }
