@@ -1,0 +1,14 @@
+services:
+  server:
+    command: >
+      sh -c "set -e;
+      npm install;
+      npm run dev:debug"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      TS_NODE_DEV_POLL: "true"
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "9231:9231"
+# docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build

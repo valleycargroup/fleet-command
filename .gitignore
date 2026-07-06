@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (local dev only)
+apps/server/uploads/
+
+# Seed data — real user/vendor data, local only
+seed-users.json
+seed-vendors.json
+test-import.csv
+
+# TypeScript cache
+*.tsbuildinfo

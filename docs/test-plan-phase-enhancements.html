@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fleet Command — Full Test Plan</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0D0D1A;color:#E5E7EB;min-height:100vh;padding:24px}
+  h1{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px}
+  .subtitle{font-size:13px;color:#4B5563;margin-bottom:24px}
+  .progress-bar-wrap{background:#1A1A2E;border-radius:8px;height:10px;margin-bottom:8px;overflow:hidden}
+  .progress-bar{height:10px;border-radius:8px;background:linear-gradient(90deg,#10B981,#34D399);transition:width .4s}
+  .progress-label{font-size:12px;color:#6B7280;margin-bottom:24px;display:flex;justify-content:space-between}
+  .section{margin-bottom:28px}
+  .section-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#12122A;border:1px solid #2A2A3E;border-radius:8px 8px 0 0;cursor:pointer;user-select:none}
+  .section-header:hover{background:#1A1A2E}
+  .section-title{font-size:13px;font-weight:700;color:#E5E7EB;letter-spacing:.5px;text-transform:uppercase;flex:1}
+  .section-stats{font-size:12px;color:#4B5563}
+  .section-chevron{font-size:12px;color:#4B5563;transition:transform .2s}
+  .section.collapsed .section-chevron{transform:rotate(-90deg)}
+  .section.collapsed .tests{display:none}
+  .tests{border:1px solid #2A2A3E;border-top:none;border-radius:0 0 8px 8px;overflow:hidden}
+  .test-row{display:grid;grid-template-columns:32px 1fr auto;align-items:start;padding:10px 14px;border-bottom:1px solid #1A1A2E;gap:10px;transition:background .15s;border-left:4px solid transparent}
+  .test-row:last-child{border-bottom:none}
+  .test-row:not(.pass):not(.fail):not(.skip):not(.pending):not(.resolved):hover{background:#111122}
+  .test-row.pass{background:#07180F;border-left-color:#22C55E}
+  .test-row.fail{background:#1C0707;border-left-color:#EF4444}
+  .test-row.skip{background:#18180A;border-left-color:#EAB308}
+  .test-row.pending{background:#1C1108;border-left-color:#F97316}
+  .test-row.resolved{background:#071428;border-left-color:#3B82F6}
+  .test-num{font-size:11px;color:#2A2A4E;font-weight:700;padding-top:2px;text-align:center}
+  .test-row.pass .test-num{color:#22C55E}
+  .test-row.fail .test-num{color:#EF4444}
+  .test-row.skip .test-num{color:#EAB308}
+  .test-row.pending .test-num{color:#F97316}
+  .test-row.resolved .test-num{color:#3B82F6}
+  .test-body{display:flex;flex-direction:column;gap:4px}
+  .test-case{font-size:13px;color:#4B5563;line-height:1.4}
+  .test-row.pass .test-case,.test-row.fail .test-case,.test-row.skip .test-case,.test-row.pending .test-case,.test-row.resolved .test-case{color:#D1D5DB}
+  .test-expected{font-size:11.5px;color:#9CA3AF;line-height:1.5;margin-top:4px;padding:4px 8px 4px 10px;border-left:2px solid #065F46;border-radius:0 4px 4px 0;background:#06110D}
+  .exp-label{color:#34D399;font-weight:800;font-size:10px;letter-spacing:.5px;text-transform:uppercase;margin-right:6px}
+  .test-notes{margin-top:6px;width:100%;background:#0D0D1A;border:1px solid #2A2A3E;border-radius:4px;color:#9CA3AF;font-size:12px;padding:5px 8px;resize:none;font-family:inherit;display:none}
+  .test-notes:focus{outline:none;border-color:#3B82F6}
+  .test-notes.visible{display:block}
+  .actions{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+  .btn-group{display:flex;gap:4px}
+  .btn{border:none;border-radius:4px;font-size:11px;font-weight:700;padding:4px 10px;cursor:pointer;transition:all .15s;letter-spacing:.3px}
+  .btn-pass{background:#064E3B;color:#34D399}.btn-pass:hover,.btn-pass.active{background:#10B981;color:#fff}
+  .btn-fail{background:#450A0A;color:#F87171}.btn-fail:hover,.btn-fail.active{background:#EF4444;color:#fff}
+  .btn-skip{background:#1C1C0A;color:#CA8A04}.btn-skip:hover,.btn-skip.active{background:#EAB308;color:#000}
+  .btn-pending{background:#3B1F0A;color:#FB923C}.btn-pending:hover,.btn-pending.active{background:#F97316;color:#fff}
+  .btn-resolved{background:#0A1A30;color:#60A5FA}.btn-resolved:hover,.btn-resolved.active{background:#3B82F6;color:#fff}
+  .btn-note{background:transparent;border:1px solid #2A2A3E;color:#4B5563;font-size:10px;padding:3px 7px}.btn-note:hover{border-color:#4B5563;color:#9CA3AF}
+  .btn-note.active{border-color:#3B82F6;color:#60A5FA}
+  .status-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.5px}
+  .badge-pass{background:#064E3B;color:#34D399}
+  .badge-fail{background:#450A0A;color:#F87171}
+  .badge-skip{background:#1C1C0A;color:#EAB308}
+  .toolbar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+  .toolbar-btn{background:#12122A;border:1px solid #2A2A3E;color:#9CA3AF;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600}
+  .toolbar-btn:hover{border-color:#4B5563;color:#E5E7EB}
+  .toolbar-btn.green{border-color:#166534;color:#34D399}.toolbar-btn.green:hover{background:#064E3B}
+  .toolbar-btn.blue{border-color:#1E3A5F;color:#60A5FA}.toolbar-btn.blue:hover{background:#0F2940}
+  .saved-tag{font-size:11px;color:#374151;margin-left:auto}
+  .meta-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;padding:10px 14px;background:#12122A;border:1px solid #2A2A3E;border-radius:8px;flex-wrap:wrap}
+  .meta-bar label{font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px}
+  .meta-bar input{background:#0D0D1A;border:1px solid #2A2A3E;border-radius:4px;color:#E5E7EB;font-size:12px;padding:4px 8px;outline:none;width:160px}
+  .meta-bar input:focus{border-color:#3B82F6}
+  .import-hint{font-size:11px;color:#374151;font-style:italic}
+  .folder-strip{font-size:11px;color:#4B5563;padding:6px 14px;background:#0D0D1A;border:1px solid #1A1A2E;border-radius:6px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .folder-strip span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .folder-strip a{color:#3B82F6;cursor:pointer;font-weight:600;text-decoration:none;flex-shrink:0}
+  .folder-strip a:hover{text-decoration:underline}
+  /* Group divider */
+  .group-divider{margin:36px 0 20px;padding:12px 16px;background:#0D0D1A;border-left:3px solid #F97316;border-radius:0 6px 6px 0}
+  .group-divider .gd-label{font-size:14px;font-weight:800;color:#F97316;letter-spacing:.5px;text-transform:uppercase}
+  .group-divider .gd-sub{font-size:11px;color:#6B7280;margin-top:3px;font-family:monospace}
+  /* Section change tags */
+  .section-tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;letter-spacing:.5px;flex-shrink:0;text-transform:uppercase}
+  .tag-new{background:#1A2940;color:#60A5FA;border:1px solid #1E3A5F}
+  .tag-updated{background:#3B2F10;color:#FBBF24;border:1px solid #78590A}
+  .tag-fixed{background:#0A1F12;color:#34D399;border:1px solid #166534}
+  .section-tag{cursor:pointer;transition:opacity .15s}.section-tag:hover{opacity:.7}
+  .tag-add{opacity:0;color:#374151;border:1px dashed #2A2A3E;background:transparent;cursor:pointer;transition:opacity .15s}
+  .section-header:hover .tag-add{opacity:1}
+  .section-done>.section-header{border-color:#166534!important;background:#071A0F}
+  .section-fail>.section-header{border-color:#7F1D1D!important;background:#1A0707}
+  .done-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;background:#064E3B;color:#34D399;letter-spacing:.5px}
+  .fail-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;background:#450A0A;color:#F87171;letter-spacing:.5px}
+  .veh-chip{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;background:#1A2040;color:#818CF8;border:1px solid #312E81;letter-spacing:.3px;margin-right:6px;font-family:monospace;vertical-align:middle;white-space:nowrap}
+  .role-chip{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;letter-spacing:.3px;margin-right:5px;font-family:system-ui,sans-serif;vertical-align:middle;white-space:nowrap}
+  @media print{
+    body{background:#fff;color:#000;padding:12px}
+    .toolbar,.btn,.test-notes,.actions{display:none!important}
+    .section-header{background:#f3f4f6;border-color:#d1d5db}
+    .section-title{color:#111}
+    .tests{border-color:#d1d5db}
+    .test-row{border-color:#e5e7eb}
+    .test-case{color:#111}
+    .test-expected{color:#374151;background:#f0fdf4;border-left-color:#16a34a}
+    .exp-label{color:#15803d}
+    .test-num{color:#9ca3af}
+    .test-row.pass{background:#f0fdf4}
+    .test-row.fail{background:#fef2f2}
+    .test-row.skip{background:#fefce8}
+    .progress-bar-wrap{background:#e5e7eb}
+    h1,.subtitle,.progress-label{color:#111}
+    .group-divider{background:#fff7ed;border-left-color:#f97316}
+    .group-divider .gd-label{color:#c2410c}
+    .group-divider .gd-sub{color:#6b7280}
+    .section-tag{border:1px solid #ccc}
+    .tag-new{background:#dbeafe;color:#1d4ed8}
+    .tag-updated{background:#fef3c7;color:#92400e}
+    .tag-fixed{background:#dcfce7;color:#166534}
+  }
+</style>
+</head>
+<body>
+
+<h1>Fleet Command — Full Test Plan</h1>
+<div class="subtitle">All features · Phase enhancements highlighted · Results auto-save to browser storage on every click · Set an output folder to also auto-save to disk after each change.</div>
+
+<div class="meta-bar">
+  <label>Tester <input id="meta-tester" placeholder="Your name" oninput="saveMeta()"></label>
+  <label>Branch <input id="meta-branch" placeholder="e.g. feature/fleet-enhancements" oninput="saveMeta()"></label>
+  <label>Date <input id="meta-date" type="date" oninput="saveMeta()"></label>
+</div>
+
+<div class="toolbar">
+  <button class="toolbar-btn" onclick="expandAll()">Expand All</button>
+  <button class="toolbar-btn" onclick="collapseAll()">Collapse All</button>
+  <button class="toolbar-btn" onclick="resetAll()">Reset All</button>
+  <button class="toolbar-btn" onclick="window.print()">🖨 Print / PDF</button>
+  <button class="toolbar-btn green" onclick="exportResults()">⬇ Export Results</button>
+  <button class="toolbar-btn" onclick="pickFolder()" id="folder-btn">📁 Set Output Folder</button>
+  <button class="toolbar-btn blue" onclick="document.getElementById('import-input').click()">⬆ Import Results</button>
+  <input id="import-input" type="file" accept=".json" style="display:none" onchange="importResults(event)">
+  <span class="saved-tag" id="saved-tag">—</span>
+</div>
+<div class="folder-strip" id="folder-strip" style="display:none">
+  📁 Output folder: <span id="folder-name"></span>
+  <a onclick="pickFolder()">Change</a>
+</div>
+
+<div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+<div class="progress-label">
+  <span id="progress-text">0 reviewed</span>
+  <span id="progress-pct">0%</span>
+</div>
+
+<div id="plan"></div>
+
+<script>
+const ROLE_COLORS = {
+  'Admin':    { color:'#FBBF24', bg:'#1C1500', border:'#78400A' },
+  'Buyer':    { color:'#60A5FA', bg:'#0C1828', border:'#1E3A5F' },
+  'Seller':   { color:'#34D399', bg:'#051810', border:'#065F46' },
+  'AP':       { color:'#F59E0B', bg:'#1C1000', border:'#92400E' },
+  'TechSupp': { color:'#A78BFA', bg:'#140D2A', border:'#4C1D95' },
+  'Vendor A': { color:'#FB923C', bg:'#1C0D00', border:'#7C2D12' },
+  'Vendor B': { color:'#FDBA74', bg:'#1A1000', border:'#92400E' },
+  'Vendor C': { color:'#86EFAC', bg:'#061A0C', border:'#14532D' },
+  'Buy+Sell': { color:'#22D3EE', bg:'#081E28', border:'#164E63' },
+  'Any':      { color:'#9CA3AF', bg:'#1A1A2E', border:'#374151' },
+};
+function roleChip(role) {
+  if (!role) return '';
+  const c = ROLE_COLORS[role] || { color:'#9CA3AF', bg:'#1A1A2E', border:'#374151' };
+  return '<span class="role-chip" title="Log in as: ' + role + '" style="background:' + c.bg + ';color:' + c.color + ';border:1px solid ' + c.border + '">👤 ' + role + '</span>';
+}
+
+const GROUPS = [
+  {
+    label: null,
+    sections: [
+      {
+        title: "1. Login & Authentication",
+        tests: [
+          { case: "Enter valid email and password (michael.alanw@gmail.com / password123)", expected: "Login succeeds — fleet list loads with all active vehicles", role: "Admin" },
+          { case: "Enter valid email with wrong password", expected: "Error message displayed; user stays on login screen", role: "Any" },
+          { case: "Refresh the browser tab after login", expected: "Session is restored from localStorage — user stays logged in without re-entering credentials", role: "Any" },
+          { case: "Click Logout button", expected: "Session is cleared and the login screen is shown", role: "Any" },
+          { case: "Simulate idle for 12+ hours (or advance the idle timer in console)", expected: "Auto-logout alert fires and session is cleared", role: "Any" },
+        ]
+      },
+      {
+        title: "2. Fleet List, Search & Filters",
+        tests: [
+          { case: "Login as admin → check the fleet list", expected: "7 active vehicles display (PHX-001 through PHX-006 + DFW-001 + DFW-002) with VIN, year, make, model, and location columns", role: "Admin" },
+          { case: "Type 'FORD' in the search box", expected: "List filters to PHX-001 (Ford F-150) only", vehicle: "PHX-001", role: "Admin" },
+          { case: "Clear the search input", expected: "All active vehicles return to the list", role: "Admin" },
+          { case: "Select 'PHX' from the location filter", expected: "Only Phoenix vehicles are shown (PHX-001 through PHX-006)", role: "Admin" },
+          { case: "Select 'Dallas' from the location filter", expected: "Only Dallas vehicles are shown", vehicle: "DFW-001 · DFW-002", role: "Admin" },
+          { case: "Click the Delivered tab", expected: "PHX-004 appears; tab badge shows correct count", vehicle: "PHX-004", role: "Admin" },
+        ]
+      },
+      {
+        title: "3. Add & Edit Vehicles",
+        tests: [
+          { case: "Click + Add Vehicle button", expected: "Modal opens with VIN, year, make, model, color, mileage, and location fields", role: "Admin" },
+          { case: "Fill required fields and save", expected: "Vehicle appears in the active fleet list with correct data", role: "Admin" },
+          { case: "Open an existing vehicle and edit mileage and color, then save", expected: "Changes reflect immediately and persist after page refresh", vehicle: "PHX-001", role: "Admin" },
+          { case: "Delete a vehicle via the confirmation dialog", expected: "Vehicle is removed from the list and no longer searchable", vehicle: "PHX-006", role: "Admin" },
+          { case: "CSV Upload — select a valid vehicle CSV file", expected: "Success toast shows imported and updated counts; new vehicles appear in the list", role: "Admin" },
+        ]
+      },
+      {
+        title: "4. Recon Workflow — Categories & Tasks",
+        tests: [
+          { case: "Open an active vehicle → check recon section", expected: "All recon category cards visible; detail=assigned, bodyshop=bid submitted, touchup=approved, pdr=started, interior=complete", vehicle: "PHX-002", role: "Admin" },
+          { case: "Toggle the 'Need' checkbox on any na category", expected: "Card expands to the task entry form", vehicle: "PHX-001", role: "Admin" },
+          { case: "Assign a vendor to the task", expected: "Vendor name appears on the category card header", vehicle: "PHX-001", role: "Admin" },
+          { case: "Buyer marks the bodyshop bid as Approved", expected: "Status badge shows Approved (blue)", vehicle: "PHX-002 · bodyshop", role: "Buyer" },
+          { case: "Vendor (or admin) marks the touchup task as Started", expected: "Status badge shows In Progress (yellow/amber)", vehicle: "PHX-002 · touchup", role: "Vendor A" },
+          { case: "Mark the pdr task as Complete", expected: "Status badge shows Done (green)", vehicle: "PHX-002 · pdr", role: "Admin" },
+          { case: "Set a priority number (1–9) on a task — interior has priority 3 pre-set", expected: "Priority number is saved and shown correctly after page refresh", vehicle: "PHX-002 · interior", role: "Admin" },
+        ]
+      },
+      {
+        title: "5. Vendor Portal",
+        tests: [
+          { case: "Log in as vendor@fleettest.local (Detail Pro PHX)", expected: "Only vehicles with Detail Pro PHX tasks are visible — PHX-002 appears, DFW-001 does not", role: "Vendor A" },
+          { case: "Vendor opens PHX-002", expected: "Only Detail Pro categories are interactive; others are read-only or hidden", vehicle: "PHX-002", role: "Vendor A" },
+          { case: "Vendor submits a bid on the detail task (no bid yet)", expected: "Bid amount saves and is visible to admin and buyer", vehicle: "PHX-002 · detail", role: "Vendor A" },
+          { case: "Verify cross-vendor isolation — DFW-001 has Phoenix Recon Group tasks only", expected: "DFW-001 is NOT visible to vendor@fleettest.local", vehicle: "DFW-001", role: "Vendor A" },
+        ]
+      },
+      {
+        title: "6. Transport Tracking",
+        tests: [
+          { case: "Open a vehicle → check transport section (inbound already delivered)", expected: "Inbound and outbound transport panels are visible", vehicle: "PHX-001", role: "Admin" },
+          { case: "Set inbound carrier, phone, and ETA from scratch then save", expected: "Data saves and reappears correctly after page refresh", vehicle: "PHX-006", role: "Admin" },
+          { case: "Mark inbound as Picked Up (inbound set, not yet delivered)", expected: "Pickup date is recorded and status updates", vehicle: "DFW-002", role: "Admin" },
+          { case: "Set outbound carrier then mark as Delivered (buyer already approved ship)", expected: "Delivery date is recorded and vehicle status updates accordingly", vehicle: "PHX-003", role: "Admin" },
+        ]
+      },
+      {
+        title: "7. Condition Reports (CR)",
+        tests: [
+          { case: "Open a vehicle with CR already assigned — check CR section", expected: "CR section loads; cr_status=assigned, assigned to techsupport@fleettest.local", vehicle: "PHX-005", role: "TechSupp" },
+          { case: "Open a fresh vehicle and assign the CR to a user via the dropdown", expected: "Assignment persists after page refresh", vehicle: "PHX-001", role: "Admin" },
+          { case: "Set CR status from assigned → complete on PHX-005", expected: "Status badge updates to reflect the new state", vehicle: "PHX-005", role: "TechSupp" },
+          { case: "Use a deep-link URL ?vehicle=<PHX-005 id>&cat=cr", expected: "Page opens directly to the CR section of PHX-005", vehicle: "PHX-005", role: "Any" },
+        ]
+      },
+      {
+        title: "8. Reports Page",
+        tests: [
+          { case: "Admin navigates to the 📊 Reports tab", expected: "Page loads without error or blank screen", role: "Admin" },
+          { case: "Check report content", expected: "Summary statistics render (vehicle counts, status breakdowns, etc.)", role: "Admin" },
+          { case: "Log in as a non-admin role (Buyer, Seller, Vendor)", expected: "Reports tab is not visible in the navigation", role: "Buyer" },
+        ]
+      },
+      {
+        title: "9. Payments Queue",
+        tests: [
+          { case: "Log in as ap@fleettest.local → check navigation", expected: "💸 Payment Queue tab is visible", role: "AP" },
+          { case: "Open Payment Queue", expected: "Queue loads without error and shows pending vendor payouts", role: "AP" },
+          { case: "Log in as Admin (michael.alanw@gmail.com) → check navigation", expected: "Payment Queue tab is also visible for admin", role: "Admin" },
+          { case: "Log in as buyer@fleettest.local (non-AP, non-admin)", expected: "Payment Queue tab is NOT visible", role: "Buyer" },
+        ]
+      },
+      {
+        title: "10. Photo Uploads",
+        tests: [
+          { case: "Open a vehicle → navigate to the 📸 gallery section", expected: "Gallery section loads and is accessible", vehicle: "PHX-005", role: "Admin" },
+          { case: "Upload one or more photos", expected: "Photos appear in the gallery with thumbnails immediately", vehicle: "PHX-005", role: "Admin" },
+          { case: "Refresh the page", expected: "Uploaded photos persist in the gallery", vehicle: "PHX-005", role: "Admin" },
+          { case: "Delete a photo", expected: "Photo is removed from the gallery", vehicle: "PHX-005", role: "Admin" },
+        ]
+      },
+      {
+        title: "11. Deep Links & Background Sync",
+        tests: [
+          { case: "Copy URL with ?vehicle=<PHX-001 id> and open in a new tab", expected: "Vehicle detail opens directly to PHX-001", vehicle: "PHX-001", role: "Any" },
+          { case: "Copy URL with ?vehicle=<PHX-002 id>&cat=bodyshop", expected: "Page opens to the Body Shop recon tab of PHX-002", vehicle: "PHX-002", role: "Any" },
+          { case: "Leave the app idle for 30 seconds (no user interaction)", expected: "Vehicle data refreshes automatically from the server in the background", role: "Any" },
+          { case: "Open app in two tabs and edit a field in Tab 1", expected: "Tab 2 reflects the update via WebSocket within a few seconds (see also section 28)", vehicle: "PHX-001", role: "Any" },
+        ]
+      },
+    ]
+  },
+  {
+    label: "⚡ Phase Enhancements",
+    sublabel: "feature/fleet-enhancements branch",
+    sections: [
+      {
+        title: "12. Task Notes UX",
+        tag: "updated",
+        tests: [
+          { case: "Open a vehicle in recon — bodyshop task has notes pre-seeded", expected: "Pre-seeded notes display in preview mode with the ✏️ edit icon visible", vehicle: "PHX-002 · bodyshop", role: "Admin" },
+          { case: "Click ✏️ on pre-seeded notes", expected: "Editor reopens with the existing text pre-filled and focused", vehicle: "PHX-002 · bodyshop", role: "Admin" },
+          { case: "Type notes and click away without pressing any button", expected: "Text saves and shows in preview mode (not an editable input)", vehicle: "PHX-002", role: "Admin" },
+          { case: "Check the label next to TASK NOTES", expected: "'· saves automatically' hint is visible next to the label", vehicle: "PHX-002", role: "Admin" },
+          { case: "Check Save Notes button visibility with non-empty notes", expected: "Save Notes button is visible only when notes contain text", vehicle: "PHX-002", role: "Admin" },
+          { case: "Click Save Notes", expected: "Editor closes, preview shows with a brief '✓ Saved' flash", vehicle: "PHX-002", role: "Admin" },
+          { case: "Type notes and press Shift + a letter to capitalize", expected: "Editor stays open — Shift key does NOT close the notes editor", vehicle: "PHX-002", role: "Admin" },
+          { case: "Leave notes blank and save the task", expected: "Task saves normally — notes are not required and Save Notes is not shown", vehicle: "PHX-002", role: "Admin" },
+        ]
+      },
+      {
+        title: "13. URL Detection in Notes",
+        tag: "new",
+        tests: [
+          { case: "Open the bodyshop task — notes already contain URLs (pre-seeded)", expected: "Each URL in the pre-seeded note is a clickable blue hyperlink in preview mode", vehicle: "PHX-002 · bodyshop", role: "Admin" },
+          { case: "Type 'https://example.com' in task notes and save", expected: "URL renders as a clickable blue hyperlink in preview mode", vehicle: "PHX-002", role: "Admin" },
+          { case: "Type bare domain 'google.com' (no protocol) and save", expected: "Renders as a clickable link with https:// prepended automatically", vehicle: "PHX-002", role: "Admin" },
+          { case: "Type an email address 'billing@vendor.com' in notes and save", expected: "Email address is NOT converted to a hyperlink", vehicle: "PHX-002", role: "Admin" },
+          { case: "Type a note containing multiple URLs and save", expected: "Each URL is independently hyperlinked in preview mode", vehicle: "PHX-002", role: "Admin" },
+        ]
+      },
+      {
+        title: "14. Priority Dropdown Fix",
+        tag: "fixed",
+        tests: [
+          { case: "Open the interior task — priority 3 is pre-set", expected: "Priority dropdown shows '3' selected and numbers 1–9 are clearly visible (not invisible)", vehicle: "PHX-002 · interior", role: "Admin" },
+          { case: "Check number legibility", expected: "Numbers are readable — light text on dark background (not white-on-white)", vehicle: "PHX-002 · interior", role: "Admin" },
+          { case: "Select a different priority number and save", expected: "Selection saves and displays correctly after page refresh", vehicle: "PHX-002 · interior", role: "Admin" },
+        ]
+      },
+      {
+        title: "15. Vehicle Detail — Full-Width View",
+        tag: "updated",
+        tests: [
+          { case: "Click any vehicle row in the fleet list", expected: "Vehicle detail takes the full content area — no split-panel layout with list on the left", vehicle: "PHX-001", role: "Admin" },
+          { case: "Check vehicle list visibility while detail is open", expected: "Vehicle table/list is not visible while the detail is open", role: "Admin" },
+          { case: "Click another tab (e.g. Vendors) and then return to Fleet", expected: "Vehicle list shows again; no stale detail stuck open", role: "Admin" },
+        ]
+      },
+      {
+        title: "16. Broker / Seller Email Notifications",
+        tag: "new",
+        tests: [
+          { case: "Open PHX-001 → scroll to Recon section → check the ☐ No Recon Needed checkbox", expected: "Saves automatically; '✅ No Recon Needed — Ready to Ship' toast appears", vehicle: "PHX-001", role: "Admin" },
+          { case: "Scroll to 🚚 Outbound Transport → click the green ✅ Approve Shipping button", expected: "Toast fires; sales@rfdprint.com receives a broker notification email within a few minutes", vehicle: "PHX-001", role: "Admin" },
+          { case: "Open the notification email in sales@rfdprint.com inbox → click the deep link", expected: "Email contains a clickable deep link that opens PHX-001 in the app (log in as Seller if prompted)", vehicle: "PHX-001", role: "Seller" },
+          { case: "Check server email audit trail (Admin → Reports or email-log)", expected: "Email log entry recorded for the buyer_approved_shipping event with a valid UUID (not db_<uuid>)", vehicle: "PHX-001", role: "Admin" },
+          { case: "Log in as sales@rfdprint.com (Seller role)", expected: "Seller can view vehicles where they are the selling broker (PHX-001, PHX-003)", vehicle: "PHX-003", role: "Seller" },
+        ]
+      },
+      {
+        title: "17. Dealer Management",
+        tag: "new",
+        tests: [
+          { case: "Admin opens the 🏢 Dealers tab", expected: "3 dealers load: Premier Auto Group, DFW Direct Motors, Valley Star Dealership", role: "Admin" },
+          { case: "Click Add Dealer", expected: "Form opens with name, email, phone, and address fields", role: "Admin" },
+          { case: "Fill all fields and save", expected: "New dealer appears in the list", role: "Admin" },
+          { case: "Edit dealer name and contact info, then save", expected: "Changes persist after page refresh", role: "Admin" },
+          { case: "Delete a dealer", expected: "Confirmation required; dealer is removed from the list after confirmation", role: "Admin" },
+        ]
+      },
+      {
+        title: "18. Tech Support Role",
+        tag: "new",
+        tests: [
+          { case: "Log in as techsupport@fleettest.local", expected: "🛠️ Tech Support badge shows in the header in purple (#A78BFA)", role: "TechSupp" },
+          { case: "Check visible navigation tabs", expected: "Register, Reports, Payment Queue, Dealers, and Email Log tabs all visible", role: "TechSupp" },
+          { case: "Add a new vendor as Tech Support", expected: "Vendor is created without a 403 Forbidden error", role: "TechSupp" },
+          { case: "Edit an existing vendor as Tech Support", expected: "Changes save without a 403 error", role: "TechSupp" },
+          { case: "Delete a vendor as Tech Support", expected: "Vendor is removed without a 403 error", role: "TechSupp" },
+          { case: "Add a new user as Tech Support", expected: "User is created without a 403 error", role: "TechSupp" },
+          { case: "Edit an existing user as Tech Support", expected: "Changes save without a 403 error", role: "TechSupp" },
+        ]
+      },
+      {
+        title: "19. User & Vendor IDs in Register",
+        tag: "new",
+        tests: [
+          { case: "Log in as Admin → Register → Users tab", expected: "ID: <uuid> shown under each user card", role: "Admin" },
+          { case: "Log in as Admin → Register → Vendors tab", expected: "ID: <uuid> shown under each vendor card", role: "Admin" },
+          { case: "Log in as techsupport@fleettest.local → check user cards", expected: "ID: <uuid> visible under each user card", role: "TechSupp" },
+          { case: "Log in as Tech Support → check vendor cards", expected: "ID: <uuid> visible under each vendor card", role: "TechSupp" },
+          { case: "Log in as buyer@fleettest.local → check Register", expected: "IDs are NOT visible on user or vendor cards", role: "Buyer" },
+          { case: "Log in as sales@rfdprint.com → check Register", expected: "IDs are NOT visible anywhere in the UI", role: "Seller" },
+        ]
+      },
+      {
+        title: "20. UUID Migration",
+        tag: "new",
+        tests: [
+          { case: "Load the app after running the UUID migration", expected: "App loads normally — no blank screens or JavaScript console errors", role: "Admin" },
+          { case: "Check the vehicle list", expected: "All 8 seed vehicles display with correct data intact", role: "Admin" },
+          { case: "Check the vendor list in Register tab", expected: "All 4 vendors display correctly", role: "Admin" },
+          { case: "Click into PHX-001", expected: "Vehicle detail opens without error (UUID used in URL/API params)", vehicle: "PHX-001", role: "Admin" },
+          { case: "Check recon tasks inside PHX-002", expected: "All 5 tasks load and display correctly", vehicle: "PHX-002", role: "Admin" },
+          { case: "Refresh the browser", expected: "Session persists — user stays logged in", role: "Admin" },
+          { case: "Add a new vendor", expected: "Vendor saves and gets a UUID id visible in Register (as admin)", role: "Admin" },
+          { case: "Add a new vehicle", expected: "Vehicle saves and appears in the fleet list", role: "Admin" },
+        ]
+      },
+      {
+        title: "21. Seller Role Access",
+        tag: "updated",
+        tests: [
+          { case: "Log in as sales@rfdprint.com (Seller-only)", expected: "Register, Reports, Payment Queue, Dealers, and Email Log tabs are NOT visible", role: "Seller" },
+          { case: "Check Fleet tab as Seller", expected: "Vehicle table loads; PHX-001 and PHX-003 are visible (seller field matches sales@rfdprint.com)", role: "Seller" },
+          { case: "Check Vendors tab as Seller", expected: "Vendors tab is visible and loads", role: "Seller" },
+          { case: "Check for IDs as Seller", expected: "No user or vendor IDs visible anywhere in the UI", role: "Seller" },
+        ]
+      },
+      {
+        title: "22. New Vendor Form",
+        tag: "updated",
+        tests: [
+          { case: "Click Register Recon Vendor", expected: "Modal opens with Company Name, Office Phone, Address, and Payment Dept Email at the top", role: "Admin" },
+          { case: "Verify the login account section", expected: "👤 Vendor Login Account section shows Contact Name, Cell #, Email (login), Password", role: "Admin" },
+          { case: "Submit with all required fields blank", expected: "Alert fires listing all missing required fields", role: "Admin" },
+          { case: "Fill all fields and submit", expected: "Vendor is created and appears in the vendor list", role: "Admin" },
+          { case: "Check for welcome email", expected: "Welcome email is sent to the login email address", role: "Admin" },
+          { case: "Switch to '🔗 Link Existing User' mode", expected: "Two-button toggle appears; clicking shows user dropdown and hides Contact Name / Email / Cell # / Password fields", role: "Admin" },
+          { case: "Select Alex Reyes from the Link Existing dropdown (currently on Detail Pro PHX)", expected: "⚠️ amber warning: 'This user is currently assigned to Detail Pro PHX — saving will move them to this vendor'", role: "Admin" },
+          { case: "Select a user with no current vendor assignment from the Link Existing dropdown", expected: "✓ green confirmation shows their name, email, and role", role: "Admin" },
+          { case: "Save with Link Existing User mode (free user selected)", expected: "Vendor is created; selected user appears as primary contact on the vendor card — no welcome email sent", role: "Admin" },
+          { case: "Create a vendor with zero recon categories selected (either mode)", expected: "Vendor saves successfully — categories are optional", role: "Admin" },
+        ]
+      },
+      {
+        title: "23. Edit Vendor Form",
+        tag: "updated",
+        tests: [
+          { case: "Click Edit on Detail Pro PHX", expected: "Modal opens — no Email, Cell #, or Password fields shown (login account fields only)", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Check the Linked Users panel on Detail Pro PHX", expected: "👤 Linked Users shows Alex Reyes (Primary badge) and Maria Garcia (Set Primary button)", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Click Edit on Touch Up Pro PHX — vendor has a linked user but no primary set", expected: "Jordan Kim's row shows a 'Set Primary' button (no Primary badge)", vehicle: "Touch Up Pro PHX", role: "Admin" },
+          { case: "Back on Detail Pro PHX — click Set Primary on Maria Garcia", expected: "Primary badge moves to Maria Garcia immediately in the form", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Save and re-open Detail Pro PHX", expected: "Maria Garcia now shows the Primary badge — persisted to DB", vehicle: "Detail Pro PHX", role: "Admin" },
+        ]
+      },
+      {
+        title: "24. Linked Users — Add & Remove",
+        tag: "new",
+        tests: [
+          { case: "Edit Body Shop Pro PHX", expected: "Shows 'No users assigned to this vendor yet'", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Check for the Add User control on Body Shop Pro PHX", expected: "'Add a user' dropdown appears with available users not yet linked to this vendor", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Select a user and click + Add on Body Shop Pro PHX", expected: "User appears in the linked users list with a green +new badge", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Click ✕ on a +new (not yet saved) user", expected: "User is removed from the form without saving to the database", role: "Admin" },
+          { case: "Add a user and click Save Changes", expected: "Re-open vendor — user now shows in the Linked Users list", role: "Admin" },
+          { case: "Edit Detail Pro PHX → click ✕ on Maria Garcia and save", expected: "Re-open vendor — Maria Garcia is no longer in the Linked Users list", vehicle: "Detail Pro PHX", role: "Admin" },
+        ]
+      },
+      {
+        title: "25. Payment Department Email",
+        tag: "updated",
+        tests: [
+          { case: "Open Edit Vendor for Detail Pro PHX — locate the Payment Dept Email field", expected: "Field is in the top Company Info section showing 'support@vehiclebuyers.com'", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Open New Vendor form — check field placement", expected: "Payment Dept Email also present in the top Company Info section (not inside Email Notifications)", role: "Admin" },
+          { case: "Edit the field to billing@test.com and save", expected: "Re-open vendor — email persisted correctly", role: "Admin" },
+          { case: "Clear the field and save", expected: "Re-open vendor — field is empty", role: "Admin" },
+        ]
+      },
+      {
+        title: "26. Email CC Preferences",
+        tag: "new",
+        tests: [
+          { case: "Open Edit Vendor for Body Shop Pro PHX (email_prefs is empty — tests defaults)", expected: "'CC primary contact on payment emails' checkbox is checked by default", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Check the bid notification default on Body Shop Pro PHX", expected: "'CC primary contact on bid assignment notifications' is checked by default", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Check 'Send bid notifications to all assigned users' default", expected: "Checkbox is unchecked by default", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Check the weekly digest CC default on Body Shop Pro PHX", expected: "'CC all assigned users on weekly payment digest' is unchecked by default", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Uncheck the payment CC box and save", expected: "Re-open vendor — box is still unchecked (persisted to DB)", role: "Admin" },
+          { case: "Check 'CC all assigned users on weekly payment digest' and save", expected: "Re-open vendor — digest CC box is now checked (persisted to DB)", role: "Admin" },
+          { case: "Trigger digest manually with ccAllOnDigest=true and multiple users linked to Detail Pro PHX", expected: "Email Log shows one vendor_payment_pending_digest row per recipient — all linked users received it, no duplicates", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Check 'Send bid notifications to all assigned users' on Detail Pro PHX and save → assign to a recon task", expected: "vendor_work_assigned email fires to ALL linked users of Detail Pro PHX, not just the primary contact", vehicle: "Detail Pro PHX", role: "Admin" },
+        ]
+      },
+      {
+        title: "27. Set Primary Vendor User",
+        tag: "new",
+        tests: [
+          { case: "Check the vendor card for Touch Up Pro PHX (has Jordan Kim linked, no primary set)", expected: "Card shows italic 'No primary contact assigned'", vehicle: "Touch Up Pro PHX", role: "Admin" },
+          { case: "Edit Touch Up Pro PHX → click Set Primary on Jordan Kim", expected: "Jordan Kim's row immediately shows a blue 'Primary' badge; no other rows exist", vehicle: "Touch Up Pro PHX", role: "Admin" },
+          { case: "Click Save Changes", expected: "Toast shows '✅ Vendor updated' — no errors", role: "Admin" },
+          { case: "Check vendor card immediately after save (no page refresh)", expected: "Vendor card shows 👤 Jordan Kim · contact info — no refresh needed", vehicle: "Touch Up Pro PHX", role: "Admin" },
+          { case: "Close and re-open Edit Vendor for Touch Up Pro PHX", expected: "Jordan Kim shows the 'Primary' badge — change persisted to DB", vehicle: "Touch Up Pro PHX", role: "Admin" },
+          { case: "Hard refresh the browser (F5 / Ctrl+R) and check vendor card", expected: "Vendor card still shows Jordan Kim as primary contact — survived refresh", role: "Admin" },
+          { case: "Edit Detail Pro PHX → click ✕ Remove on Alex Reyes → save", expected: "Vendor card reverts to 'No primary contact assigned'; primary_user_id cleared in DB", vehicle: "Detail Pro PHX", role: "Admin" },
+        ]
+      },
+      {
+        title: "28. Real-Time WebSocket & Debounced Sync",
+        tag: "new",
+        tests: [
+          { case: "Open the app in two browser tabs (same login) → check browser console", expected: "No WebSocket errors; connection to ws:// (dev) or wss:// (prod) established", role: "Admin" },
+          { case: "Edit a vehicle field (e.g. color or mileage) in Tab 1", expected: "Tab 2 reflects the change within a few seconds — no manual refresh needed", vehicle: "PHX-001", role: "Admin" },
+          { case: "Add a brand-new vehicle in Tab 1", expected: "Vehicle appears in Tab 2's fleet list automatically", role: "Admin" },
+          { case: "Delete PHX-006 in Tab 1", expected: "PHX-006 disappears from Tab 2's list automatically", vehicle: "PHX-006", role: "Admin" },
+          { case: "Edit a vendor (name, categories, or primary user) in Tab 1 admin", expected: "Tab 2's vendor list and Register tab update automatically", role: "Admin" },
+          { case: "Add or remove a user in Tab 1 admin → Register → Users", expected: "Tab 2's user list updates without a manual refresh", role: "Admin" },
+          { case: "Disable network for ~5 seconds then re-enable", expected: "WebSocket reconnects automatically with exponential backoff — app keeps working", role: "Admin" },
+          { case: "Log out → check Network tab in Tab 2", expected: "WebSocket connection closes on logout (no lingering open socket)", role: "Any" },
+          { case: "Log back in → check console in Tab 2", expected: "A new WebSocket connection opens after login", role: "Admin" },
+          { case: "Open Network tab → type a long note (10+ characters) in PHX-001", expected: "Only 1 PUT request fires ~1.5s after typing stops — not one request per keystroke", vehicle: "PHX-001", role: "Admin" },
+          { case: "Make a quick dropdown status change in PHX-001 (not text typing)", expected: "PUT fires promptly (~1.5s) — debounce does not cause excessive delay for non-text actions", vehicle: "PHX-001", role: "Admin" },
+        ]
+      },
+      {
+        title: "29. Edit User — Vendor Assignment & Role Display",
+        tag: "new",
+        tests: [
+          { case: "Edit a vendor user (e.g. vendor@fleettest.local) → check for Vendor Shop Assignment section", expected: "Panel appears below Location with a vendor dropdown", role: "Admin" },
+          { case: "Edit a non-vendor user (e.g. buyer@fleettest.local) → check form", expected: "Vendor Shop Assignment section is NOT visible", role: "Admin" },
+          { case: "Check Vendor Shop dropdown for vendor@fleettest.local", expected: "Dropdown pre-selects their current shop (Detail Pro PHX)", role: "Admin" },
+          { case: "Check Primary contact checkbox for a user who IS the primary on their shop", expected: "Checkbox is pre-checked; blue 'current' badge appears next to the label", role: "Admin" },
+          { case: "Uncheck Primary contact checkbox, save", expected: "Vendor card shows 'No primary contact assigned'; primary_user_id cleared in DB", role: "Admin" },
+          { case: "Re-edit the user — switch shop to a different vendor, check Primary contact, save", expected: "New vendor card shows the user as primary; old vendor card shows 'No primary contact assigned'", role: "Admin" },
+          { case: "Re-edit user — switch shop back to original without checking Primary, save", expected: "Original vendor card still shows 'No primary contact assigned' — Primary is not re-granted automatically", role: "Admin" },
+          { case: "Edit a vendor user — change Vendor Shop to '— Unassigned —', save", expected: "User's vendor_id is cleared; they no longer appear in any vendor's Linked Users panel", role: "Admin" },
+          { case: "Edit a vendor user — check the Role dropdown value", expected: "Role dropdown shows 'Vendor' (not 'Admin')", role: "Admin" },
+          { case: "Edit a TechSupport user — check the Role dropdown value", expected: "Role dropdown shows 'TechSupport' (not 'Admin')", role: "Admin" },
+          { case: "Edit an AP (Accounts Payable) user — check the Role dropdown value", expected: "Role dropdown shows 'Accounts Payable' (not 'Admin')", role: "Admin" },
+        ]
+      },
+      {
+        title: "30. Email Delivery — End-to-End",
+        tag: "new",
+        tests: [
+          { case: "── WELCOME EMAIL ──────────────────────────────────────────────────────", expected: "Real inboxes: michael.alanw@gmail.com · sales@rfdprint.com · support@vehiclebuyers.com", role: "Admin" },
+          { case: "Create a new Recon Vendor using 'Create New Login' — set login email to support@vehiclebuyers.com and fill in a password", expected: "Vendor is created successfully with no error toast", role: "Admin" },
+          { case: "Check support@vehiclebuyers.com inbox within 2–3 minutes", expected: "Welcome email arrives with subject line containing the vendor name, plus the login email and password", role: "Admin" },
+          { case: "Check Email Log (Admin tab) for the new welcome entry", expected: "Row shows event=welcome_vendor, to=support@vehiclebuyers.com, status=sent (not failed)", role: "Admin" },
+          { case: "Create a second vendor using '🔗 Link Existing User' mode (link any existing vendor user)", expected: "Vendor is created — NO welcome email sent; Email Log has no new welcome_vendor entry for this vendor", role: "Admin" },
+          { case: "── PAYMENT NOTIFICATION EMAIL ─────────────────────────────────────────", expected: "Detail Pro PHX paymentDeptEmail = support@vehiclebuyers.com (seeded in email_prefs). Primary vendor contact = vendor@fleettest.local (fake — Email Log only).", role: "Admin" },
+          { case: "As AP user — open Payment Queue → click the Detail Pro PHX card to expand → fill in Check # and Check Written date → click '💸 Mark Paid $700 → Notify Detail Pro PHX'", expected: "All approved tasks marked paid; success toast appears; vendor_payment_receipt email fires to both primary contact and paymentDeptEmail", role: "AP" },
+          { case: "Check support@vehiclebuyers.com inbox within 2–3 minutes", expected: "Payment receipt email arrives (sent as paymentDeptEmail on file for Detail Pro PHX) listing vendor name, jobs, W/S vs retail breakdown, check number, and total", role: "AP" },
+          { case: "Check Email Log for the vendor_payment_receipt entry", expected: "Row(s) show event=vendor_payment_receipt, status=sent — recipients include both vendor@fleettest.local (primary) and support@vehiclebuyers.com (paymentDeptEmail)", role: "Admin" },
+          { case: "Verify paymentDeptEmail is read from vendor email_prefs — open Detail Pro PHX in Admin → Vendors and confirm the Payment Dept Email field shows support@vehiclebuyers.com", expected: "Field is populated; saving the vendor updates email_prefs.paymentDeptEmail in the DB; the payment receipt CC updates if this email is changed", role: "Admin" },
+          { case: "── ALL RECON COMPLETE EMAIL ──────────────────────────────────────────", expected: "Sent to buyer (michael.alanw@gmail.com) when the last recon task is marked Complete. Use PHX-002 — advance all tasks to Complete (detail → bodyshop → pdr → touchup → interior); the email fires when the last one is marked done.", role: "Admin" },
+          { case: "On PHX-002 — advance all recon tasks to Complete status; mark the final task as Complete", expected: "Toast shows '✅ Complete — Ready to Ship'; buyer_recon_complete email fires automatically", vehicle: "PHX-002", role: "Admin" },
+          { case: "Check michael.alanw@gmail.com inbox for the All Recon Complete email", expected: "Email arrives with subject '✅ All Recon Complete — Ready to Ship — 2023 Toyota Camry SE'", vehicle: "PHX-002", role: "Admin" },
+          { case: "Verify the Completed Tasks section in the email shows ALL recon categories (not just one)", expected: "One row per needed category (Detail, Bodyshop, PDR, Touchup, Interior) — each with the vendor name and cost; no rows show '— $0'", vehicle: "PHX-002", role: "Admin" },
+          { case: "Check Email Log for the buyer_recon_complete entry", expected: "Row shows event=buyer_recon_complete, status=sent, to=michael.alanw@gmail.com", vehicle: "PHX-002", role: "Admin" },
+          { case: "── BROKER / SELLER EMAIL ─────────────────────────────────────────────", expected: "Covered fully in §16 — run those steps if not already done", role: "Admin" },
+          { case: "Trigger broker approval on PHX-001 (Approve Shipping button) — see §16 for full steps", expected: "sales@rfdprint.com receives the broker notification email with a deep link; Email Log shows buyer_approved_shipping entry", vehicle: "PHX-001", role: "Admin" },
+          { case: "── VENDOR ASSIGNMENT EMAIL ───────────────────────────────────────────", expected: "Sent to the vendor when assigned to a recon task — vendor emails in seed data are @fleettest.local (fake); verify via Email Log only", role: "Admin" },
+          { case: "Assign Detail Pro PHX to a recon task on any vehicle", expected: "Toast confirms assignment; vendor_assigned email fires to vendor@fleettest.local", role: "Admin" },
+          { case: "Check Email Log for the vendor_assigned entry", expected: "Row shows event=vendor_assigned, to=vendor@fleettest.local, status=sent (delivery to fake domain will soft-fail — status in log is what matters)", role: "Admin" },
+          { case: "── BID SUBMITTED EMAIL ───────────────────────────────────────────────", expected: "Sent to buyer (michael.alanw@gmail.com) when vendor submits a bid", role: "Vendor A" },
+          { case: "Log in as Vendor A → open PHX-002 → submit a bid on the Detail category", expected: "Bid submitted; buyer_bid_submitted email fires", vehicle: "PHX-002", role: "Vendor A" },
+          { case: "Check michael.alanw@gmail.com inbox for the Bid Submitted email", expected: "Email arrives with vehicle info, vendor name, line items, and total bid amount", role: "Admin" },
+          { case: "Check Email Log for the buyer_bid_submitted entry", expected: "Row shows event=buyer_bid_submitted, to=michael.alanw@gmail.com, status=sent", role: "Admin" },
+          { case: "── VENDOR DECLINED EMAIL ─────────────────────────────────────────────", expected: "Sent to buyer when vendor clicks Decline Job", role: "Vendor A" },
+          { case: "Log in as Vendor A → open a vehicle with an unaccepted bid → click ❌ Decline Job", expected: "buyer_vendor_declined email fires to buyer", role: "Vendor A" },
+          { case: "Check Email Log for buyer_vendor_declined entry", expected: "Row shows event=buyer_vendor_declined, status=sent", role: "Admin" },
+          { case: "── WORK COMPLETE EMAIL ───────────────────────────────────────────────", expected: "Sent to buyer (michael.alanw@gmail.com) when vendor marks a task complete", role: "Vendor A" },
+          { case: "Log in as Vendor A → open PHX-002 → mark an approved task as Complete", expected: "buyer_work_complete email fires to buyer with line items and total cost", vehicle: "PHX-002", role: "Vendor A" },
+          { case: "Check michael.alanw@gmail.com inbox for the Work Complete email", expected: "Email shows the category, vendor name, accepted line items, and total", role: "Admin" },
+          { case: "Check Email Log for buyer_work_complete entry", expected: "Row shows event=buyer_work_complete, status=sent", role: "Admin" },
+          { case: "── VEHICLE GROUNDED EMAIL ────────────────────────────────────────────", expected: "Sent to buyer + seller when inbound transport is marked Grounded", role: "Admin" },
+          { case: "Open a vehicle → Inbound Transport → check the Grounded checkbox", expected: "vehicle_grounded email fires to both buyer and seller", role: "Admin" },
+          { case: "Check michael.alanw@gmail.com for the Vehicle Grounded email", expected: "Email confirms vehicle is on ground with location and date", role: "Admin" },
+          { case: "Check Email Log — verify both buyer and seller received grounded notification", expected: "Two rows for vehicle_grounded (or one with multiple recipients) — both status=sent", role: "Admin" },
+          { case: "── TRANSPORT INBOUND SET EMAIL ───────────────────────────────────────", expected: "Sent to buyer when an inbound ETA date is saved", role: "Admin" },
+          { case: "Open PHX-006 → fill in transport company and destination → set an ETA date", expected: "transport_inbound_set email fires to buyer on ETA save", vehicle: "PHX-006", role: "Admin" },
+          { case: "Check Email Log for transport_inbound_set entry", expected: "Row shows event=transport_inbound_set, status=sent", role: "Admin" },
+          { case: "── SHIPPING HOLD EMAIL ───────────────────────────────────────────────", expected: "Sent to buyer when a buyer reverses their Approve Shipping decision", role: "Admin" },
+          { case: "On a vehicle where buyer has approved shipping — click 🛑 Put on Hold", expected: "shipping_hold email fires; toast confirms hold", role: "Admin" },
+          { case: "Check Email Log for shipping_hold entry", expected: "Row shows event=shipping_hold, status=sent", role: "Admin" },
+          { case: "── VEHICLE KICKED EMAIL ──────────────────────────────────────────────", expected: "Sent to seller (sales@rfdprint.com) when a vehicle is kicked back", role: "Admin" },
+          { case: "Open a vehicle with a seller set → use the Kick Vehicle option and confirm", expected: "seller_vehicle_kicked email fires to sales@rfdprint.com", role: "Admin" },
+          { case: "Check sales@rfdprint.com inbox for the Vehicle Kicked email", expected: "Email shows the kick reason, vehicle info, and buyer name", role: "Admin" },
+          { case: "Check Email Log for seller_vehicle_kicked entry", expected: "Row shows event=seller_vehicle_kicked, to=sales@rfdprint.com, status=sent", role: "Admin" },
+          { case: "── VENDOR DIGEST EMAIL (CRON) ────────────────────────────────────────", expected: "Automated: fires 8am / 12pm / 5pm Mon–Fri for vendors with approved unpaid work. Manual trigger available for testing.", role: "Admin" },
+          { case: "Ensure Detail Pro PHX has at least one approved-but-unpaid recon task (PHX-002 touchup is approved)", expected: "Baseline: PHX-002 touchup task is approved, not yet paid — vendor digest should include it", vehicle: "PHX-002", role: "Admin" },
+          { case: "Trigger digest manually: POST /api/payments/trigger-digest (or use any admin tool / Postman)", expected: "Server responds { ok: true }; digest email fires to vendor@fleettest.local (fake — check Email Log)", role: "Admin" },
+          { case: "Check Email Log for vendor_payment_pending_digest entry", expected: "Row shows event=vendor_payment_pending_digest, to=vendor@fleettest.local, status=sent", role: "Admin" },
+          { case: "Wait until a scheduled fire time (8am, 12pm, or 5pm on a weekday) and check Email Log", expected: "New vendor_payment_pending_digest entry appears without any manual trigger — cron is running", role: "Admin" },
+          { case: "── EMAIL LOG PAGE ────────────────────────────────────────────────────", expected: "", role: "Admin" },
+          { case: "After running all email tests above — open Email Log page and count entries", expected: "At least one entry per type: welcome_vendor, vendor_payment_receipt (2 recipients: primary + paymentDeptEmail), buyer_recon_complete, buyer_approved_shipping, vendor_assigned, buyer_bid_submitted, buyer_work_complete, vehicle_grounded, transport_inbound_set, seller_vehicle_kicked, vendor_payment_pending_digest", role: "Admin" },
+          { case: "Check Email Log for any rows with status=failed", expected: "No failed entries for real-inbox emails (gmail/rfdprint/vehiclebuyers) — @fleettest.local entries may show failed delivery but status=sent is acceptable", role: "Admin" },
+          { case: "Click the subject line of a logged email (if clickable) or note the timestamp and recipient", expected: "Email Log shows enough detail (event, to, subject, status, timestamp) to confirm delivery without guessing", role: "Admin" },
+        ]
+      },
+      {
+        title: "31. Payment Cron — Digest & Receipt Emails",
+        tag: "new",
+        tests: [
+          { case: "── PREREQUISITES ─────────────────────────────────────────────────────", expected: "PHX-002 touchup task must be: status=complete, approvedForPayment=true, paid=false. Detail Pro PHX must have an active primary contact user linked.", role: "Admin" },
+          { case: "Confirm Detail Pro PHX appears in queue with PHX-002 touchup listed", expected: "Vendor batch shows at least one job with a locked total > $0 — baseline confirmed. Route: GET /api/payments/queue", vehicle: "PHX-002", role: "AP" },
+
+          { case: "── DIGEST — MANUAL TRIGGER ───────────────────────────────────────────", expected: "POST /api/payments/trigger-digest fires the digest immediately regardless of schedule (forceAll=true)", role: "Admin" },
+          { case: "POST /api/payments/trigger-digest — Postman or Dev Tools", expected: "Server responds { ok: true } with no error body. Route: POST /api/payments/trigger-digest", role: "Admin" },
+          { case: "Check Email Log immediately after trigger", expected: "New vendor_payment_pending_digest row appears for Detail Pro PHX — status=sent. Route: GET /api/email-log", role: "Admin" },
+          { case: "Preview the digest email via Email Log 👁 button", expected: "Subject includes vendor name + 'Payment Pending'; body lists each job with vehicle year/make/model, category, and locked total; W/S vs Retail breakdown shown; total matches Payment Queue total. Route: GET /api/email-log/:id/preview", vehicle: "PHX-002", role: "Admin" },
+
+          { case: "── DIGEST — VENDOR FILTERING ─────────────────────────────────────────", expected: "Only vendors with approved-but-unpaid work receive the digest", role: "Admin" },
+          { case: "Trigger digest when Body Shop Pro PHX has no approved unpaid work", expected: "No vendor_payment_pending_digest entry in Email Log for Body Shop Pro PHX after trigger. Routes: POST /api/payments/trigger-digest → GET /api/email-log", vehicle: "Body Shop Pro PHX", role: "Admin" },
+          { case: "Mark one of Detail Pro PHX's jobs as paid → trigger digest again", expected: "Paid job excluded from digest; if only job, no digest for that vendor. Routes: PUT /api/vehicles/:id (via Payment Queue Mark Paid) → POST /api/payments/trigger-digest", vehicle: "PHX-002", role: "AP" },
+
+          { case: "── DIGEST — PAYMENT TERMS ────────────────────────────────────────────", expected: "Weekly vendors only appear when their cutoff day/time has passed; completion vendors always appear", role: "Admin" },
+          { case: "Inspect isDue flag for Detail Pro PHX in the queue", expected: "isDue=false when current hour/day does not match cutoff; isDue=true when it does. Route: GET /api/payments/queue (check isDue field in response JSON)", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Trigger digest on a weekday that is NOT the vendor's cutoff day", expected: "Vendor with weekly terms NOT included in digest (isDue=false in queue confirms this). Routes: GET /api/payments/queue to verify isDue, then POST /api/payments/trigger-digest and GET /api/email-log to confirm no row", role: "Admin" },
+          { case: "Trigger digest on the vendor's configured cutoff day at or after cutoff time", expected: "GET /api/payments/queue shows isDue=true; POST /api/payments/trigger-digest sends digest; GET /api/email-log shows new row", role: "Admin" },
+
+          { case: "── DIGEST — MANUAL TRIGGER BYPASSES SCHEDULE ─────────────────────────", expected: "POST /api/payments/trigger-digest always uses forceAll=true — fires all vendors regardless of isDue or business-day guard", role: "Admin" },
+          { case: "Trigger digest at an off-schedule hour (e.g. 3pm when daily hours are 8/12/17)", expected: "Completion-terms vendors still receive the digest — forceAll bypasses isDue. Route: POST /api/payments/trigger-digest then GET /api/email-log", role: "Admin" },
+          { case: "Check triggered_by in Email Log after manual trigger", expected: "Rows show triggered_by=manual — no ⏰ auto badge shown in Email Log UI. Route: GET /api/email-log", role: "Admin" },
+
+          { case: "── DIGEST — CRON SCHEDULE ────────────────────────────────────────────", expected: "Cron reads fire times from DB at each tick — no server restart needed when settings change", role: "Admin" },
+          { case: "View current digest schedule in Settings tab", expected: "Daily hour chips highlighted; weekly day/time selectors show DB values. Route: GET /api/settings (loaded on page open)", role: "Admin" },
+          { case: "Wait for a configured daily fire time with Detail Pro PHX having unpaid approved work", expected: "New vendor_payment_pending_digest entry appears without manual trigger — ⏰ auto badge visible. Route: GET /api/email-log to verify", role: "Admin" },
+          { case: "Check Email Log on a Saturday or Sunday", expected: "No new vendor_payment_pending_digest entries fire — isBusinessDay() guard prevents weekend sends. Route: GET /api/email-log", role: "Admin" },
+          { case: "Change daily hours in Settings (remove 12pm, add 10am) — no server restart — wait for 10am", expected: "Digest fires at 10am, not at 12pm — confirms runtime DB read. Route: PUT /api/settings/digest_daily_hours then observe GET /api/email-log", role: "Admin" },
+
+          { case: "── DIGEST — CC ALL USERS FLAG ────────────────────────────────────────", expected: "When ccAllOnDigest is enabled, all linked vendor users receive the digest", role: "Admin" },
+          { case: "Edit Detail Pro PHX → check 'CC all assigned users on weekly payment digest' → save", expected: "Checkbox persists on re-open. Route: PUT /api/vendors/:id (save vendor form)", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Trigger digest with ccAllOnDigest=true and multiple users on Detail Pro PHX", expected: "Email Log shows one vendor_payment_pending_digest row per recipient — all linked users received it, no duplicates. Routes: POST /api/payments/trigger-digest → GET /api/email-log", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Uncheck ccAllOnDigest → trigger again", expected: "Only primary contact receives digest — linked users absent from Email Log. Routes: PUT /api/vendors/:id → POST /api/payments/trigger-digest → GET /api/email-log", vehicle: "Detail Pro PHX", role: "Admin" },
+
+          { case: "── PAYMENT RECEIPT ───────────────────────────────────────────────────", expected: "Fires via POST /api/email/send (type=vendor_payment_receipt) when AP clicks Mark Paid in Payment Queue", role: "AP" },
+          { case: "Open Payment Queue → expand Detail Pro PHX → fill Check # and Check Written date → click Mark Paid", expected: "Jobs marked paid (PUT /api/vehicles/:id updates recon_data); receipt email fires (POST /api/email/send); success toast shown", role: "AP" },
+          { case: "Check Email Log for vendor_payment_receipt entry", expected: "Row shows email_type=vendor_payment_receipt, recipient=vendor@fleettest.local, status=sent. Route: GET /api/email-log", role: "Admin" },
+          { case: "Verify paymentDeptEmail (support@vehiclebuyers.com) also received receipt", expected: "Second vendor_payment_receipt row in Email Log for support@vehiclebuyers.com. Route: GET /api/email-log", role: "Admin" },
+          { case: "Preview receipt email via Email Log 👁 button", expected: "Receipt body lists vendor name, each job with vehicle/category/amounts, check number, written date, grand total. Route: GET /api/email-log/:id/preview", role: "Admin" },
+          { case: "Reopen Payment Queue after marking paid", expected: "Detail Pro PHX batch no longer appears — paid=true excludes jobs. Route: GET /api/payments/queue", role: "AP" },
+          { case: "Trigger digest after marking all Detail Pro PHX jobs paid", expected: "No vendor_payment_pending_digest fires for Detail Pro PHX. Routes: POST /api/payments/trigger-digest → GET /api/email-log", vehicle: "Detail Pro PHX", role: "Admin" },
+
+          { case: "── RECEIPT — DEDUPLICATION ───────────────────────────────────────────", expected: "If primary contact email === paymentDeptEmail, only one receipt email sent", role: "Admin" },
+          { case: "Set Detail Pro PHX paymentDeptEmail to same address as primary contact → mark a batch paid", expected: "Only one vendor_payment_receipt row in Email Log for that address. Routes: PUT /api/vendors/:id → Payment Queue Mark Paid → GET /api/email-log", vehicle: "Detail Pro PHX", role: "Admin" },
+          { case: "Restore paymentDeptEmail to support@vehiclebuyers.com", expected: "Field saves correctly; subsequent receipts go to both addresses. Route: PUT /api/vendors/:id", vehicle: "Detail Pro PHX", role: "Admin" },
+        ]
+      },
+      {
+        title: "32. ⚙️ Settings Tab — Cron Schedule Configuration",
+        tag: "new",
+        tests: [
+          { case: "── TAB & HEADING RENAME ──────────────────────────────────────────────", expected: "Label reads 'Settings', not 'Tech Support'", role: "Admin" },
+          { case: "Open Admin page — confirm the tab button label", expected: "Tab button reads '⚙️ Settings' (not '⚙️ Tech Support')", role: "Admin" },
+          { case: "Click Settings tab — confirm page heading", expected: "Page heading reads '⚙️ Settings' (not '⚙️ Tech Support Settings')", role: "Admin" },
+
+          { case: "── TIMEZONE DISPLAY ──────────────────────────────────────────────────", expected: "Server timezone is shown read-only — cannot be edited from the UI", role: "Admin" },
+          { case: "Scroll to the daily digest section in Settings", expected: "A read-only timezone chip is visible below the daily hour buttons (e.g. '🌐 Server timezone: America/Phoenix — change via TZ env var')", role: "Admin" },
+          { case: "Attempt to click or edit the timezone chip", expected: "No input appears — the field is read-only", role: "Admin" },
+
+          { case: "── DAILY DIGEST HOURS ────────────────────────────────────────────────", expected: "Hour buttons from 6am to 8pm; selected hours are highlighted; changes save to DB immediately", role: "Admin" },
+          { case: "Open Settings tab — confirm Daily Vendor Digest Times section", expected: "Section heading is visible; hour chip buttons span 6am through 8pm (15 options)", role: "Admin" },
+          { case: "Default daily hours (fresh DB or reset): 8am, 12pm, 5pm chips are highlighted", expected: "Three chips active by default — all others inactive", role: "Admin" },
+          { case: "Click 10am chip to add it → save (or auto-save) → refresh page", expected: "10am chip is still highlighted after page refresh — setting persisted to DB", role: "Admin" },
+          { case: "Click 8am to remove it → save → trigger digest at 8am server time", expected: "Digest does NOT fire at 8am — confirms runtime DB read (no restart needed)", role: "Admin" },
+          { case: "Click 10am chip to add it, do NOT restart server, wait for 10am", expected: "Digest fires at 10am without server restart — confirms cron reads settings from DB at each tick", role: "Admin" },
+
+          { case: "── WEEKLY DIGEST SCHEDULE ────────────────────────────────────────────", expected: "Day buttons (Mon–Fri) and hour buttons; changes persist; weekly-terms vendors fire on the selected day/time", role: "Admin" },
+          { case: "Open Settings tab — confirm Weekly Vendor Digest Schedule section", expected: "Section heading is visible; five day buttons (Mon–Fri) and hour buttons (8am–8pm) are rendered", role: "Admin" },
+          { case: "Default weekly day (fresh DB): Friday is selected; default hour: 5pm", expected: "Friday button highlighted, 5pm hour chip highlighted", role: "Admin" },
+          { case: "Change weekly day to Thursday → save → refresh page", expected: "Thursday button is still highlighted — persisted to DB", role: "Admin" },
+          { case: "Change weekly hour to 3pm → save → refresh page", expected: "3pm chip is still highlighted — persisted to DB", role: "Admin" },
+          { case: "Trigger digest on Thursday at 3pm with a weekly-terms vendor having pending work (after saving Thursday/3pm)", expected: "Weekly-terms vendor appears in digest on Thursday at 3pm — isDue logic respects new settings", role: "Admin" },
+          { case: "Trigger digest on a day that is NOT Thursday (after changing to Thursday)", expected: "Weekly-terms vendors are NOT included — isDue=false for wrong day", role: "Admin" },
+
+          { case: "── ROLLOVER / HOLIDAY CHECK ──────────────────────────────────────────", expected: "If the configured weekly day falls on a weekend or holiday, next Monday sends the digest", role: "Admin" },
+          { case: "Change weekly day to Saturday (not a real option but simulate by editing DB directly) and run rollover-check job on Monday", expected: "runRolloverCheck detects yesterday was non-business day, re-runs weekly digest with forceAll=true — Email Log shows cron-triggered digest", role: "Admin" },
+          { case: "Run rollover-check on a normal Tuesday (no weekend gap)", expected: "Rollover-check skips — yesterday was a business day, no redundant send", role: "Admin" },
+        ]
+      },
+    ]
+  }
+];
+
+// Flat indexed array used by all state functions
+const SECTIONS = GROUPS.flatMap(g => g.sections);
+
+const KEY      = 'fc_test_plan_v2';
+const META_KEY = 'fc_test_plan_meta_v2';
+const TAGS_KEY = 'fc_test_plan_tags_v2';
+let state = {};
+let tagState = {}; // si → overridden tag value (null clears it)
+let meta = { tester: '', branch: 'feature/fleet-enhancements', date: new Date().toISOString().slice(0,10) };
+
+const TAG_CYCLE = [null, 'new', 'updated', 'fixed'];
+
+function loadTags() {
+  try { tagState = JSON.parse(localStorage.getItem(TAGS_KEY) || '{}'); } catch { tagState = {}; }
+}
+function saveTags() { localStorage.setItem(TAGS_KEY, JSON.stringify(tagState)); }
+
+function getTag(si) {
+  return (si in tagState) ? tagState[si] : (SECTIONS[si].tag || null);
+}
+
+function cycleTag(si, event) {
+  event.stopPropagation();
+  const current = getTag(si);
+  const idx = TAG_CYCLE.indexOf(current);
+  const next = TAG_CYCLE[(idx + 1) % TAG_CYCLE.length];
+  tagState[si] = next;
+  saveTags();
+  const el = document.getElementById('sectag_' + si);
+  if (!el) return;
+  if (next) {
+    el.className = 'section-tag tag-' + next;
+    el.textContent = TAG_LABELS[next] || next.toUpperCase();
+  } else {
+    el.className = 'section-tag tag-add';
+    el.textContent = '+ TAG';
+  }
+}
+
+function load() {
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { state = {}; }
+  try { const m = JSON.parse(localStorage.getItem(META_KEY) || '{}'); meta = { ...meta, ...m }; } catch {}
+}
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+  const t = new Date().toLocaleTimeString();
+  document.getElementById('saved-tag').textContent = 'Auto-saved locally ' + t;
+  autoSaveToFolder();
+}
+
+let _folderSaveTimer = null;
+async function autoSaveToFolder() {
+  if (!dirHandle) return;
+  clearTimeout(_folderSaveTimer);
+  _folderSaveTimer = setTimeout(async () => {
+    try {
+      const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') return;
+      const payload = buildPayload();
+      const json = JSON.stringify(payload, null, 2);
+      const fh = await dirHandle.getFileHandle(resultFilename(), { create: true });
+      const w = await fh.createWritable();
+      await w.write(json);
+      await w.close();
+      document.getElementById('saved-tag').textContent =
+        '💾 Auto-saved to ' + dirHandle.name + ' at ' + new Date().toLocaleTimeString();
+    } catch { /* folder unavailable — silently skip */ }
+  }, 3000);
+}
+
+function saveMeta() {
+  meta.tester = document.getElementById('meta-tester').value;
+  meta.branch  = document.getElementById('meta-branch').value;
+  meta.date    = document.getElementById('meta-date').value;
+  localStorage.setItem(META_KEY, JSON.stringify(meta));
+}
+
+function loadMetaUI() {
+  document.getElementById('meta-tester').value = meta.tester || '';
+  document.getElementById('meta-branch').value  = meta.branch  || '';
+  document.getElementById('meta-date').value    = meta.date    || '';
+}
+
+// ── IndexedDB helpers for persisting the directory handle ─────────────────
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open('fc_test_plan_fs', 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    r.onsuccess = e => resolve(e.target.result);
+    r.onerror   = () => reject(r.error);
+  });
+}
+async function idbPut(key, val) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(val, key);
+    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('handles', 'readonly');
+    const r  = tx.objectStore('handles').get(key);
+    r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+  });
+}
+
+// ── Directory handle management ────────────────────────────────────────────
+let dirHandle = null;
+
+async function pickFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('Your browser does not support folder selection.\nUse Chrome or Edge, or use the regular download export.');
+    return;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' });
+    dirHandle = handle;
+    await idbPut('outputDir', handle);
+    showFolderStrip(handle.name);
+    document.getElementById('saved-tag').textContent = '📁 Output folder set to: ' + handle.name;
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+async function restoreFolder() {
+  try {
+    const handle = await idbGet('outputDir');
+    if (!handle) return;
+    dirHandle = handle;
+    showFolderStrip(handle.name);
+  } catch {}
+}
+
+function showFolderStrip(name) {
+  document.getElementById('folder-name').textContent = name;
+  document.getElementById('folder-strip').style.display = 'flex';
+  document.getElementById('folder-btn').textContent = '📁 Change Folder';
+}
+
+// ── Build export payload ───────────────────────────────────────────────────
+function buildPayload() {
+  const counts = { pass: 0, fail: 0, pending: 0, resolved: 0, skip: 0, untested: 0, total: 0 };
+  SECTIONS.forEach((sec, si) => sec.tests.forEach((_, ti) => {
+    counts.total++;
+    const s = state[itemKey(si, ti)]?.status || '';
+    if      (s === 'pass')     counts.pass++;
+    else if (s === 'fail')     counts.fail++;
+    else if (s === 'pending')  counts.pending++;
+    else if (s === 'resolved') counts.resolved++;
+    else if (s === 'skip')     counts.skip++;
+    else                       counts.untested++;
+  }));
+  return {
+    _meta: {
+      tester:     meta.tester  || 'Unknown',
+      branch:     meta.branch  || '',
+      date:       meta.date    || new Date().toISOString().slice(0, 10),
+      exportedAt: new Date().toISOString(),
+      summary:    counts,
+    },
+    results: state,
+  };
+}
+
+function resultFilename() {
+  const d = meta.date || new Date().toISOString().slice(0, 10);
+  const t = (meta.tester || 'unknown').replace(/\s+/g, '-').toLowerCase();
+  return 'test-results-' + d + '-' + t + '.json';
+}
+
+// ── Export — folder API or download fallback ───────────────────────────────
+async function exportResults() {
+  const payload  = buildPayload();
+  const json     = JSON.stringify(payload, null, 2);
+  const filename = resultFilename();
+
+  if (dirHandle) {
+    try {
+      const perm = await dirHandle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        const fh  = await dirHandle.getFileHandle(filename, { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(json);
+        await writable.close();
+        document.getElementById('saved-tag').textContent =
+          '✓ Saved to ' + dirHandle.name + '/' + filename + ' — commit to share';
+        return;
+      }
+    } catch (e) {
+      console.warn('Folder write failed, falling back to download:', e);
+    }
+  }
+
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  const tip = dirHandle ? '' : ' — set an output folder to auto-save';
+  document.getElementById('saved-tag').textContent = '⬇ Downloaded ' + filename + tip;
+}
+
+function importResults(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      const imported = payload.results || payload;
+      const m = payload._meta || {};
+      if (m.tester) { meta.tester = m.tester; }
+      if (m.branch) { meta.branch = m.branch; }
+      if (m.date)   { meta.date   = m.date;   }
+      state = imported;
+      save();
+      localStorage.setItem(META_KEY, JSON.stringify(meta));
+      loadMetaUI();
+      buildUI();
+      updateProgress();
+      document.getElementById('saved-tag').textContent =
+        '⬆ Imported from ' + (m.tester || 'unknown') + ' · ' + (m.date || '');
+    } catch {
+      alert('Could not read that file — make sure it is a valid test-results.json.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function itemKey(si, ti) { return si + '_' + ti; }
+
+function setStatus(si, ti, status) {
+  const k = itemKey(si, ti);
+  if (state[k]?.status === status) { state[k] = { ...state[k], status: '' }; }
+  else { state[k] = { ...state[k], status }; }
+  save();
+  renderRow(si, ti);
+  updateProgress();
+  updateSectionStats(si);
+}
+
+function setNote(si, ti, val) {
+  const k = itemKey(si, ti);
+  state[k] = { ...state[k], note: val };
+  save();
+}
+
+function toggleNote(si, ti) {
+  const ta = document.getElementById('notes_' + si + '_' + ti);
+  const btn = document.getElementById('notebtn_' + si + '_' + ti);
+  ta.classList.toggle('visible');
+  btn.classList.toggle('active');
+}
+
+function renderRow(si, ti) {
+  const k = itemKey(si, ti);
+  const s = state[k]?.status || '';
+  const row = document.getElementById('row_' + si + '_' + ti);
+  if (!row) return;
+  row.className = 'test-row' + (s ? ' ' + s : '');
+  ['pass','fail','skip','pending','resolved'].forEach(v => {
+    const b = document.getElementById('btn_' + v + '_' + si + '_' + ti);
+    if (b) b.className = 'btn btn-' + v + (s === v ? ' active' : '');
+  });
+}
+
+function updateProgress() {
+  let total = 0, done = 0, pending = 0, fail = 0;
+  SECTIONS.forEach((sec, si) => {
+    sec.tests.forEach((_, ti) => {
+      total++;
+      const s = state[itemKey(si, ti)]?.status;
+      if (s === 'pass' || s === 'skip' || s === 'resolved') done++;
+      if (s === 'fail') { done++; fail++; }
+      if (s === 'pending') pending++;
+    });
+  });
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  const parts = [done + ' of ' + total + ' reviewed'];
+  if (fail)    parts.push(fail    + ' failing');
+  if (pending) parts.push(pending + ' pending');
+  document.getElementById('progress-text').textContent = parts.join(' · ');
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
+
+function updateSectionStats(si) {
+  const sec = SECTIONS[si];
+  if (!sec) return;
+  let pass = 0, fail = 0, pending = 0, resolved = 0, untested = 0;
+  const total = sec.tests.length;
+  sec.tests.forEach((_, ti) => {
+    const s = state[itemKey(si, ti)]?.status;
+    if      (s === 'pass')     pass++;
+    else if (s === 'fail')     fail++;
+    else if (s === 'pending')  pending++;
+    else if (s === 'resolved') resolved++;
+    else                       untested++;
+  });
+  const parts = [pass + ' passed', fail + ' failed'];
+  if (pending)  parts.push(pending  + ' pending');
+  if (resolved) parts.push(resolved + ' resolved');
+  parts.push(total + ' total');
+  const el = document.getElementById('stats_' + si);
+  if (el) el.textContent = parts.join(' · ');
+
+  // Section-level completion state
+  const sectionDiv = document.getElementById('section_' + si);
+  if (!sectionDiv) return;
+  sectionDiv.classList.remove('section-done', 'section-fail');
+  const badgeEl = document.getElementById('donebadge_' + si);
+  if (untested === 0 && pending === 0 && fail === 0) {
+    sectionDiv.classList.add('section-done');
+    if (badgeEl) { badgeEl.className = 'done-badge'; badgeEl.textContent = '✓ ALL DONE'; }
+  } else if (fail > 0) {
+    sectionDiv.classList.add('section-fail');
+    if (badgeEl) { badgeEl.className = 'fail-badge'; badgeEl.textContent = fail + ' FAILING'; }
+  } else {
+    if (badgeEl) { badgeEl.className = ''; badgeEl.textContent = ''; }
+  }
+}
+
+const TAG_LABELS = { new: 'NEW', updated: 'ENHANCED', fixed: 'FIXED' };
+
+function buildUI() {
+  const plan = document.getElementById('plan');
+  plan.innerHTML = '';
+  let si = 0;
+  GROUPS.forEach(group => {
+    if (group.label) {
+      const gd = document.createElement('div');
+      gd.className = 'group-divider';
+      gd.innerHTML =
+        '<div class="gd-label">' + group.label + '</div>' +
+        (group.sublabel ? '<div class="gd-sub">' + group.sublabel + '</div>' : '');
+      plan.appendChild(gd);
+    }
+    group.sections.forEach(sec => {
+      const div = document.createElement('div');
+      div.className = 'section';
+      div.id = 'section_' + si;
+
+      const currentTag = getTag(si);
+      const tagHtml = currentTag
+        ? '<span id="sectag_' + si + '" class="section-tag tag-' + currentTag + '" onclick="cycleTag(' + si + ',event)" title="Click to cycle tag">' + (TAG_LABELS[currentTag] || currentTag.toUpperCase()) + '</span>'
+        : '<span id="sectag_' + si + '" class="section-tag tag-add" onclick="cycleTag(' + si + ',event)" title="Click to add a tag">+ TAG</span>';
+
+      const hdr = document.createElement('div');
+      hdr.className = 'section-header';
+      hdr.innerHTML =
+        '<span class="section-title">' + sec.title + '</span>' +
+        tagHtml +
+        '<span id="donebadge_' + si + '"></span>' +
+        '<span class="section-stats" id="stats_' + si + '"></span>' +
+        '<span class="section-chevron">▼</span>';
+      const _si = si;
+      hdr.onclick = () => { div.classList.toggle('collapsed'); };
+      div.appendChild(hdr);
+
+      const tests = document.createElement('div');
+      tests.className = 'tests';
+
+      const prevCount = SECTIONS.slice(0, si).reduce((a, s) => a + s.tests.length, 0);
+      sec.tests.forEach((t, ti) => {
+        const k = itemKey(_si, ti);
+        const note = state[k]?.note || '';
+        const row = document.createElement('div');
+        row.className = 'test-row';
+        row.id = 'row_' + _si + '_' + ti;
+
+        row.innerHTML =
+          '<div class="test-num">' + (prevCount + ti + 1) + '</div>' +
+          '<div class="test-body">' +
+            '<div class="test-case">' + roleChip(t.role) + (t.vehicle ? '<span class="veh-chip" title="Seed data: ' + t.vehicle + '">' + t.vehicle + '</span>' : '') + t.case + '</div>' +
+            '<div class="test-expected"><span class="exp-label">Expected</span>' + t.expected + '</div>' +
+            '<textarea id="notes_' + _si + '_' + ti + '" class="test-notes' + (note ? ' visible' : '') + '" rows="2" placeholder="Add notes…" oninput="setNote(' + _si + ',' + ti + ',this.value)">' + (note || '') + '</textarea>' +
+          '</div>' +
+          '<div class="actions">' +
+            '<div class="btn-group">' +
+              '<button id="btn_pass_' + _si + '_' + ti + '" class="btn btn-pass" onclick="setStatus(' + _si + ',' + ti + ',\'pass\')">✓ Pass</button>' +
+              '<button id="btn_fail_' + _si + '_' + ti + '" class="btn btn-fail" onclick="setStatus(' + _si + ',' + ti + ',\'fail\')">✕ Fail</button>' +
+              '<button id="btn_pending_' + _si + '_' + ti + '" class="btn btn-pending" onclick="setStatus(' + _si + ',' + ti + ',\'pending\')" title="Issue found — fix in progress">⏳ Pending</button>' +
+              '<button id="btn_resolved_' + _si + '_' + ti + '" class="btn btn-resolved" onclick="setStatus(' + _si + ',' + ti + ',\'resolved\')" title="Was failing — now fixed and re-verified">✔ Resolved</button>' +
+              '<button id="btn_skip_' + _si + '_' + ti + '" class="btn btn-skip" onclick="setStatus(' + _si + ',' + ti + ',\'skip\')">— Skip</button>' +
+            '</div>' +
+            '<button id="notebtn_' + _si + '_' + ti + '" class="btn btn-note' + (note ? ' active' : '') + '" onclick="toggleNote(' + _si + ',' + ti + ')">📝 Note</button>' +
+          '</div>';
+
+        tests.appendChild(row);
+      });
+
+      div.appendChild(tests);
+      plan.appendChild(div);
+
+      sec.tests.forEach((_, ti) => renderRow(si, ti));
+      updateSectionStats(si);
+      si++;
+    });
+  });
+}
+
+function expandAll()  { document.querySelectorAll('.section').forEach(s => s.classList.remove('collapsed')); }
+function collapseAll(){ document.querySelectorAll('.section').forEach(s => s.classList.add('collapsed')); }
+function resetAll() {
+  if (!confirm('Reset all test results? This cannot be undone.')) return;
+  state = {};
+  save();
+  buildUI();
+  updateProgress();
+}
+
+load();
+loadTags();
+buildUI();
+updateProgress();
+loadMetaUI();
+restoreFolder();
+</script>
+</body>
+</html>
