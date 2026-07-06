@@ -45,6 +45,10 @@ export async function fetchCrmVehicle(vin: string): Promise<CrmVehicle> {
   });
   if (res.status === 404) throw new Error(`No vehicle found in CRM for VIN ${vin}`);
   if (!res.ok) throw new Error(`CRM lookup failed (${res.status})`);
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`CRM is unreachable or not deployed (got ${contentType || 'unknown content-type'} instead of JSON)`);
+  }
   return res.json();
 }
 
