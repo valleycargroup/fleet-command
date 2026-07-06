@@ -2,10 +2,12 @@ import http from 'http';
 import app from './app';
 import './config/env';
 import { startScheduler } from './lib/scheduler';
+import { setupWebSocket } from './lib/ws';
 
 const PORT = process.env.PORT ?? 5001;
 
 const server = http.createServer(app);
+setupWebSocket(server);
 
 server.listen(PORT, () => {
   console.log(`\n======================================================`);

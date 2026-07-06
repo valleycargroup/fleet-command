@@ -1,0 +1,253 @@
+{
+  "_meta": {
+    "tester": "Michael",
+    "branch": "feature/fleet-enhancements",
+    "date": "2026-06-30",
+    "exportedAt": "2026-07-02T04:50:20.034Z",
+    "summary": {
+      "pass": 71,
+      "fail": 0,
+      "pending": 0,
+      "resolved": 5,
+      "skip": 0,
+      "untested": 141,
+      "total": 217
+    }
+  },
+  "results": {
+    "11_0": {
+      "status": "pass"
+    },
+    "11_1": {
+      "status": "pass"
+    },
+    "11_2": {
+      "status": "pass"
+    },
+    "11_3": {
+      "status": "pass"
+    },
+    "11_4": {
+      "status": "pass"
+    },
+    "11_5": {
+      "status": "pass"
+    },
+    "11_6": {
+      "status": "pass"
+    },
+    "11_7": {
+      "status": "pass"
+    },
+    "12_0": {
+      "status": "pass"
+    },
+    "12_1": {
+      "status": "pass"
+    },
+    "12_2": {
+      "status": "pass"
+    },
+    "12_3": {
+      "status": "pass"
+    },
+    "13_0": {
+      "status": "pass"
+    },
+    "13_1": {
+      "status": "pass"
+    },
+    "13_2": {
+      "status": "pass"
+    },
+    "14_0": {
+      "status": "pass"
+    },
+    "14_1": {
+      "status": "pass"
+    },
+    "14_2": {
+      "status": "pass"
+    },
+    "15_0": {
+      "status": "resolved",
+      "note": "No Email. Root cause: The vehicle's seller field stores raw email addresses (e.g. sales@rfdprint.com), but findUserEmailByName was doing a name→email lookup in the users table. An email string like \"sales@rfdprint.com\" never matched any first_name, so the recipient set was empty and nothing was sent. The one-line fix short-circuits the lookup when the value is already an email. The email is now working"
+    },
+    "15_1": {
+      "status": "resolved",
+      "note": "Link did not work at first but is now fixed."
+    },
+    "15_2": {
+      "status": "pass"
+    },
+    "15_3": {
+      "status": "pass"
+    },
+    "15_4": {
+      "status": "pass"
+    },
+    "16_0": {
+      "status": "pass"
+    },
+    "16_1": {
+      "status": "pass"
+    },
+    "16_2": {
+      "status": "pass"
+    },
+    "16_3": {
+      "status": "pass"
+    },
+    "16_4": {
+      "status": "pass"
+    },
+    "17_0": {
+      "status": "pass"
+    },
+    "17_1": {
+      "status": "pass"
+    },
+    "17_2": {
+      "status": "pass"
+    },
+    "17_3": {
+      "status": "pass",
+      "note": ""
+    },
+    "17_4": {
+      "status": "resolved",
+      "note": "Did not work at first, but  now fixed across all 4 route files (6 checks total). The DB stores the role as 'TechSupport' but every server check only listed 'tech support' and 'tech_support' — 'TechSupport'.toLowerCase() = 'techsupport' which matched none of them. Added 'techsupport' to every role array. Restart the server and the delete (and user list) will work for Tech Support."
+    },
+    "17_5": {
+      "status": "pass"
+    },
+    "17_6": {
+      "status": "pass"
+    },
+    "18_0": {
+      "status": "pass"
+    },
+    "18_1": {
+      "status": "pass"
+    },
+    "18_2": {
+      "status": "pass"
+    },
+    "18_3": {
+      "status": "pass"
+    },
+    "18_4": {
+      "status": "pass"
+    },
+    "18_5": {
+      "status": "pass"
+    },
+    "20_0": {
+      "status": "pass"
+    },
+    "20_1": {
+      "status": "pass"
+    },
+    "20_2": {
+      "status": "pass"
+    },
+    "20_3": {
+      "status": "pass"
+    },
+    "21_0": {
+      "status": "pass"
+    },
+    "21_1": {
+      "status": "pass"
+    },
+    "21_2": {
+      "status": "pass"
+    },
+    "21_3": {
+      "status": "pass"
+    },
+    "21_4": {
+      "status": "resolved",
+      "note": "The email did not send"
+    },
+    "21_5": {
+      "status": "pass"
+    },
+    "21_6": {
+      "status": "pass"
+    },
+    "21_7": {
+      "status": "pass"
+    },
+    "21_8": {
+      "status": "pass"
+    },
+    "21_9": {
+      "status": "pass"
+    },
+    "22_1": {
+      "status": "pass"
+    },
+    "22_0": {
+      "status": "pass"
+    },
+    "22_2": {
+      "status": "pass"
+    },
+    "22_3": {
+      "status": "pass"
+    },
+    "22_4": {
+      "status": "pass"
+    },
+    "23_0": {
+      "status": "pass"
+    },
+    "23_1": {
+      "status": "pass"
+    },
+    "23_2": {
+      "status": "pass"
+    },
+    "23_3": {
+      "status": "pass"
+    },
+    "23_4": {
+      "status": "pass"
+    },
+    "23_5": {
+      "status": "pass"
+    },
+    "24_0": {
+      "status": "pass"
+    },
+    "29_0": {
+      "status": "pass"
+    },
+    "29_1": {
+      "status": "pass"
+    },
+    "29_2": {
+      "status": "pass"
+    },
+    "29_3": {
+      "status": "pass"
+    },
+    "29_4": {
+      "status": "pass"
+    },
+    "29_5": {
+      "status": "pass"
+    },
+    "29_6": {
+      "status": "resolved",
+      "note": "It was broken had to make a number of changes"
+    },
+    "29_7": {
+      "status": "pass"
+    },
+    "29_8": {
+      "status": "pass"
+    }
+  }
+}

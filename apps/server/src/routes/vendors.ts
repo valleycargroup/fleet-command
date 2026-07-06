@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../lib/db';
 import { hashPassword, requireAuth } from '../lib/auth';
 import { sendEmail, logEmail, welcomeVendorEmail } from '../lib/email';
+import { broadcast } from '../lib/ws';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
     const rows = (await db.raw(`
       SELECT v.id, v.name, v.location, v.categories, v.office_phone,
              v.payment_terms, v.cutoff_day, v.cutoff_time, v.delivery_method,
-             v.active, v.primary_user_id,
+             v.active, v.primary_user_id, v.payment_info, v.email_prefs,
              u.first_name, u.last_name,
              u.email  AS contact_email,
              u.phone  AS contact_phone
@@ -44,6 +45,8 @@ router.get('/', async (req: Request, res: Response) => {
       cutoff_time:    r.cutoff_time,
       delivery_method: r.delivery_method,
       primary_user_id: r.primary_user_id || null,
+      payment_info:    r.payment_info   || {},
+      email_prefs:     r.email_prefs    || {},
     }));
 
     res.json({ vendors });
@@ -61,13 +64,9 @@ router.post('/', async (req: Request, res: Response) => {
     if (user.role === 'vendor') return res.status(403).json({ error: 'Forbidden' });
 
     const body = req.body;
-    const cleanName    = String(body.name    || '').trim();
-    const cleanEmail   = String(body.email   || '').trim().toLowerCase();
-    const cleanContact = String(body.contact_name || '').trim();
-    const cleanCell    = String(body.phone   || '').trim();
+    const cleanName = String(body.name || '').trim();
 
-    if (!cleanName)  return res.status(400).json({ error: 'Vendor name required' });
-    if (!cleanEmail) return res.status(400).json({ error: 'Email required' });
+    if (!cleanName) return res.status(400).json({ error: 'Vendor name required' });
 
     const cats = Array.isArray(body.categories) ? body.categories
       : (() => { try { const p = JSON.parse(body.categories); return Array.isArray(p) ? p : []; } catch { return []; } })();
@@ -78,36 +77,58 @@ router.post('/', async (req: Request, res: Response) => {
     const deliveryMethod = body.delivery_method || 'USPS Mail';
 
     let warning: string | null = null;
-
-    // 1. Resolve or create the contact user
-    const existingUserRow = (await db.raw('SELECT id, role FROM users WHERE email = ?', [cleanEmail])).rows[0];
-    if (existingUserRow && existingUserRow.role !== 'vendor') {
-      return res.status(400).json({ error: `Email ${cleanEmail} belongs to a ${existingUserRow.role} account` });
-    }
-
-    const { first, last } = splitName(cleanContact || cleanName);
     let primaryUserId: number;
 
-    if (existingUserRow) {
-      // Update existing vendor user's contact details
-      const syncFields = ['first_name = ?', 'last_name = ?', 'phone = ?', 'vendor_tag = ?', 'active = TRUE', 'updated_at = NOW()'];
-      const syncVals: any[] = [first, last, cleanCell, cleanName];
-      if (body.password?.trim()) {
-        syncFields.push('password_hash = ?', 'must_change_password = FALSE');
-        syncVals.push(await hashPassword(body.password.trim()));
-      }
-      syncVals.push(existingUserRow.id);
-      await db.raw(`UPDATE users SET ${syncFields.join(', ')} WHERE id = ?`, syncVals);
-      primaryUserId = existingUserRow.id;
+    // 1a. Link an existing user directly by ID
+    if (body.link_user_id) {
+      const targetUser = (await db.raw('SELECT id FROM users WHERE id = ? AND active = TRUE', [body.link_user_id])).rows[0];
+      if (!targetUser) return res.status(400).json({ error: 'Selected user not found' });
+      primaryUserId = targetUser.id;
+
+    // 1b. Resolve or create by email
     } else {
-      if (!body.password?.trim()) return res.status(400).json({ error: 'Password required for new vendor login' });
-      const hash = await hashPassword(body.password.trim());
-      const newUser = (await db.raw(
-        `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, vendor_tag, must_change_password)
-         VALUES (?, ?, ?, ?, ?, 'vendor', FALSE, FALSE, ?, FALSE) RETURNING id`,
-        [cleanEmail, hash, first, last, cleanCell, cleanName]
-      )).rows[0];
-      primaryUserId = newUser.id;
+      const cleanEmail   = String(body.email   || '').trim().toLowerCase();
+      const cleanContact = String(body.contact_name || '').trim();
+      const cleanCell    = String(body.phone   || '').trim();
+
+      if (!cleanEmail) return res.status(400).json({ error: 'Email required' });
+
+      const existingUserRow = (await db.raw('SELECT id, role FROM users WHERE email = ?', [cleanEmail])).rows[0];
+      if (existingUserRow && existingUserRow.role !== 'vendor') {
+        return res.status(400).json({ error: `Email ${cleanEmail} belongs to a ${existingUserRow.role} account` });
+      }
+
+      const { first, last } = splitName(cleanContact || cleanName);
+
+      if (existingUserRow) {
+        const syncFields = ['first_name = ?', 'last_name = ?', 'phone = ?', 'vendor_tag = ?', 'active = TRUE', 'updated_at = NOW()'];
+        const syncVals: any[] = [first, last, cleanCell, cleanName];
+        if (body.password?.trim()) {
+          syncFields.push('password_hash = ?', 'must_change_password = FALSE');
+          syncVals.push(await hashPassword(body.password.trim()));
+        }
+        syncVals.push(existingUserRow.id);
+        await db.raw(`UPDATE users SET ${syncFields.join(', ')} WHERE id = ?`, syncVals);
+        primaryUserId = existingUserRow.id;
+      } else {
+        if (!body.password?.trim()) return res.status(400).json({ error: 'Password required for new vendor login' });
+        const hash = await hashPassword(body.password.trim());
+        const newUser = (await db.raw(
+          `INSERT INTO users (email, password_hash, first_name, last_name, phone, role, is_buyer, is_seller, vendor_tag, must_change_password)
+           VALUES (?, ?, ?, ?, ?, 'vendor', FALSE, FALSE, ?, FALSE) RETURNING id`,
+          [cleanEmail, hash, first, last, cleanCell, cleanName]
+        )).rows[0];
+        primaryUserId = newUser.id;
+      }
+
+      // Send welcome email — scoped here where cleanEmail/first/last are in scope
+      if (body.password?.trim()) {
+        try {
+          const welcome = welcomeVendorEmail(cleanName, (first + ' ' + last).trim(), cleanEmail, body.password.trim(), cats);
+          const emailRes = await sendEmail(cleanEmail, welcome.subject, welcome.html);
+          await logEmail('welcome_vendor', cleanEmail, null, welcome.subject, emailRes.ok ? 'sent' : 'failed', null, { name: (first + ' ' + last).trim(), role: 'vendor', vendor: cleanName }, 'manual', emailRes.messageId, welcome.html);
+        } catch (e) { console.error('Welcome email failed:', e); }
+      }
     }
 
     // 2. Create or update vendor record
@@ -116,23 +137,25 @@ router.post('/', async (req: Request, res: Response) => {
     )).rows[0];
 
     let vendorId: number;
+    const emailPrefs = body.email_prefs && typeof body.email_prefs === 'object' ? body.email_prefs : {};
+
     if (existingVendor) {
       await db.raw(
         `UPDATE vendors SET location = ?, categories = ?::jsonb, office_phone = ?,
          payment_terms = ?, cutoff_day = ?, cutoff_time = ?, delivery_method = ?,
-         primary_user_id = ?, active = TRUE WHERE id = ?`,
+         primary_user_id = ?, email_prefs = ?::jsonb, active = TRUE WHERE id = ?`,
         [body.location || '', JSON.stringify(cats), body.office_phone || '',
          paymentTerms, cutoffDay, cutoffTime, deliveryMethod,
-         primaryUserId, existingVendor.id]
+         primaryUserId, JSON.stringify(emailPrefs), existingVendor.id]
       );
       vendorId = existingVendor.id;
     } else {
       const result = (await db.raw(
         `INSERT INTO vendors (name, location, categories, office_phone,
-         payment_terms, cutoff_day, cutoff_time, delivery_method, primary_user_id)
-         VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         payment_terms, cutoff_day, cutoff_time, delivery_method, primary_user_id, email_prefs)
+         VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?::jsonb) RETURNING id`,
         [cleanName, body.location || '', JSON.stringify(cats), body.office_phone || '',
-         paymentTerms, cutoffDay, cutoffTime, deliveryMethod, primaryUserId]
+         paymentTerms, cutoffDay, cutoffTime, deliveryMethod, primaryUserId, JSON.stringify(emailPrefs)]
       )).rows[0];
       vendorId = result.id;
     }
@@ -140,15 +163,8 @@ router.post('/', async (req: Request, res: Response) => {
     // 3. Link user back to vendor
     await db.raw('UPDATE users SET vendor_id = ? WHERE id = ?', [vendorId, primaryUserId]);
 
-    // 4. Send welcome email if we have a password
-    if (body.password?.trim()) {
-      try {
-        const welcome = welcomeVendorEmail(cleanName, (first + ' ' + last).trim(), cleanEmail, body.password.trim(), cats);
-        const emailRes = await sendEmail(cleanEmail, welcome.subject, welcome.html);
-        await logEmail('welcome_vendor', cleanEmail, null, welcome.subject, emailRes.ok ? 'sent' : 'failed');
-      } catch (e) { console.error('Welcome email failed:', e); }
-    }
-
+    broadcast('VENDORS_UPDATED');
+    broadcast('USERS_UPDATED');
     res.json({ ok: true, id: vendorId, updated: !!existingVendor, warning });
   } catch (e: any) {
     console.error(e);
@@ -178,15 +194,24 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Update vendor company fields
     const vFields: string[] = [];
     const vValues: any[] = [];
-    if (body.name          !== undefined) { vFields.push('name = ?');           vValues.push(String(body.name).trim()); }
-    if (body.location      !== undefined) { vFields.push('location = ?');       vValues.push(String(body.location)); }
-    if (body.office_phone  !== undefined) { vFields.push('office_phone = ?');   vValues.push(String(body.office_phone)); }
-    if (body.active        !== undefined) { vFields.push('active = ?');         vValues.push(!!body.active); }
-    if (body.payment_terms !== undefined) { vFields.push('payment_terms = ?');  vValues.push(String(body.payment_terms)); }
-    if (body.cutoff_day    !== undefined) { vFields.push('cutoff_day = ?');     vValues.push(String(body.cutoff_day)); }
-    if (body.cutoff_time   !== undefined) { vFields.push('cutoff_time = ?');    vValues.push(String(body.cutoff_time)); }
-    if (body.delivery_method !== undefined) { vFields.push('delivery_method = ?'); vValues.push(String(body.delivery_method)); }
-    if (cats !== null)                    { vFields.push('categories = ?::jsonb'); vValues.push(JSON.stringify(cats)); }
+    if (body.name             !== undefined) { vFields.push('name = ?');            vValues.push(String(body.name).trim()); }
+    if (body.location         !== undefined) { vFields.push('location = ?');        vValues.push(String(body.location)); }
+    if (body.office_phone     !== undefined) { vFields.push('office_phone = ?');    vValues.push(String(body.office_phone)); }
+    if (body.active           !== undefined) { vFields.push('active = ?');          vValues.push(!!body.active); }
+    if (body.payment_terms    !== undefined) { vFields.push('payment_terms = ?');   vValues.push(String(body.payment_terms)); }
+    if (body.cutoff_day       !== undefined) { vFields.push('cutoff_day = ?');      vValues.push(String(body.cutoff_day)); }
+    if (body.cutoff_time      !== undefined) { vFields.push('cutoff_time = ?');     vValues.push(String(body.cutoff_time)); }
+    if (body.delivery_method  !== undefined) { vFields.push('delivery_method = ?'); vValues.push(String(body.delivery_method)); }
+    if (body.primary_user_id  !== undefined) { vFields.push('primary_user_id = ?');      vValues.push(body.primary_user_id || null); }
+    if (body.payment_info     !== undefined) { vFields.push('payment_info = ?::jsonb');  vValues.push(JSON.stringify(body.payment_info || {})); }
+    if (body.email_prefs      !== undefined) { vFields.push('email_prefs = ?::jsonb');   vValues.push(JSON.stringify(body.email_prefs || {})); }
+    if (cats !== null)                       { vFields.push('categories = ?::jsonb');    vValues.push(JSON.stringify(cats)); }
+
+    // If reassigning primary_user_id directly, also update that user's vendor_id link
+    if (body.primary_user_id !== undefined && body.primary_user_id) {
+      await db.raw('UPDATE users SET vendor_id = ?, vendor_tag = ?, updated_at = NOW() WHERE id = ?',
+        [vendorId, String(body.name || vendor.name || '').trim(), body.primary_user_id]);
+    }
 
     if (vFields.length > 0) {
       vValues.push(vendorId);
@@ -266,6 +291,32 @@ router.put('/:id', async (req: Request, res: Response) => {
       }
     }
 
+    // Assign additional users to this vendor
+    if (Array.isArray(body.add_user_ids) && body.add_user_ids.length > 0) {
+      for (const uid of body.add_user_ids) {
+        await db.raw(
+          `UPDATE users SET vendor_id = ?, vendor_tag = ?, updated_at = NOW() WHERE id = ?`,
+          [vendorId, vendorName, uid]
+        );
+      }
+    }
+
+    // Unassign users from this vendor
+    if (Array.isArray(body.remove_user_ids) && body.remove_user_ids.length > 0) {
+      for (const uid of body.remove_user_ids) {
+        await db.raw(
+          `UPDATE users SET vendor_id = NULL, vendor_tag = NULL, updated_at = NOW() WHERE id = ? AND vendor_id = ?`,
+          [uid, vendorId]
+        );
+      }
+      // If primary was removed, clear primary_user_id
+      if (vendor.primary_user_id && body.remove_user_ids.map(String).includes(String(vendor.primary_user_id))) {
+        await db.raw('UPDATE vendors SET primary_user_id = NULL WHERE id = ?', [vendorId]);
+      }
+    }
+
+    broadcast('VENDORS_UPDATED');
+    broadcast('USERS_UPDATED');
     res.json({ ok: true, warning });
   } catch (e: any) {
     console.error(e);
@@ -278,12 +329,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role?.toLowerCase() !== 'admin' && !user.is_buyer && !user.is_seller)
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()) && !user.is_buyer && !user.is_seller)
       return res.status(403).json({ error: 'Forbidden' });
 
-    const id = Number(req.params.id);
+    const id = req.params.id;
     await db.raw('UPDATE vendors SET active = FALSE WHERE id = ?', [id]);
     await db.raw(`UPDATE users SET active = FALSE WHERE vendor_id = ? AND role = 'vendor'`, [id]);
+    broadcast('VENDORS_UPDATED');
+    broadcast('USERS_UPDATED');
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);

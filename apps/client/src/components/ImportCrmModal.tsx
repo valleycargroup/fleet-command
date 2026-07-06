@@ -40,7 +40,7 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
       // New import: always include photos. Update: skip by default (safest).
       setPhotoImport(!res.existingVehicleId ? 'include' : 'skip');
       setF({
-        vin: res.draft.vin, year: res.draft.year, make: res.draft.make, model: res.draft.model, trim: res.draft.trim,
+        vin: res.draft.vin, stockNumber: res.draft.stockNumber || '', year: res.draft.year, make: res.draft.make, model: res.draft.model, trim: res.draft.trim,
         miles: res.draft.miles, color: "", location: res.draft.location || LOCATIONS[0],
         zipCode: res.draft.zipCode, fuelType: fuelNormalize(res.draft.fuelType || ''),
         transmission: res.draft.transmission, driveline: driveToDriveline(res.draft.drive || ''),
@@ -81,8 +81,8 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
     );
   };
 
-  return <div style={S.ov} onClick={() => !looking && !saving && onClose()}><div style={{ ...S.modal, maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e: any) => e.stopPropagation()}>
-    <h2 style={{ color: "#93C5FD", fontSize: 18, marginBottom: 4 }}>⬇️ Import from CRM</h2>
+  return <div style={S.ov}><div style={{ ...S.modal, maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><h2 style={{ color: "#93C5FD", fontSize: 18, margin: 0 }}>⬇️ Import from CRM</h2><button style={{ background: "transparent", border: "none", color: "#6B7280", fontSize: 20, cursor: "pointer", padding: "2px 6px", borderRadius: 4, lineHeight: 1 }} onClick={onClose}>✕</button></div>
 
     {!draft && <>
       <div style={{ fontSize: 13, color: "#9CA3AF", marginBottom: 12 }}>Look up a vehicle by VIN, review its details, then confirm the import.</div>
@@ -100,6 +100,7 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         {Fld("Year", "year")}{Fld("Make", "make")}{Fld("Model", "model")}{Fld("Trim", "trim")}
         {Fld("Miles", "miles")}{Fld("Color", "color", COLORS)}{Fld("Location", "location", LOCATIONS)}{Fld("Zip Code", "zipCode")}
+        <label style={S.fl}>Stock #<input style={{ ...S.fi, fontFamily: 'monospace' }} value={f.stockNumber || ''} onChange={(e: any) => setF({ ...f, stockNumber: e.target.value.toUpperCase() })} placeholder="from CRM or last 8 of VIN" maxLength={30}/></label>
         {Fld("Source", "source", SOURCES)}
         <label style={S.fl}><span style={{ color: '#F87171' }}>Buyer *</span><select style={{ ...S.fi, ...(fieldErr('buyingBroker') ? { borderColor: '#DC2626', boxShadow: '0 0 0 1px #DC2626' } : {}) }} value={f.buyingBroker || ''} onChange={(e: any) => setF({ ...f, buyingBroker: e.target.value })}>{buyerList.length ? buyerList.map((b: any) => <option key={b} value={b}>{b}</option>) : <option value="">— No buyers registered —</option>}</select></label>
         {Fld("Fuel Type", "fuelType", FUEL_TYPES)}{Fld("Transmission", "transmission")}

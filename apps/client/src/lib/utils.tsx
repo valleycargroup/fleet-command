@@ -4,7 +4,7 @@ export const fmtDate = (d: any) => d ? d.slice(5,7)+"/"+d.slice(8,10)+"/"+d.slic
 
 // Phase 4: auto-detect URLs in text and return spans/anchors for rendering.
 // Usage: <>{linkifyText(someString)}</>
-const URL_RE = /https?:\/\/[^\s<>"']+/g;
+const URL_RE = /https?:\/\/[^\s<>"']+|(?<![a-zA-Z0-9@])([a-zA-Z0-9-]+\.(?:com|net|org|io|co|gov|edu|info|biz|us|app|dev)[^\s<>"']*)/g;
 export function linkifyText(text: string): (string | React.ReactElement)[] {
   if (!text) return [text];
   const parts: (string | React.ReactElement)[] = [];
@@ -13,13 +13,15 @@ export function linkifyText(text: string): (string | React.ReactElement)[] {
   URL_RE.lastIndex = 0;
   while ((m = URL_RE.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
+    const raw = m[0];
+    const href = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
     parts.push(
-      <a key={m.index} href={m[0]} target="_blank" rel="noopener noreferrer"
+      <a key={m.index} href={href} target="_blank" rel="noopener noreferrer"
         style={{ color: '#3B82F6', textDecoration: 'underline', wordBreak: 'break-all' }}>
-        {m[0]}
+        {raw}
       </a>
     );
-    last = m.index + m[0].length;
+    last = m.index + raw.length;
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts;
@@ -66,8 +68,9 @@ export const vData = (veh: any) => {
     return s.toLowerCase()==="null"||s.toLowerCase()==="undefined" ? "" : s;
   };
   return {
-    id:veh.id, vin8:veh.vin8, year:veh.year, make:veh.make, model:veh.model,
-    trim:veh.trim, miles:veh.miles, color:veh.color, location:veh.location,
+    id:veh.id, _dbId:veh._dbId, vin8:veh.vin8, fullVin:veh.fullVin||"", stockNumber:veh.stockNumber||"",
+    year:veh.year, make:veh.make, model:veh.model, trim:veh.trim,
+    miles:veh.miles, color:veh.color, location:veh.location,
     soldTo:c(veh.soldTo), soldDate:c(veh.soldDate),
     buyingBroker:c(veh.buyingBroker), sellingBroker:c(veh.sellingBroker),
   };

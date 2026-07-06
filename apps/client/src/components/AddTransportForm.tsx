@@ -3,8 +3,8 @@ import { S } from '../lib/styles';
 
 export function AddTransportForm({onSave, onClose}: any) {
 const [f,setF]=useState({company:"",contact:"",email:"",cell:"",address:"",password:""});
-return <div style={S.ov} onClick={onClose}><div style={{...S.modal,maxWidth:500}} onClick={(e: any)=>e.stopPropagation()}>
-<h2 style={{color:"#E5E7EB",fontSize:20,marginBottom:12}}>🚛 Register Transport Company</h2>
+return <div style={S.ov}><div style={{...S.modal,maxWidth:500}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h2 style={{color:"#E5E7EB",fontSize:20,margin:0}}>🚛 Register Transport Company</h2><button style={{background:"transparent",border:"none",color:"#6B7280",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:4,lineHeight:1}} onClick={onClose}>✕</button></div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
 <label style={S.fl}>Company Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-tcompany" name="fc_tcompany" value={f.company} onChange={(e: any)=>setF({...f,company:e.target.value})}/></label>
 <label style={S.fl}>Contact Name *<input style={{...S.fi,fontSize:16,padding:10}} autoComplete="new-tcontact" name="fc_tcontact" value={f.contact} onChange={(e: any)=>setF({...f,contact:e.target.value})}/></label>

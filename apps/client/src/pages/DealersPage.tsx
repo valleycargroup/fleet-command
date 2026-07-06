@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { S } from '../lib/styles';
 import { useStore, selectRoles } from '../lib/store';
 
@@ -14,6 +14,11 @@ export function DealersPage() {
 
   const [form, setForm] = useState<any>(null);   // null=closed, {} or dealer=editing
   const [importing, setImporting] = useState(false);
+
+  // Auto-import from Auction on first open if the list is empty
+  useEffect(() => {
+    if (isAdmin && dealers.length === 0) importFromAuction();
+  }, []);
 
   const q = (search || '').toUpperCase().trim();
   const visible = q
@@ -102,7 +107,9 @@ export function DealersPage() {
           <tbody>
             {visible.length === 0 && (
               <tr><td colSpan={7} style={{ ...S.td, color: '#6B7280', textAlign: 'center', padding: 24 }}>
-                {dealers.length === 0 ? 'No dealers yet — add one or import from Auction' : 'No dealers match your search'}
+                {importing ? '⏳ Importing dealers from Auction…'
+                  : dealers.length === 0 ? 'No dealers found — add one or click Import from Auction'
+                  : 'No dealers match your search'}
               </td></tr>
             )}
             {visible.map((d: any) => (

@@ -11,7 +11,9 @@
 import db from './db';
 import { sendEmail, logEmail, APP_URL } from './email';
 import { TEMPLATES } from './email-templates';
-import { isBusinessDay, nextBusinessDay } from './scheduler';
+import { isBusinessDay, nextBusinessDay, DigestSettings } from './scheduler';
+
+const DEFAULT_SETTINGS: DigestSettings = { dailyHours: [8, 12, 17], weeklyDay: 'Friday', weeklyHour: 17 };
 
 // Recon category keys — must match client-side VCAT constant
 const VCAT_KEYS = [
@@ -30,7 +32,7 @@ export interface PendingJob {
   make: string;
   model: string;
   trim: string;
-  vin8: string;
+  vin: string;
   color: string;
   miles: number;
   location: string;
@@ -51,6 +53,7 @@ export interface PendingJob {
 export interface VendorBatch {
   vendorName: string;
   vendorEmail: string | null;
+  recipients: string[];        // all addresses to send digest to (deduped)
   paymentTerms: string;
   cutoffDay: string;
   cutoffTime: string;
@@ -102,23 +105,44 @@ const CATEGORY_META: Record<string, { label: string; icon: string }> = {
 
 // ── Core: build payment queue from DB ────────────────────────────────────────
 
-export async function buildVendorPaymentQueue(): Promise<VendorBatch[]> {
+export async function buildVendorPaymentQueue(settings: DigestSettings = DEFAULT_SETTINGS, forceAll = false): Promise<VendorBatch[]> {
   // Load all vehicles with recon data
   const vehicles = (await db.raw(
-    `SELECT id, year, make, model, trim, vin, vin8, color, miles, location,
+    `SELECT id, year, make, model, trim, vin, color, miles, location,
             status, sold_to, sale_date, recon_data
      FROM vehicles
      WHERE recon_data IS NOT NULL AND status != 'delivered'`
   )).rows;
 
-  // Load all vendors for payment terms lookup (by name)
+  // Load all vendors with payment terms, primary email, prefs, and all linked user emails
   const vendorRows = (await db.raw(
-    `SELECT v.name, v.payment_terms, v.cutoff_day, v.cutoff_time, v.delivery_method,
-            u.email AS contact_email
+    `SELECT v.id, v.name, v.payment_terms, v.cutoff_day, v.cutoff_time, v.delivery_method,
+            v.email_prefs,
+            COALESCE(u.email, (
+              SELECT u2.email FROM users u2
+              WHERE u2.vendor_id = v.id AND u2.active = TRUE
+              ORDER BY u2.id LIMIT 1
+            )) AS contact_email
      FROM vendors v
      LEFT JOIN users u ON v.primary_user_id = u.id
      WHERE v.active = TRUE`
   )).rows;
+
+  // For vendors with ccAllOnDigest, load all linked user emails keyed by vendor id
+  const allLinkedEmails: Record<string, string[]> = {};
+  const digestVendorIds = vendorRows
+    .filter((vr: any) => vr.email_prefs?.ccAllOnDigest)
+    .map((vr: any) => vr.id);
+  if (digestVendorIds.length > 0) {
+    const linkedRows = (await db.raw(
+      `SELECT vendor_id, email FROM users WHERE vendor_id = ANY(?) AND active = TRUE AND email IS NOT NULL`,
+      [digestVendorIds]
+    )).rows;
+    for (const r of linkedRows) {
+      if (!allLinkedEmails[r.vendor_id]) allLinkedEmails[r.vendor_id] = [];
+      allLinkedEmails[r.vendor_id].push(r.email.toLowerCase());
+    }
+  }
 
   const vendorMap: Record<string, typeof vendorRows[0]> = {};
   vendorRows.forEach((vr: any) => {
@@ -145,7 +169,7 @@ export async function buildVendorPaymentQueue(): Promise<VendorBatch[]> {
       const vendorKey = vendorName.toLowerCase().trim();
       const vendorMeta = vendorMap[vendorKey] || null;
 
-      // Find vendor email from selected bid
+      // Find vendor email: primary user (or any linked user via COALESCE) > selected bid entry
       const selectedVendor = (task.vendors || []).find((x: any) => x.selected);
       const vendorEmail = vendorMeta?.contact_email || selectedVendor?.email || null;
 
@@ -155,7 +179,7 @@ export async function buildVendorPaymentQueue(): Promise<VendorBatch[]> {
         make:          v.make,
         model:         v.model,
         trim:          v.trim || '',
-        vin8:          v.vin8 || (v.vin || '').slice(-8),
+        vin:           v.vin || '',
         color:         v.color || '',
         miles:         v.miles || 0,
         location:      v.location || '',
@@ -187,7 +211,7 @@ export async function buildVendorPaymentQueue(): Promise<VendorBatch[]> {
     const cutoffDay      = meta?.cutoff_day      || 'Friday';
     const cutoffTime     = meta?.cutoff_time     || '5 PM';
     const deliveryMethod = meta?.delivery_method || 'USPS Mail';
-    const vendorEmail    = meta?.contact_email   || jobs[0]?.vendorEmail || null;
+    const vendorEmail    = meta?.contact_email || jobs[0]?.vendorEmail || null;
 
     // Sold vehicles sort to top within each vendor batch
     const sorted = [...jobs].sort((a, b) => {
@@ -196,18 +220,37 @@ export async function buildVendorPaymentQueue(): Promise<VendorBatch[]> {
       return aSold - bSold;
     });
 
-    const isDue =
-      paymentTerms === 'completion' ||
-      isWeeklyCutoffDue(cutoffDay, cutoffTime, now);
+    const TZ = process.env.TZ || 'America/Phoenix';
+    const nowDay  = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TZ });
+    const nowHour = parseInt(now.toLocaleTimeString('en-US', { hour: 'numeric', hour12: false, timeZone: TZ }), 10);
+    const isDue = forceAll ||
+      (paymentTerms === 'completion' && settings.dailyHours.includes(nowHour)) ||
+      (paymentTerms === 'weekly'     && nowDay === settings.weeklyDay && nowHour === settings.weeklyHour);
+
+    // Build recipient list
+    const prefs: Record<string, any> = meta?.email_prefs || {};
+    const recipientSet = new Set<string>();
+    // Primary contact (via primary_user_id or first linked user)
+    if (vendorEmail) recipientSet.add(vendorEmail.toLowerCase());
+    // Payment department email always receives the digest (stored in email_prefs)
+    if (prefs.paymentDeptEmail) recipientSet.add(prefs.paymentDeptEmail.toLowerCase());
+    // All linked users if ccAllOnDigest flag is set
+    if (prefs.ccAllOnDigest && meta?.id && allLinkedEmails[meta.id]) {
+      for (const e of allLinkedEmails[meta.id]) recipientSet.add(e);
+    }
+    // Fallback: if still no recipients, try first linked user
+    if (recipientSet.size === 0 && meta?.id && allLinkedEmails[meta.id]?.[0]) {
+      recipientSet.add(allLinkedEmails[meta.id][0]);
+    }
 
     const isSoldPriority = jobs.some(j => j.status === 'sold');
-
     const total      = jobs.reduce((s, j) => s + j.lockedTotal, 0);
     const totalWS    = jobs.reduce((s, j) => s + j.lockedWS, 0);
     const totalRetail = jobs.reduce((s, j) => s + j.lockedRetail, 0);
 
     return {
-      vendorName, vendorEmail, paymentTerms, cutoffDay, cutoffTime,
+      vendorName, vendorEmail, recipients: Array.from(recipientSet),
+      paymentTerms, cutoffDay, cutoffTime,
       deliveryMethod, isDue, isSoldPriority,
       jobs: sorted, total, totalWS, totalRetail,
     };
@@ -222,9 +265,9 @@ export async function buildVendorPaymentQueue(): Promise<VendorBatch[]> {
 
 // ── Send digest to a single vendor ───────────────────────────────────────────
 
-async function sendVendorDigestEmail(batch: VendorBatch): Promise<void> {
-  if (!batch.vendorEmail) {
-    console.warn(`[paymentBatch] no email for vendor "${batch.vendorName}" — skipping`);
+async function sendVendorDigestEmail(batch: VendorBatch, triggeredBy: 'cron' | 'manual' = 'cron'): Promise<void> {
+  if (!batch.recipients.length) {
+    console.warn(`[paymentBatch] no recipients for vendor "${batch.vendorName}" — skipping`);
     return;
   }
 
@@ -246,35 +289,69 @@ async function sendVendorDigestEmail(batch: VendorBatch): Promise<void> {
   });
   if (!rendered) return;
 
-  const result = await sendEmail(batch.vendorEmail, rendered.subject, rendered.html);
-  await logEmail(
-    'vendor_payment_pending_digest',
-    batch.vendorEmail,
-    null,
-    rendered.subject,
-    result.ok ? 'sent' : 'failed',
-    result.ok ? null : (result.error || null)
-  );
+  // Build final recipient list — include admin CC if payment category is enabled
+  const allRecipients = new Set<string>(batch.recipients.map(r => r.toLowerCase()));
+  try {
+    const ccRow = await db.raw(`SELECT value FROM site_settings WHERE key = 'cc_admins_categories' LIMIT 1`);
+    const cats: Record<string, boolean> = ccRow.rows[0]?.value ? JSON.parse(ccRow.rows[0].value) : {};
+    if (cats.all || cats.payment) {
+      const admins = (await db.raw(`SELECT email FROM users WHERE role = 'admin' AND active = TRUE`)).rows;
+      for (const u of admins) if (u.email) allRecipients.add(u.email.toLowerCase());
+    }
+  } catch { /* ignore */ }
 
-  console.log(`[paymentBatch] digest sent to "${batch.vendorName}" <${batch.vendorEmail}> — ${batch.jobs.length} job(s)`);
+  // Batch-lookup recipient metadata for the email log (name, role, vendor)
+  type RecipMeta = { name: string; role: string; vendor: string | null };
+  const recipMeta: Record<string, RecipMeta> = {};
+  try {
+    const metaRows = (await db.raw(
+      `SELECT u.email, u.first_name, u.last_name, u.role, v.name AS vendor_name
+       FROM users u LEFT JOIN vendors v ON v.id = u.vendor_id
+       WHERE LOWER(u.email) = ANY(?) AND u.active = TRUE`,
+      [Array.from(allRecipients)]
+    )).rows;
+    for (const m of metaRows) {
+      recipMeta[m.email.toLowerCase()] = {
+        name: [m.first_name, m.last_name].filter(Boolean).join(' '),
+        role: m.role || '',
+        vendor: m.vendor_name || null,
+      };
+    }
+  } catch { /* ignore */ }
+
+  for (const recipient of Array.from(allRecipients)) {
+    const result = await sendEmail(recipient, rendered.subject, rendered.html);
+    const meta = recipMeta[recipient];
+    await logEmail(
+      'vendor_payment_pending_digest', recipient, null, rendered.subject,
+      result.ok ? 'sent' : 'failed',
+      result.ok ? null : (result.error || null),
+      meta ? { name: meta.name || undefined, role: meta.role || undefined, vendor: meta.vendor || undefined } : undefined,
+      triggeredBy,
+      result.messageId,
+      rendered.html
+    );
+  }
+
+  console.log(`[paymentBatch] digest sent to "${batch.vendorName}" (${allRecipients.size} recipient(s)) — ${batch.jobs.length} job(s)`);
 }
 
 // ── Scheduler entry points ────────────────────────────────────────────────────
 
-export async function runVendorDigest(): Promise<void> {
-  if (!isBusinessDay()) return;
+export async function runVendorDigest(settings: DigestSettings = DEFAULT_SETTINGS, forceAll = false, triggeredBy: 'cron' | 'manual' = 'cron'): Promise<void> {
+  if (!forceAll && !isBusinessDay()) return;
 
-  const queue = await buildVendorPaymentQueue();
+  const queue = await buildVendorPaymentQueue(settings, forceAll);
   const due   = queue.filter(b => b.isDue && b.jobs.length > 0);
 
   console.log(`[paymentBatch] ${due.length} vendor(s) due for digest (${queue.length} total with pending work)`);
 
   for (const batch of due) {
-    await sendVendorDigestEmail(batch);
+    await sendVendorDigestEmail(batch, triggeredBy);
   }
 }
 
-export async function runRolloverCheck(): Promise<void> {
+export async function runRolloverCheck(settings: DigestSettings = DEFAULT_SETTINGS): Promise<void> {
   // On Monday (or first business day after a holiday), check if any
   // weekly vendors had a cutoff that fell on the weekend/holiday.
   const today = new Date();
@@ -284,5 +361,5 @@ export async function runRolloverCheck(): Promise<void> {
   if (isBusinessDay(yesterday)) return; // yesterday was a business day — no rollover needed
 
   console.log('[paymentBatch] rollover-check: yesterday was non-business day, re-running weekly digest');
-  await runVendorDigest();
+  await runVendorDigest(settings, true, 'cron'); // forceAll=true: rollover sends regardless of current hour
 }

@@ -1,5 +1,5 @@
 -- Add vendor_id FK to users, backfill from vendor_tag → vendors.name
-ALTER TABLE users ADD COLUMN IF NOT EXISTS vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL;
 
 UPDATE users u
 SET vendor_id = v.id

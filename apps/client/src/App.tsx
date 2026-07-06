@@ -12,11 +12,15 @@ import { DealersPage } from './pages/DealersPage';
 import { AdminPage } from './pages/AdminPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PaymentsPage } from './pages/PaymentsPage';
+import { EmailLogPage } from './pages/EmailLogPage';
 import { ConfirmModal } from './components/ConfirmModal';
+import { DevUserSwitcher } from './components/DevUserSwitcher';
+
+const DEV_TOOLS = import.meta.env.DEV || import.meta.env.VITE_DEV_TOOLS === 'true';
 
 function App() {
   const currentUser = useStore(s => s.currentUser);
-  const { isAdmin, isVendor, isAP } = useStore(selectRoles);
+  const { isAdmin, isVendor, isAP, isTechSupport } = useStore(selectRoles);
   const tab = useStore(s => s.tab);
   const setTab = useStore(s => s.setTab);
   const selV = useStore(s => s.selV);
@@ -25,6 +29,7 @@ function App() {
   const setFLoc = useStore(s => s.setFLoc);
   const search = useStore(s => s.search);
   const setSearch = useStore(s => s.setSearch);
+  const [localSearch, setLocalSearch] = useState(search);
   const note = useStore(s => s.note);
   const showAdd = useStore(s => s.showAdd);
   const setShowAdd = useStore(s => s.setShowAdd);
@@ -39,6 +44,12 @@ function App() {
   const { loadData, handleLogout, handleCSVUpload, showConfirm } = useStore(s => s);
   const csvRef = useRef(null as any);
   const [showImportCrm, setShowImportCrm] = useState(false);
+
+  // Debounce search — update store 250ms after typing stops
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(localSearch), 250);
+    return () => clearTimeout(t);
+  }, [localSearch]);
 
   // Load data on login
   useEffect(() => {
@@ -83,7 +94,7 @@ function App() {
     if (!apiReady || !currentUser) return;
     const interval = setInterval(async () => {
       try {
-        const token = sessionStorage.getItem("fc_token");
+        const token = localStorage.getItem("fc_token");
         if (!token) return;
         const r = await fetch(API_URL+"/api/vehicles", { headers:{"Content-Type":"application/json","Authorization":"Bearer "+token} });
         if (!r.ok) return;
@@ -110,8 +121,8 @@ function App() {
     if (!pendingDeepLink || !apiReady || vehicles.length === 0) return;
     const found = vehicles.find((v: any) => v.id === pendingDeepLink.vid);
     if (found) {
-      setSelV(found);
       setTab("active");
+      setSelV(found);
       if (pendingDeepLink.vcat) setDeepLinkCat(pendingDeepLink.vcat);
       try { const url = new URL(window.location.href); url.searchParams.delete("vehicle"); url.searchParams.delete("cat"); window.history.replaceState({}, document.title, url.pathname); } catch(e) {}
       setPendingDeepLink(null);
@@ -142,6 +153,7 @@ function App() {
   return <div style={S.app}>
     {note&&<div style={S.toast}>✉️ {note}</div>}
     <ConfirmModal/>
+    {DEV_TOOLS&&<DevUserSwitcher/>}
     <header style={S.hdr}>
       <div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={S.logo}>🚗</div>
@@ -150,7 +162,7 @@ function App() {
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <span style={{fontSize:13,color:"#9CA3AF"}}>{apiReady?"🟢":"🟡"} {stats.active} active • {stats.delivered} delivered</span>
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 14px",borderRadius:8,background:"#1A1A2E",border:"1px solid #2A2A3E"}}>
-          <span style={{fontSize:13,color:isAdmin?"#FBBF24":isVendor?"#60A5FA":isAP?"#34D399":"#34D399",fontWeight:700}}>{isAdmin?"🛡️ Admin":isVendor?"🔧 Vendor":isAP?"💸 AP":currentUser?.role==="Buyer"?"👤 Buyer":currentUser?.role==="Seller"?"👤 Seller":"👤 "+currentUser?.role}</span>
+          <span style={{fontSize:13,color:isTechSupport?"#A78BFA":isAdmin?"#FBBF24":isVendor?"#60A5FA":isAP?"#34D399":"#34D399",fontWeight:700}}>{isTechSupport?"🛠️ Tech Support":isAdmin?"🛡️ Admin":isVendor?"🔧 Vendor":isAP?"💸 AP":currentUser?.role==="Buyer"?"👤 Buyer":currentUser?.role==="Seller"?"👤 Seller":"👤 "+currentUser?.role}</span>
           <span style={{fontSize:13,color:"#E5E7EB",fontWeight:600}}>{currentUser?.first_name||currentUser?.firstName||currentUser?.name}</span>
           <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #7F1D1D",background:"transparent",color:"#F87171",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={handleLogout}>Logout</button>
           {isAdmin&&<><input ref={csvRef} type="file" accept=".csv,.tsv" style={{display:"none"}} onChange={(e: any)=>{handleCSVUpload(e.target.files[0]);if(csvRef.current)csvRef.current.value="";}}/>
@@ -168,11 +180,12 @@ function App() {
         {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 Reports</button>}
         {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 Payment Queue</button>}
         {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 Dealers</button>}
+        {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 Email Log</button>}
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{position:"relative"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>🔍</span>
-          <input style={{...S.inp,paddingLeft:32,minWidth:280,fontFamily:"monospace"}} placeholder="Search..." value={search} onChange={(e: any)=>setSearch(e.target.value.toUpperCase())}/>
+          <input style={{...S.inp,paddingLeft:32,minWidth:280,fontFamily:"monospace"}} placeholder="Search..." value={localSearch} onChange={(e: any)=>setLocalSearch(e.target.value.toUpperCase())}/>
         </div>
         <select style={S.sel} value={fLoc} onChange={(e: any)=>setFLoc(e.target.value)}>
           <option value="All">All Locations</option>
@@ -187,15 +200,16 @@ function App() {
       :tab==="reports"?<ReportsPage/>
       :tab==="payments"?<PaymentsPage/>
       :tab==="dealers"?<DealersPage/>
+      :tab==="emaillog"?<EmailLogPage/>
       :tab==="vendors"?<VendorsPage/>
-      :(tab==="active"||tab==="delivered")?<div style={{display:"flex",gap:0,height:"calc(100vh - 120px)"}}>
-        <div style={{flex:selV?"0 0 35%":"1",overflow:"auto",borderRight:selV?"2px solid #2A2A3E":"none"}}>
-          {tab==="delivered"&&<div style={{padding:"8px 12px",background:"#0D3B1E",borderBottom:"1px solid #166534",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Delivered Vehicles</span></div>}
-          <VehicleTable/>
-        </div>
-        {selV&&<div style={{flex:"0 0 65%",overflow:"auto",padding:"0 8px"}}>
-          <VehicleDetail key={selV.id}/>
-        </div>}
+      :(tab==="active"||tab==="delivered")?<div style={{height:"calc(100vh - 120px)",overflow:"auto"}}>
+        {selV
+          ? <VehicleDetail key={selV.id}/>
+          : <>
+              {tab==="delivered"&&<div style={{padding:"8px 12px",background:"#0D3B1E",borderBottom:"1px solid #166534",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Delivered Vehicles</span></div>}
+              <VehicleTable/>
+            </>
+        }
       </div>:null}
     </div>
     {showAdd&&<AddVehicleModal/>}

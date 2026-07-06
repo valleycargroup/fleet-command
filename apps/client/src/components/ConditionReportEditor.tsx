@@ -15,7 +15,7 @@ async function uploadImage(file: File): Promise<string> {
     fd.append('file', file);
     const r = await fetch(API_URL + '/api/uploads', {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + (sessionStorage.getItem('fc_token') || '') },
+      headers: { Authorization: 'Bearer ' + (localStorage.getItem('fc_token') || '') },
       body: fd,
     });
     const j = await r.json();
@@ -53,8 +53,7 @@ function Lightbox({ urls, startIdx, onClose }: { urls: string[]; startIdx: numbe
   }, [onClose]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-      onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <button onClick={onClose}
         style={{ position: 'absolute', top: 14, right: 18, background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', borderRadius: 4, padding: '3px 10px', zIndex: 1 }}>✕</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }} onClick={e => e.stopPropagation()}>

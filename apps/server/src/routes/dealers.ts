@@ -26,7 +26,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase())) return res.status(403).json({ error: 'Admin only' });
     const { name, email, phone, address, city, state, zip_code, responsible_for_pickup } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
     const row = (await db.raw(`
@@ -44,7 +44,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase())) return res.status(403).json({ error: 'Admin only' });
     const { name, email, phone, address, city, state, zip_code, responsible_for_pickup } = req.body;
     await db.raw(`
       UPDATE dealers
@@ -64,7 +64,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase())) return res.status(403).json({ error: 'Admin only' });
     await db.raw(`UPDATE dealers SET active = FALSE, updated_at = NOW() WHERE id = ?`, [req.params.id]);
     res.json({ ok: true });
   } catch (e: any) {
@@ -77,7 +77,7 @@ router.post('/import-from-auction', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase())) return res.status(403).json({ error: 'Admin only' });
 
     const baseUrl = getAuctionBaseUrl();
     const apiKey = await getApiKey('FLEET_COMMAND_API_KEY', '/prod/fleet-command/fleet-command-api-key');

@@ -4,6 +4,7 @@ import { requireAuth } from '../lib/auth';
 import { sendVehicleToAuction } from '../lib/auctionExport';
 import { fetchCrmVehicle, crmVehicleToDraft, crmImportFieldsToFleetRow, driveToDriveline } from '../lib/crmImport';
 import { deleteFromStorage } from '../lib/storage';
+import { broadcast } from '../lib/ws';
 
 const router = Router();
 
@@ -13,11 +14,22 @@ router.get('/', async (req: Request, res: Response) => {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const vehicles = (await db.raw(
-      `SELECT * FROM vehicles
-       ORDER BY CASE WHEN status='sold' THEN 0 WHEN kicked=TRUE THEN 1 ELSE 2 END,
-                updated_at DESC`
-    )).rows;
+    const isPrivileged = user.is_buyer || ['admin','tech support','tech_support','techsupport','ap'].includes((user.role||'').toLowerCase().replace(/\s/g,''));
+    const sellerOnly = !isPrivileged && user.is_seller;
+
+    const vehicles = sellerOnly
+      ? (await db.raw(
+          `SELECT * FROM vehicles
+           WHERE seller = ? OR seller = ?
+           ORDER BY CASE WHEN status='sold' THEN 0 WHEN kicked=TRUE THEN 1 ELSE 2 END,
+                    updated_at DESC`,
+          [user.email, `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`]
+        )).rows
+      : (await db.raw(
+          `SELECT * FROM vehicles
+           ORDER BY CASE WHEN status='sold' THEN 0 WHEN kicked=TRUE THEN 1 ELSE 2 END,
+                    updated_at DESC`
+        )).rows;
 
     res.json({ vehicles });
   } catch (e: any) {
@@ -46,7 +58,7 @@ router.post('/', async (req: Request, res: Response) => {
         origin, buyer, seller, sold_to, sale_date, enter_date, purchase_date, grounded_date, status, notes,
         zip_code, fuel_type, transmission, driveline, drive, motor_trailer, condition_report, recon_data, transport_data)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-      [v.vin, v.stock_number, v.year, v.make, v.model, v.trim || '', v.color, v.miles,
+      [v.vin, v.stock_number || (v.vin ? v.vin.slice(-8).toUpperCase() : null), v.year, v.make, v.model, v.trim || '', v.color, v.miles,
        v.location, v.source || '', v.origin || '', v.buyer || '', v.seller || '',
        v.sold_to || null, v.sale_date || null, v.enter_date || null,
        v.purchase_date || null, v.grounded_date || null,
@@ -58,6 +70,7 @@ router.post('/', async (req: Request, res: Response) => {
        JSON.stringify(v.recon_data || {}), JSON.stringify(v.transport_data || {})]
     );
 
+    broadcast('VEHICLES_UPDATED');
     res.json({ ok: true, id: result.rows[0].id });
   } catch (e: any) {
     console.error(e);
@@ -81,6 +94,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         typeof body.recon_data === 'string' ? body.recon_data : JSON.stringify(body.recon_data),
         vehicleId,
       ]);
+      broadcast('VEHICLES_UPDATED');
       return res.json({ ok: true });
     }
 
@@ -111,6 +125,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     values.push(vehicleId);
 
     await db.raw(`UPDATE vehicles SET ${fields.join(', ')} WHERE id = ?`, values);
+    broadcast('VEHICLES_UPDATED');
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);
@@ -163,6 +178,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     await db.raw('DELETE FROM vehicles WHERE id = ?', [req.params.id]);
+    broadcast('VEHICLES_UPDATED');
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);
@@ -228,6 +244,7 @@ router.post('/:id/vendor-bid', async (req: Request, res: Response) => {
 
     reconData[categoryKey] = task;
     await db.raw('UPDATE vehicles SET recon_data = ?, updated_at = NOW() WHERE id = ?', [JSON.stringify(reconData), vehicleId]);
+    broadcast('VEHICLES_UPDATED');
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);
@@ -240,7 +257,7 @@ router.put('/:id/parts-update', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role !== 'parts_manager' && user.role !== 'admin' && !user.is_buyer)
+    if (user.role !== 'parts_manager' && !['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()) && !user.is_buyer)
       return res.status(403).json({ error: 'Only Parts Manager or admin can update parts' });
 
     const vehicleId = req.params.id;
@@ -404,6 +421,7 @@ router.post('/import-from-crm', async (req: Request, res: Response) => {
          ...photosParams,
          existing.id]
       );
+      broadcast('VEHICLES_UPDATED');
       return res.json({ ok: true, id: existing.id, updated: true });
     }
 
@@ -419,6 +437,7 @@ router.post('/import-from-crm', async (req: Request, res: Response) => {
        JSON.stringify(row.recon_data),
        JSON.stringify(row.photos || [])]
     );
+    broadcast('VEHICLES_UPDATED');
     res.json({ ok: true, id: result.rows[0].id, updated: false });
   } catch (e: any) {
     console.error(e);
@@ -453,7 +472,7 @@ router.post('/upload-csv', async (req: Request, res: Response) => {
       try {
         const row = parseCSVRow(lines[i]);
         const vin      = getCol(row, colMap, 'VIN')?.trim().toUpperCase() || '';
-        const stockNum = getCol(row, colMap, 'STOCK #')?.trim() || '';
+        const stockNum = getCol(row, colMap, 'STOCK #')?.trim() || (vin ? vin.slice(-8) : '');
 
         // Need at least a VIN or stock number to identify the vehicle
         if (!vin && !stockNum) continue;
@@ -517,6 +536,7 @@ router.post('/upload-csv', async (req: Request, res: Response) => {
       }
     }
 
+    if (imported > 0 || updated > 0) broadcast('VEHICLES_UPDATED');
     res.json({ ok: true, imported, updated, skipped, kicked: kickedCount, errors, total: imported + updated });
   } catch (e: any) {
     console.error(e);

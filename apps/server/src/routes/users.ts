@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../lib/db';
 import { hashPassword, requireAuth } from '../lib/auth';
 import { sendEmail, logEmail, welcomeUserEmail } from '../lib/email';
+import { broadcast } from '../lib/ws';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (!user.is_buyer && !user.is_seller && user.role?.toLowerCase() !== 'admin')
+    if (!user.is_buyer && !user.is_seller && !['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()))
       return res.status(403).json({ error: 'Forbidden' });
 
     const users = (await db.raw(
@@ -31,7 +32,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (!user.is_buyer && !user.is_seller && user.role?.toLowerCase() !== 'admin')
+    if (!user.is_buyer && !user.is_seller && !['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()))
       return res.status(403).json({ error: 'Only admins can register users' });
 
     const body = req.body;
@@ -87,9 +88,10 @@ router.post('/', async (req: Request, res: Response) => {
     try {
       const welcome = welcomeUserEmail(cleanFirst, cleanEmail, pw, role || 'admin', location || 'Both');
       const emailRes = await sendEmail(cleanEmail, welcome.subject, welcome.html);
-      await logEmail('welcome_user', cleanEmail, null, welcome.subject, emailRes.ok ? 'sent' : 'failed');
+      await logEmail('welcome_user', cleanEmail, null, welcome.subject, emailRes.ok ? 'sent' : 'failed', null, { name: `${cleanFirst} ${cleanLast}`.trim(), role: role || 'admin' }, 'manual', emailRes.messageId, welcome.html);
     } catch (e) { console.error('Welcome email failed:', e); }
 
+    broadcast('USERS_UPDATED');
     res.json({ ok: true, message: existing ? 'User reactivated' : 'User registered', id: userId });
   } catch (e: any) {
     console.error(e);
@@ -104,14 +106,25 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (!user) return;
 
     const userId = req.params.id;
-    if (String(user.id) !== userId && user.role?.toLowerCase() !== 'admin' && !user.is_buyer && !user.is_seller)
+    if (String(user.id) !== userId && !['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()) && !user.is_buyer && !user.is_seller)
       return res.status(403).json({ error: 'Forbidden' });
 
     const body = req.body;
     const fields: string[] = [];
     const values: any[] = [];
+    const isPrivileged = ['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()) || user.is_buyer || user.is_seller;
+
+    if (body.email !== undefined && isPrivileged) {
+      const newEmail = String(body.email).trim().toLowerCase();
+      if (!newEmail) return res.status(400).json({ error: 'Email cannot be empty' });
+      const clash = (await db.raw('SELECT id FROM users WHERE email = ? AND id != ? AND active = TRUE', [newEmail, userId])).rows[0];
+      if (clash) return res.status(400).json({ error: 'That email is already in use by another account' });
+      fields.push('email = ?');
+      values.push(newEmail);
+    }
+
     const allowed = ['first_name', 'last_name', 'phone', 'role', 'is_buyer', 'is_seller', 'is_ap',
-                     'location', 'vendor_tag', 'parts_location',
+                     'location', 'vendor_tag', 'vendor_id', 'parts_location',
                      'auction_assignments', 'recon_categories', 'recon_customized', 'active'];
     const trimFields = ['first_name', 'last_name', 'phone', 'vendor_tag', 'parts_location'];
 
@@ -141,6 +154,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     values.push(userId);
 
     await db.raw(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    broadcast('USERS_UPDATED');
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);
@@ -153,13 +167,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const user = await requireAuth(req, res);
     if (!user) return;
-    if (user.role?.toLowerCase() !== 'admin' && !user.is_buyer && !user.is_seller)
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()) && !user.is_buyer && !user.is_seller)
       return res.status(403).json({ error: 'Forbidden' });
 
     const userId = req.params.id;
     if (String(user.id) === userId) return res.status(400).json({ error: 'Cannot delete yourself' });
 
     await db.raw('UPDATE users SET active = FALSE, updated_at = NOW() WHERE id = ?', [userId]);
+    broadcast('USERS_UPDATED');
     res.json({ ok: true });
   } catch (e: any) {
     console.error(e);

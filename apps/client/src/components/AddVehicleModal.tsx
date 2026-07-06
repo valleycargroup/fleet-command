@@ -10,9 +10,11 @@ const addVehicle = useStore((s: any) => s.addVehicle);
 const setShowAdd = useStore((s: any) => s.setShowAdd);
 const onClose = () => setShowAdd(false);
 const onAdd = addVehicle;
-const buyerList=((allUsers||[]).filter((u: any)=>u.role==="buyer"||u.role==="admin"||u.is_buyer===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any,i: any,a: any)=>n&&a.indexOf(n)===i);
-const [f,setF]=useState({vin:"",purchaseDate:new Date().toISOString().split("T")[0],buyingBroker:buyerList[0]||"",source:SOURCES[0],year:"",make:"",model:"",trim:"",miles:"",color:COLORS[0],location:LOCATIONS[0],
+const buyerList=((allUsers||[]).filter((u: any)=>u.isBuyer||(u.role||'').toLowerCase()==="buyer"||(u.role||'').toLowerCase()==="admin").map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any,i: any,a: any)=>n&&a.indexOf(n)===i);
+const sellerList=((allUsers||[]).filter((u: any)=>u.isSeller||u.is_seller||(u.role||'').toLowerCase()==="seller"||(u.role||'').toLowerCase()==="admin").map((u: any)=>(u.firstName+(u.lastName?" "+u.lastName:"")).trim())).filter((n: any,i: any,a: any)=>n&&a.indexOf(n)===i);
+const [f,setF]=useState({vin:"",stockNumber:"",purchaseDate:new Date().toISOString().split("T")[0],buyingBroker:buyerList[0]||"",sellingBroker:"",source:SOURCES[0],year:"",make:"",model:"",trim:"",miles:"",color:COLORS[0],location:LOCATIONS[0],
 zipCode:"",fuelType:"",transmission:"",driveline:"",drive:"",motorTrailer:""});
+const [sellerMode,setSellerMode]=useState<"user"|"manual">("user");
 const [recon,setRecon]=useState(()=>{const o: any={};VCAT.forEach(c=>{o[c.key]={on:false,vendorId:"",notes:""};});return o;});
 const [err,setErr]=useState("");
 const [saving,setSaving]=useState(false);
@@ -21,26 +23,50 @@ if(!f.vin.trim()){setErr("VIN is required");return;}
 setErr(""); setSaving(true);
 try{
 const vi=f.vin.toUpperCase().trim(),fv=vi.length>8?vi:"",v8=vi.length>8?vi.slice(-8):vi;
+const sn=f.stockNumber.trim()||v8;
 const rt: any={};VCAT.forEach(c=>{if(recon[c.key].on){const vl=vendors[c.key]||[],vn=recon[c.key].vendorId?vl.find((x: any)=>x.id===recon[c.key].vendorId):null;
 rt[c.key]={needed:true,status:vn?"assigned":"unassigned",vendorId:vn?.id||null,vendorName:vn?.name||null,estimate:null,notes:recon[c.key].notes,photos:[],dateAssigned:vn?new Date().toISOString().split("T")[0]:null,dateCompleted:null};
 }else rt[c.key]={needed:false,status:"na"};});const{vin,...rest}=f;
-await onAdd({id:`v${Date.now()}`,...rest,fullVin:fv,vin8:v8,sellingBroker:"",miles:Number(f.miles)||0,year:Number(f.year)||0,status:"in_recon",
+await onAdd({id:`v${Date.now()}`,...rest,stockNumber:sn,fullVin:fv,vin8:v8,miles:Number(f.miles)||0,year:Number(f.year)||0,status:"in_recon",
 transport:{inbound:{set:false,destination:f.location,eta:"",cost:0,delivered:false},outbound:{set:false,destination:"",eta:"",cost:0,pickedUp:false}},reconTasks:rt,soldDate:null,deliveredDate:null,soldTo:""});
 }catch(e: any){setErr(e.message||"Failed to add vehicle");}
 setSaving(false);
 };
 const F=(l: any,k: any,t="text",opts?: any)=><label style={S.fl}>{l}{opts?<select style={S.fi} value={(f as any)[k]} onChange={(e: any)=>setF({...f,[k]:e.target.value})}>{opts.map((o: any)=><option key={o} value={o}>{o}</option>)}</select>:<input style={S.fi} type={t} value={(f as any)[k]} onChange={(e: any)=>setF({...f,[k]:e.target.value})}/>}</label>;
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:1000,paddingTop:30,overflowY:"auto"}} onClick={onClose}>
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:1000,paddingTop:30,overflowY:"auto"}}>
 <div style={{...S.modal,maxWidth:620,marginBottom:30}} onClick={(e: any)=>e.stopPropagation()}>
-<h2 style={{color:"#E5E7EB",fontSize:18,marginBottom:12}}>Add New Vehicle</h2>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h2 style={{color:"#E5E7EB",fontSize:18,margin:0}}>Add New Vehicle</h2><button style={{background:"transparent",border:"none",color:"#6B7280",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:4,lineHeight:1}} onClick={onClose}>✕</button></div>
+<div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:8,alignItems:"end"}}>
 <label style={S.fl}>VIN (Full or Last 8) *<input style={{...S.fi,fontSize:16,fontFamily:"monospace",letterSpacing:2,border:err?"1px solid #EF4444":"1px solid #2A2A3E"}} value={f.vin} onChange={(e: any)=>{setF({...f,vin:e.target.value.toUpperCase()});setErr("");}} placeholder="e.g. 1GNSKFKD8PR134404" maxLength={17}/></label>
+<label style={S.fl}>Stock # <span style={{fontSize:10,color:"#4B5563"}}>(auto if blank)</span><input style={{...S.fi,fontFamily:"monospace"}} value={f.stockNumber} onChange={(e: any)=>setF({...f,stockNumber:e.target.value.toUpperCase()})} placeholder={f.vin.length>=8?f.vin.slice(-8).toUpperCase():"last 8 of VIN"} maxLength={30}/></label>
+</div>
 {err&&<div style={{fontSize:12,color:"#EF4444",marginTop:4}}>{err}</div>}
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>{F("Purchase Date","purchaseDate","date")}{F("Year","year","number")}{F("Make","make")}{F("Model","model")}{F("Trim","trim")}{F("Color","color","text",COLORS)}{F("Miles","miles","number")}{F("Location","location","text",LOCATIONS)}<label style={S.fl}>Buyer<select style={S.fi} value={f.buyingBroker} onChange={(e: any)=>setF({...f,buyingBroker:e.target.value})}>{buyerList.length?buyerList.map((o: any)=><option key={o} value={o}>{o}</option>):<option value="">— No buyers registered —</option>}</select></label>{F("Source","source","text",SOURCES)}</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
+{F("Purchase Date","purchaseDate","date")}{F("Year","year","number")}
+{F("Make","make")}{F("Model","model")}
+{F("Trim","trim")}{F("Color","color","text",COLORS)}
+{F("Miles","miles","number")}{F("Location","location","text",LOCATIONS)}
+<label style={S.fl}>Buyer<select style={S.fi} value={f.buyingBroker} onChange={(e: any)=>setF({...f,buyingBroker:e.target.value})}>{buyerList.length?buyerList.map((o: any)=><option key={o} value={o}>{o}</option>):<option value="">— No buyers registered —</option>}</select></label>
+<label style={S.fl}>Seller
+  {sellerMode==="user"
+    ? <select style={S.fi} value={f.sellingBroker} onChange={(e: any)=>{if(e.target.value==="__manual__"){setSellerMode("manual");setF({...f,sellingBroker:""});}else setF({...f,sellingBroker:e.target.value});}}>
+        <option value="">— None —</option>
+        {sellerList.map((n: any)=><option key={n} value={n}>{n}</option>)}
+        <option value="__manual__">— Enter email/name —</option>
+      </select>
+    : <div style={{display:"flex",gap:4}}>
+        <input style={{...S.fi,flex:1}} placeholder="Email or name" value={f.sellingBroker} onChange={(e: any)=>setF({...f,sellingBroker:e.target.value})}/>
+        <button style={{...S.sm,fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}} onClick={()=>{setSellerMode("user");setF({...f,sellingBroker:""});}}>← List</button>
+      </div>
+  }
+</label>
+{F("Source","source","text",SOURCES)}
+</div>
 <div style={{marginTop:8,padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}>
 <div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Vehicle Specs <span style={{fontSize:11,fontWeight:400,color:"#6B7280"}}>(zip code is used as the vehicle location when publishing to auction)</span></div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{F("Zip Code","zipCode")}{F("Fuel Type","fuelType","text",FUEL_TYPES)}{F("Transmission","transmission","text",TRANSMISSION_TYPES)}{F("Driveline","driveline")}
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{F("Zip Code","zipCode")}{F("Fuel Type","fuelType","text",FUEL_TYPES)}{F("Transmission","transmission","text",TRANSMISSION_TYPES)}{F("Engine / Motor","motorTrailer")}
 <label style={S.fl}>Drive<select style={S.fi} value={f.drive} onChange={(e: any)=>{const d=e.target.value;setF({...f,drive:d,driveline:driveToDriveline(d)||f.driveline});}}><option value="">— select —</option>{DRIVE_TYPES.map((dt: string)=><option key={dt} value={dt}>{dt}</option>)}</select></label>
-{F("Engine / Motor","motorTrailer")}</div>
+{F("Driveline (auto)","driveline")}</div>
 </div>
 <div style={{marginTop:12,padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}><div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:8}}>Recon Services</div>
 {VCAT.map(c=>{const r=recon[c.key];return <div key={c.key} style={{borderRadius:6,border:`1px solid ${r.on?"#3B82F6":"#2A2A3E"}`,marginBottom:4,background:r.on?"#0F2940":"transparent"}}>

@@ -133,6 +133,7 @@ export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?
     transmission: vehicle.transmission || undefined,
     drive: vehicle.drive || vehicle.driveline || undefined,
     motor_trailer: vehicle.motor_trailer || undefined,
+    stock_number: vehicle.stock_number || undefined,
     create_vehicle_if_missing: true,
     replace_existing_images: !!opts.replaceExistingImages,
   };

@@ -15,6 +15,31 @@
       "key": "token",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "vehicle_id",
+      "value": "paste-vehicle-uuid-here",
+      "type": "string"
+    },
+    {
+      "key": "vendor_id",
+      "value": "paste-vendor-uuid-here",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "paste-user-uuid-here",
+      "type": "string"
+    },
+    {
+      "key": "dealer_id",
+      "value": "paste-dealer-uuid-here",
+      "type": "string"
+    },
+    {
+      "key": "part_id",
+      "value": "paste-part-uuid-here",
+      "type": "string"
     }
   ],
   "item": [
@@ -350,7 +375,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/users/1",
+              "raw": "{{base_url}}/api/users/{{user_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -373,7 +398,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/api/users/1",
+              "raw": "{{base_url}}/api/users/{{user_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -471,7 +496,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/vehicles/1",
+              "raw": "{{base_url}}/api/vehicles/{{vehicle_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -494,7 +519,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/api/vehicles/1",
+              "raw": "{{base_url}}/api/vehicles/{{vehicle_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -530,7 +555,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/vehicles/1/vendor-bid",
+              "raw": "{{base_url}}/api/vehicles/{{vehicle_id}}/vendor-bid",
               "host": [
                 "{{base_url}}"
               ],
@@ -567,7 +592,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/vehicles/1/parts-update",
+              "raw": "{{base_url}}/api/vehicles/{{vehicle_id}}/parts-update",
               "host": [
                 "{{base_url}}"
               ],
@@ -694,7 +719,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"contact_name\": \"Jane Acme\",\n  \"phone\": \"6025550299\",\n  \"categories\": [\"detail\", \"touchup\", \"bodyshop\"],\n  \"payment_terms\": \"bi-weekly\",\n  \"cutoff_day\": \"Thursday\"\n}",
+              "raw": "{\n  \"name\": \"Acme Detail Co\",\n  \"contact_name\": \"Jane Acme\",\n  \"email\": \"jane@acmedetail.com\",\n  \"phone\": \"6025550299\",\n  \"office_phone\": \"6025550100\",\n  \"location\": \"2012 Arthur Ave, Phoenix, AZ 85001\",\n  \"categories\": [\"detail\", \"touchup\", \"bodyshop\"],\n  \"payment_terms\": \"bi-weekly\",\n  \"cutoff_day\": \"Thursday\",\n  \"cutoff_time\": \"5 PM\",\n  \"delivery_method\": \"USPS Mail\",\n  \"active\": true,\n  \"primary_user_id\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -702,7 +727,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/vendors/1",
+              "raw": "{{base_url}}/api/vendors/{{vendor_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -725,7 +750,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/api/vendors/1",
+              "raw": "{{base_url}}/api/vendors/{{vendor_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -885,7 +910,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/parts/1",
+              "raw": "{{base_url}}/api/parts/{{part_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1271,1250 +1296,1562 @@
           }
         },
         {
-          "name": "Send Test Email",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_assigned\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"tasks\": [\n      {\n        \"desc\": \"Full detail interior & exterior\",\n        \"isPart\": false\n      }\n    ],\n    \"buyer\": \"Darren Smith\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+          "name": "Email",
+          "item": [
+            {
+              "name": "Account",
+              "item": [
+                {
+                  "name": "Send Test Email — welcome-user",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"welcome-user\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — welcome-vendor",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"welcome-vendor\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — password-reset",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"password-reset\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
                 }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
               ]
+            },
+            {
+              "name": "Vendor",
+              "item": [
+                {
+                  "name": "Send Test Email",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_assigned\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"tasks\": [\n      {\n        \"desc\": \"Full detail interior & exterior\",\n        \"isPart\": false\n      }\n    ],\n    \"buyer\": \"Darren Smith\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_bid_accepted",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_bid_accepted\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalApproved\": 250\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_bid_declined",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_bid_declined\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"reason\": \"Price too high\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_work_canceled",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_work_canceled\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 0,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalRemaining\": 0\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_part_approved",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_part_approved\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Mechanical\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"part\": {\n      \"desc\": \"Brake Pads Front\",\n      \"price\": 120,\n      \"approvedBy\": \"Darren\",\n      \"approvedDate\": \"2026-06-15\"\n    },\n    \"categoryKey\": \"mechanical\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_work_started",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_work_started\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalApproved\": 250,\n    \"startedDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Buyer",
+              "item": [
+                {
+                  "name": "Send Test Email — buyer_bid_submitted",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"buyer_bid_submitted\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalBid\": 250\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — buyer_vendor_declined",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"buyer_vendor_declined\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"reason\": \"Vendor declined the job\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — buyer_work_complete",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"buyer_work_complete\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalCost\": 250\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — buyer_vehicle_kicked",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"buyer_vehicle_kicked\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"kickReason\": \"Engine issue\",\n    \"kickedBy\": \"ADESA PHX\",\n    \"kickDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — buyer_approved_shipping",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"buyer_approved_shipping\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"dealer\": \"Dealer ABC\",\n    \"approvedDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — buyer_recon_complete",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"buyer_recon_complete\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\",\n      \"soldTo\": \"ADESA PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\",\n    \"reconSummary\": [\n      {\n        \"icon\": \"X\",\n        \"category\": \"Detail\",\n        \"vendor\": \"Acme Detail\",\n        \"cost\": 250\n      }\n    ],\n    \"totalReconCost\": 250\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Seller",
+              "item": [
+                {
+                  "name": "Send Test Email — seller_vehicle_sold",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"seller_vehicle_sold\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\",\n      \"soldDate\": \"2026-06-15\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — seller_vehicle_kicked",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"seller_vehicle_kicked\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\",\n    \"kickReason\": \"Engine issue\",\n    \"kickedBy\": \"Dealer ABC\",\n    \"kickDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — seller_progress",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"seller_progress\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"seller\": \"Mike Jones\",\n    \"statusText\": \"In Recon\",\n    \"detail\": \"Detail and touch-up in progress\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Dealer",
+              "item": [
+                {
+                  "name": "Send Test Email — dealer_vehicle_shipped",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"dealer_vehicle_shipped\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000\n    },\n    \"dealer\": \"Dealer ABC\",\n    \"pickedUpDate\": \"2026-06-15\",\n    \"transport\": {\n      \"company\": \"FastHaul\",\n      \"phone\": \"602-555-0100\",\n      \"eta\": \"2026-06-20\"\n    }\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — dealer_vehicle_delivered",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"dealer_vehicle_delivered\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000\n    },\n    \"dealer\": \"Dealer ABC\",\n    \"deliveredDate\": \"2026-06-20\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Shipping & Logistics",
+              "item": [
+                {
+                  "name": "Send Test Email — vehicle_grounded",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vehicle_grounded\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\",\n    \"location\": \"PHX\",\n    \"groundedDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — transport_inbound_set",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"transport_inbound_set\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"transport\": {\n      \"company\": \"FastHaul\",\n      \"phone\": \"602-555-0100\",\n      \"email\": \"dispatch@fasthaul.com\",\n      \"eta\": \"2026-06-20\",\n      \"destination\": \"PHX Lot\",\n      \"cost\": 350\n    }\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — shipping_hold",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"shipping_hold\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"reason\": \"ARB claim pending\",\n    \"holdBy\": \"Darren Smith\",\n    \"holdDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — driveway_inbound_pickedup",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"driveway_inbound_pickedup\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"destination\": \"PHX Lot\",\n    \"dwCompany\": \"DriveAway Co\",\n    \"pickedUpDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — driveway_outbound_shipped",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"driveway_outbound_shipped\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"destination\": \"Dealer ABC\",\n    \"dealer\": \"Dealer ABC\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — driveway_outbound_delivered",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"driveway_outbound_delivered\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"destination\": \"Dealer ABC\",\n    \"deliveredDate\": \"2026-06-20\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — retail_vehicle_shipped",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"retail_vehicle_shipped\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"customerName\": \"John Customer\",\n    \"customerPhone\": \"602-555-1234\",\n    \"customerEmail\": \"john@example.com\",\n    \"deliveryAddress\": \"123 Main St, Scottsdale AZ\",\n    \"pickedUpDate\": \"2026-06-15\",\n    \"transport\": {\n      \"company\": \"FastHaul\",\n      \"eta\": \"2026-06-20\"\n    }\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — retail_vehicle_delivered",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"retail_vehicle_delivered\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"customerName\": \"John Customer\",\n    \"deliveryAddress\": \"123 Main St, Scottsdale AZ\",\n    \"deliveredDate\": \"2026-06-20\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Parts",
+              "item": [
+                {
+                  "name": "Send Test Email — parts_request_to_pm",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"parts_request_to_pm\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Mechanical\"\n    },\n    \"partsManager\": \"Parts Team\",\n    \"partCount\": 2,\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\"\n      },\n      {\n        \"desc\": \"Air Filter\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — parts_quoted_to_buyer",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"parts_quoted_to_buyer\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"totalQuote\": 220,\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partPrice\": 120,\n        \"partETA\": \"2026-06-18\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partPrice\": 100,\n        \"partETA\": \"2026-06-17\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — parts_approved_to_pm",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"parts_approved_to_pm\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"partsManager\": \"Parts Team\",\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partPrice\": 120,\n        \"partETA\": \"2026-06-18\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partPrice\": 100,\n        \"partETA\": \"2026-06-17\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — parts_approved_to_vendor",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"parts_approved_to_vendor\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Mechanical\"\n    },\n    \"categoryKey\": \"mechanical\",\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partETA\": \"2026-06-18\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partETA\": \"2026-06-17\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — part_received",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"part_received\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"partDesc\": \"Brake Pads Front\",\n    \"partReceivedDate\": \"2026-06-17\",\n    \"receivedCount\": 1,\n    \"totalParts\": 2,\n    \"categoryKey\": \"mechanical\",\n    \"remainingParts\": [\n      {\n        \"desc\": \"Air Filter\",\n        \"partETA\": \"2026-06-19\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — all_parts_received",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"all_parts_received\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"categoryKey\": \"mechanical\",\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partReceivedDate\": \"2026-06-17\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partReceivedDate\": \"2026-06-19\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — part_rejected",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"part_rejected\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"partDesc\": \"Brake Pads Front\",\n    \"rejectedReason\": \"Wrong part number\",\n    \"rejectedDate\": \"2026-06-17\",\n    \"categoryKey\": \"mechanical\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — part_backorder",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"part_backorder\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"partDesc\": \"Air Filter\",\n    \"originalETA\": \"2026-06-17\",\n    \"newETA\": \"2026-06-25\",\n    \"categoryKey\": \"mechanical\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Payment",
+              "item": [
+                {
+                  "name": "Send Test Email — recon_approved_for_payment",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"recon_approved_for_payment\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"category\": \"Detail\",\n    \"location\": \"PHX\",\n    \"categoryKey\": \"detail\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"lockedTotal\": 250,\n    \"lockedWS\": 250,\n    \"lockedRetail\": 0,\n    \"approvedBy\": \"Darren Smith\",\n    \"approvedDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_payment_receipt",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_payment_receipt\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\",\n      \"email\": \"\"\n    },\n    \"checkNumber\": \"10042\",\n    \"checkWrittenDate\": \"2026-06-15\",\n    \"checkMailedDate\": \"2026-06-15\",\n    \"deliveryMethod\": \"USPS Mail\",\n    \"totalPaid\": 750,\n    \"paidBy\": \"Accounting\",\n    \"jobs\": [\n      {\n        \"vehicleYear\": 2022,\n        \"vehicleMake\": \"Toyota\",\n        \"vehicleModel\": \"Camry\",\n        \"vehicleTrim\": \"LE\",\n        \"vin8\": \"ABC12345\",\n        \"categoryIcon\": \"X\",\n        \"categoryLabel\": \"Detail\",\n        \"total\": 750,\n        \"lineItems\": [\n          {\n            \"desc\": \"Full Detail\",\n            \"price\": 750,\n            \"costType\": \"ws\"\n          }\n        ],\n        \"approvedDate\": \"2026-06-14\",\n        \"approvedBy\": \"Darren Smith\"\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — vendor_payment_pending_digest",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"vendor_payment_pending_digest\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendorName\": \"Detail Pro PHX\",\n    \"paymentTerms\": \"completion\",\n    \"appUrl\": \"http://localhost:5173\",\n    \"isSoldPriority\": true,\n    \"total\": 1275,\n    \"totalWS\": 1125,\n    \"totalRetail\": 150,\n    \"jobs\": [\n      {\n        \"vehicleId\": 1,\n        \"year\": 2023,\n        \"make\": \"Toyota\",\n        \"model\": \"Camry\",\n        \"trim\": \"SE\",\n        \"vin\": \"2T1BURHE0JC100082\",\n        \"color\": \"Silver\",\n        \"miles\": 28400,\n        \"location\": \"PHX\",\n        \"status\": \"sold\",\n        \"soldTo\": \"Dealer ABC\",\n        \"soldDate\": \"2026-07-01\",\n        \"categoryKey\": \"detail\",\n        \"categoryLabel\": \"Detail\",\n        \"categoryIcon\": \"X\",\n        \"lockedTotal\": 300,\n        \"lockedWS\": 300,\n        \"lockedRetail\": 0,\n        \"approvedBy\": \"Michael Wainwright\",\n        \"approvedDate\": \"2026-07-04\",\n        \"vendorEmail\": null\n      },\n      {\n        \"vehicleId\": 2,\n        \"year\": 2024,\n        \"make\": \"Jeep\",\n        \"model\": \"Grand Cherokee\",\n        \"trim\": \"Limited\",\n        \"vin\": \"1C4RJFBG5LC100042\",\n        \"color\": \"Black\",\n        \"miles\": 14200,\n        \"location\": \"PHX\",\n        \"status\": \"active\",\n        \"soldTo\": null,\n        \"soldDate\": null,\n        \"categoryKey\": \"detail\",\n        \"categoryLabel\": \"Detail\",\n        \"categoryIcon\": \"X\",\n        \"lockedTotal\": 350,\n        \"lockedWS\": 350,\n        \"lockedRetail\": 0,\n        \"approvedBy\": \"Darren Cole\",\n        \"approvedDate\": \"2026-06-30\",\n        \"vendorEmail\": null\n      },\n      {\n        \"vehicleId\": 3,\n        \"year\": 2022,\n        \"make\": \"Ford\",\n        \"model\": \"F-150\",\n        \"trim\": \"XLT\",\n        \"vin\": \"1FTFW1ET9NFA00123\",\n        \"color\": \"White\",\n        \"miles\": 41000,\n        \"location\": \"PHX\",\n        \"status\": \"active\",\n        \"soldTo\": null,\n        \"soldDate\": null,\n        \"categoryKey\": \"interior\",\n        \"categoryLabel\": \"Interior\",\n        \"categoryIcon\": \"X\",\n        \"lockedTotal\": 625,\n        \"lockedWS\": 475,\n        \"lockedRetail\": 150,\n        \"approvedBy\": \"Michael Wainwright\",\n        \"approvedDate\": \"2026-07-02\",\n        \"vendorEmail\": null\n      }\n    ]\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "Send Test Email — recon_disputed",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"type\": \"recon_disputed\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"reason\": \"Interior still dirty in back seat\",\n    \"disputedBy\": \"Darren Smith\",\n    \"disputedDate\": \"2026-06-15\"\n  }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/dev/test-email",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "dev",
+                        "test-email"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "description": "Payment queue and cron digest trigger. Queue shows all vendors with approved-but-unpaid recon work and their isDue status based on current digest settings. Manual trigger uses forceAll=true — fires all due vendors regardless of current hour.",
+      "item": [
+        {
+          "name": "View Payment Queue",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "description": "Returns all vendors with approved-but-unpaid recon work. Each batch includes isDue (whether the vendor should receive a digest now based on cron settings), recipients[], paymentTerms, jobs[], and totals. Vendors with no pending work are excluded.",
+            "url": {
+              "raw": "{{base_url}}/api/payments/queue",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "queue"]
             }
           }
         },
         {
-          "name": "Send Test Email — welcome-user",
+          "name": "Trigger Vendor Digest (manual — forceAll)",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"welcome-user\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "description": "Manually fires the vendor digest email to ALL vendors with pending work, bypassing the isDue schedule check (forceAll=true). Emails are logged with triggered_by=manual so they appear without the ⏰ auto badge in Email Log. Admin / tech_support only.",
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/payments/trigger-digest",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "trigger-digest"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "description": "Site-wide settings stored in the site_settings table (key/value). Changes take effect immediately — the cron scheduler reads these at each tick, no server restart needed.\n\nCron-related keys:\n• digest_daily_hours  — comma-separated hours (24h) when completion-terms vendors receive digests (default: \"8,12,17\")\n• digest_weekly_day   — day name when weekly-terms vendors receive digest (default: \"Friday\")\n• digest_weekly_hour  — hour (24h) on that day (default: \"17\")\n\nRead-only virtual key (not stored in DB):\n• server_timezone     — sourced from TZ env var (default: America/Phoenix)",
+      "item": [
+        {
+          "name": "Get All Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "description": "Returns all site_settings rows as a key→value map, plus the virtual server_timezone key derived from the TZ env var. Any role can call this.",
+            "url": {
+              "raw": "{{base_url}}/api/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings"]
             }
           }
         },
         {
-          "name": "Send Test Email — welcome-vendor",
+          "name": "Set Daily Digest Hours",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"welcome-vendor\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"value\": \"8,12,17\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
+            "description": "Sets the hours (comma-separated, 24h) when the cron fires digests for completion-terms vendors. Examples: \"8,12,17\" = 8am/12pm/5pm, \"9,14\" = 9am/2pm. Takes effect on the next cron tick (top of the hour) — no restart needed.",
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/settings/digest_daily_hours",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings", "digest_daily_hours"]
             }
           }
         },
         {
-          "name": "Send Test Email — password-reset",
+          "name": "Set Weekly Digest Day",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"password-reset\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"value\": \"Friday\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
+            "description": "Sets the day of the week when weekly-terms vendors receive their digest. Must be a full English day name (Monday, Tuesday, Wednesday, Thursday, Friday). Takes effect on the next cron tick — no restart needed.",
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/settings/digest_weekly_day",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings", "digest_weekly_day"]
             }
           }
         },
         {
-          "name": "Send Test Email — vendor_payment_receipt",
+          "name": "Set Weekly Digest Hour",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_payment_receipt\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\",\n      \"email\": \"\"\n    },\n    \"checkNumber\": \"10042\",\n    \"checkWrittenDate\": \"2026-06-15\",\n    \"checkMailedDate\": \"2026-06-15\",\n    \"deliveryMethod\": \"USPS Mail\",\n    \"totalPaid\": 750,\n    \"paidBy\": \"Accounting\",\n    \"jobs\": [\n      {\n        \"vehicleYear\": 2022,\n        \"vehicleMake\": \"Toyota\",\n        \"vehicleModel\": \"Camry\",\n        \"vehicleTrim\": \"LE\",\n        \"vin8\": \"ABC12345\",\n        \"categoryIcon\": \"X\",\n        \"categoryLabel\": \"Detail\",\n        \"total\": 750,\n        \"lineItems\": [\n          {\n            \"desc\": \"Full Detail\",\n            \"price\": 750,\n            \"costType\": \"ws\"\n          }\n        ],\n        \"approvedDate\": \"2026-06-14\",\n        \"approvedBy\": \"Darren Smith\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"value\": \"17\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
+            "description": "Sets the hour (24h integer, stored as string) on the weekly digest day when weekly-terms vendors fire. E.g. \"17\" = 5pm, \"9\" = 9am. Takes effect on the next cron tick — no restart needed.",
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/settings/digest_weekly_hour",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings", "digest_weekly_hour"]
             }
           }
         },
         {
-          "name": "Send Test Email — recon_approved_for_payment",
+          "name": "Set Any Setting (generic)",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"recon_approved_for_payment\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"category\": \"Detail\",\n    \"location\": \"PHX\",\n    \"categoryKey\": \"detail\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"lockedTotal\": 250,\n    \"lockedWS\": 250,\n    \"lockedRetail\": 0,\n    \"approvedBy\": \"Darren Smith\",\n    \"approvedDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"value\": \"some-value\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
+            "description": "Upserts any arbitrary key in site_settings. Replace :key in the URL with the setting name. Uses ON CONFLICT upsert so safe to call repeatedly.",
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
+              "raw": "{{base_url}}/api/settings/:key",
+              "host": ["{{base_url}}"],
+              "path": ["api", "settings", ":key"],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "my_setting_key",
+                  "description": "The setting key to upsert"
+                }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dealers",
+      "item": [
+        {
+          "name": "List Dealers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/dealers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dealers"]
             }
           }
         },
         {
-          "name": "Send Test Email — buyer_recon_complete",
+          "name": "Create Dealer",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"buyer_recon_complete\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\",\n      \"soldTo\": \"ADESA PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\",\n    \"reconSummary\": [\n      {\n        \"icon\": \"X\",\n        \"category\": \"Detail\",\n        \"vendor\": \"Acme Detail\",\n        \"cost\": 250\n      }\n    ],\n    \"totalReconCost\": 250\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"name\": \"AutoMax Dealers\",\n  \"email\": \"contact@automax.com\",\n  \"phone\": \"6025550100\",\n  \"address\": \"123 Main St\",\n  \"city\": \"Phoenix\",\n  \"state\": \"AZ\",\n  \"zip_code\": \"85001\",\n  \"responsible_for_pickup\": false\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/dealers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dealers"]
             }
           }
         },
         {
-          "name": "Send Test Email — seller_vehicle_sold",
+          "name": "Update Dealer",
           "request": {
-            "method": "POST",
+            "method": "PUT",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"seller_vehicle_sold\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\",\n      \"soldDate\": \"2026-06-15\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n  \"name\": \"AutoMax Dealers\",\n  \"email\": \"contact@automax.com\",\n  \"phone\": \"6025550100\",\n  \"address\": \"123 Main St\",\n  \"city\": \"Phoenix\",\n  \"state\": \"AZ\",\n  \"zip_code\": \"85001\",\n  \"responsible_for_pickup\": true\n}",
+              "options": { "raw": { "language": "json" } }
             },
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/dealers/{{dealer_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dealers", "{{dealer_id}}"]
             }
           }
         },
         {
-          "name": "Send Test Email — vendor_bid_accepted",
+          "name": "Delete Dealer (soft)",
           "request": {
-            "method": "POST",
+            "method": "DELETE",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_bid_accepted\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalApproved\": 250\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/dealers/{{dealer_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dealers", "{{dealer_id}}"]
             }
           }
         },
         {
-          "name": "Send Test Email — vendor_bid_declined",
+          "name": "Import Dealers from Auction",
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_bid_declined\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"reason\": \"Price too high\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
             "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — vendor_work_canceled",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_work_canceled\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 0,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalRemaining\": 0\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — vendor_part_approved",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_part_approved\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Mechanical\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"part\": {\n      \"desc\": \"Brake Pads Front\",\n      \"price\": 120,\n      \"approvedBy\": \"Darren\",\n      \"approvedDate\": \"2026-06-15\"\n    },\n    \"categoryKey\": \"mechanical\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — vendor_work_started",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vendor_work_started\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalApproved\": 250,\n    \"startedDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — buyer_bid_submitted",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"buyer_bid_submitted\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalBid\": 250\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — buyer_vendor_declined",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"buyer_vendor_declined\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"reason\": \"Vendor declined the job\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — buyer_work_complete",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"buyer_work_complete\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"buyer\": \"Darren Smith\",\n    \"lineItems\": [\n      {\n        \"desc\": \"Full Detail\",\n        \"price\": 250,\n        \"costType\": \"ws\"\n      }\n    ],\n    \"totalCost\": 250\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — buyer_vehicle_kicked",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"buyer_vehicle_kicked\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"kickReason\": \"Engine issue\",\n    \"kickedBy\": \"ADESA PHX\",\n    \"kickDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — buyer_approved_shipping",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"buyer_approved_shipping\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"dealer\": \"Dealer ABC\",\n    \"approvedDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — shipping_hold",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"shipping_hold\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"reason\": \"ARB claim pending\",\n    \"holdBy\": \"Darren Smith\",\n    \"holdDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — vehicle_grounded",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"vehicle_grounded\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\",\n    \"location\": \"PHX\",\n    \"groundedDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — transport_inbound_set",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"transport_inbound_set\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"transport\": {\n      \"company\": \"FastHaul\",\n      \"phone\": \"602-555-0100\",\n      \"email\": \"dispatch@fasthaul.com\",\n      \"eta\": \"2026-06-20\",\n      \"destination\": \"PHX Lot\",\n      \"cost\": 350\n    }\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — driveway_inbound_pickedup",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"driveway_inbound_pickedup\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"destination\": \"PHX Lot\",\n    \"dwCompany\": \"DriveAway Co\",\n    \"pickedUpDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — driveway_outbound_shipped",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"driveway_outbound_shipped\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"destination\": \"Dealer ABC\",\n    \"dealer\": \"Dealer ABC\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — driveway_outbound_delivered",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"driveway_outbound_delivered\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"soldTo\": \"Dealer ABC\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"destination\": \"Dealer ABC\",\n    \"deliveredDate\": \"2026-06-20\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — retail_vehicle_shipped",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"retail_vehicle_shipped\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"customerName\": \"John Customer\",\n    \"customerPhone\": \"602-555-1234\",\n    \"customerEmail\": \"john@example.com\",\n    \"deliveryAddress\": \"123 Main St, Scottsdale AZ\",\n    \"pickedUpDate\": \"2026-06-15\",\n    \"transport\": {\n      \"company\": \"FastHaul\",\n      \"eta\": \"2026-06-20\"\n    }\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — retail_vehicle_delivered",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"retail_vehicle_delivered\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"customerName\": \"John Customer\",\n    \"deliveryAddress\": \"123 Main St, Scottsdale AZ\",\n    \"deliveredDate\": \"2026-06-20\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — seller_vehicle_kicked",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"seller_vehicle_kicked\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\",\n      \"buyingBroker\": \"Darren Smith\",\n      \"sellingBroker\": \"Mike Jones\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"seller\": \"Mike Jones\",\n    \"kickReason\": \"Engine issue\",\n    \"kickedBy\": \"Dealer ABC\",\n    \"kickDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — seller_progress",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"seller_progress\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"seller\": \"Mike Jones\",\n    \"statusText\": \"In Recon\",\n    \"detail\": \"Detail and touch-up in progress\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — dealer_vehicle_shipped",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"dealer_vehicle_shipped\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000\n    },\n    \"dealer\": \"Dealer ABC\",\n    \"pickedUpDate\": \"2026-06-15\",\n    \"transport\": {\n      \"company\": \"FastHaul\",\n      \"phone\": \"602-555-0100\",\n      \"eta\": \"2026-06-20\"\n    }\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — dealer_vehicle_delivered",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"dealer_vehicle_delivered\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000\n    },\n    \"dealer\": \"Dealer ABC\",\n    \"deliveredDate\": \"2026-06-20\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — parts_request_to_pm",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"parts_request_to_pm\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Mechanical\"\n    },\n    \"partsManager\": \"Parts Team\",\n    \"partCount\": 2,\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\"\n      },\n      {\n        \"desc\": \"Air Filter\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — parts_quoted_to_buyer",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"parts_quoted_to_buyer\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"buyer\": \"Darren Smith\",\n    \"totalQuote\": 220,\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partPrice\": 120,\n        \"partETA\": \"2026-06-18\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partPrice\": 100,\n        \"partETA\": \"2026-06-17\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — parts_approved_to_pm",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"parts_approved_to_pm\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"partsManager\": \"Parts Team\",\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partPrice\": 120,\n        \"partETA\": \"2026-06-18\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partPrice\": 100,\n        \"partETA\": \"2026-06-17\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — parts_approved_to_vendor",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"parts_approved_to_vendor\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Mechanical\"\n    },\n    \"categoryKey\": \"mechanical\",\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partETA\": \"2026-06-18\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partETA\": \"2026-06-17\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — part_received",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"part_received\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"partDesc\": \"Brake Pads Front\",\n    \"partReceivedDate\": \"2026-06-17\",\n    \"receivedCount\": 1,\n    \"totalParts\": 2,\n    \"categoryKey\": \"mechanical\",\n    \"remainingParts\": [\n      {\n        \"desc\": \"Air Filter\",\n        \"partETA\": \"2026-06-19\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — all_parts_received",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"all_parts_received\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"categoryKey\": \"mechanical\",\n    \"parts\": [\n      {\n        \"desc\": \"Brake Pads Front\",\n        \"partReceivedDate\": \"2026-06-17\"\n      },\n      {\n        \"desc\": \"Air Filter\",\n        \"partReceivedDate\": \"2026-06-19\"\n      }\n    ]\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — part_rejected",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"part_rejected\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"partDesc\": \"Brake Pads Front\",\n    \"rejectedReason\": \"Wrong part number\",\n    \"rejectedDate\": \"2026-06-17\",\n    \"categoryKey\": \"mechanical\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — part_backorder",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"part_backorder\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"recipient\": \"Darren Smith\",\n    \"partDesc\": \"Air Filter\",\n    \"originalETA\": \"2026-06-17\",\n    \"newETA\": \"2026-06-25\",\n    \"categoryKey\": \"mechanical\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Send Test Email — recon_disputed",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"recon_disputed\",\n  \"to\": \"michael.alanw@gmail.com\",\n  \"preview\": true,\n  \"data\": {\n    \"vehicle\": {\n      \"id\": 1,\n      \"year\": 2022,\n      \"make\": \"Toyota\",\n      \"model\": \"Camry\",\n      \"vin8\": \"ABC12345\",\n      \"color\": \"White\",\n      \"miles\": 30000,\n      \"location\": \"PHX\"\n    },\n    \"vendor\": {\n      \"name\": \"Acme Detail\"\n    },\n    \"category\": \"Detail\",\n    \"categoryKey\": \"detail\",\n    \"reason\": \"Interior still dirty in back seat\",\n    \"disputedBy\": \"Darren Smith\",\n    \"disputedDate\": \"2026-06-15\"\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/dev/test-email",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "dev",
-                "test-email"
-              ]
+              "raw": "{{base_url}}/api/dealers/import-from-auction",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dealers", "import-from-auction"]
             }
           }
         }

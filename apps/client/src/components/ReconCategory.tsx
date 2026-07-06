@@ -6,6 +6,44 @@ import { DateIn } from './DateIn';
 import { useStore, selectRoles } from '../lib/store';
 import { ConditionReportEditor } from './ConditionReportEditor';
 
+function TaskNotes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    setSaved(true);
+    setEditing(false);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  if (editing || !value) {
+    return <div style={{display:"flex",flexDirection:"column",gap:4,marginTop:6,paddingTop:6,borderTop:"1px solid #1E1E32"}}>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <span style={{fontSize:11,color:"#6B7280",whiteSpace:"nowrap",fontWeight:600}}>TASK NOTES</span>
+        <span style={{fontSize:10,color:"#374151",fontStyle:"italic"}}>· saves automatically</span>
+      </div>
+      <textarea autoFocus={editing} rows={2} style={{...S.fi,fontSize:12,padding:"4px 8px",color:"#D1D5DB",resize:"vertical",lineHeight:1.5}} placeholder="Description, URL, or any notes (optional)" value={value} onChange={(e: any)=>onChange(e.target.value)} onFocus={()=>setEditing(true)}/>
+      {value.trim() && <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <button onMouseDown={(e: any)=>e.preventDefault()} onClick={handleSave}
+          style={{fontSize:11,fontWeight:700,padding:"3px 12px",borderRadius:4,border:"1px solid #166534",background:"#064E3B",color:"#34D399",cursor:"pointer"}}>
+          Save Notes
+        </button>
+      </div>}
+    </div>;
+  }
+
+  return <div style={{display:"flex",alignItems:"flex-start",gap:6,marginTop:6,paddingTop:6,borderTop:"1px solid #1E1E32"}}>
+    <span style={{fontSize:11,color:"#6B7280",whiteSpace:"nowrap",fontWeight:600,paddingTop:2}}>TASK NOTES</span>
+    <div style={{fontSize:12,color:"#C4C9D4",lineHeight:1.5,flex:1,overflowWrap:"break-word",wordBreak:"break-word",minWidth:0}}>
+      {saved
+        ? <span style={{color:"#34D399",fontWeight:600,fontSize:11}}>✓ Saved</span>
+        : linkifyText(value)
+      }
+    </div>
+    <button onClick={()=>setEditing(true)} title="Edit notes" style={{background:"none",border:"none",color:"#6B7280",cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✏️</button>
+  </div>;
+}
+
 export function ReconCategory({cat,task,vOpts,onAssign,onEst,onApr,onStart,onCmp,onTog,onNotes,onPhotos,onOrder,onUpdVendor,onSelectVendor,onSendReminder,onReassign,canEditRecon,onUpdateTask}: any){
 const notify = useStore((s: any) => s.notify);
 const showConfirm = useStore((s: any) => s.showConfirm);
@@ -15,6 +53,7 @@ const vehicle = useStore((s: any) => s.selV);
 const deepLinkCat = useStore((s: any) => s.deepLinkCat);
 const setDeepLinkCat = useStore((s: any) => s.setDeepLinkCat);
 const { isAdmin, isVendor } = useStore(selectRoles);
+const regVendors = useStore((s: any) => s.regVendors);
 const buyingBroker = vehicle?.buyingBroker || "";
 const isGrounded = !!(vehicle?.transport?.inbound?.delivered && !vehicle?.arb?.open);
 const usedOrders = VCAT.filter((c: any) => c.key !== cat.key && vehicle?.reconTasks?.[c.key]?.order).map((c: any) => vehicle?.reconTasks?.[c.key]?.order);
@@ -24,13 +63,13 @@ const [ei,setEi]=useState("");const [no,setNo]=useState(false);const [nv,setNv]=
 const [startEta,setStartEta]=useState("");const [lbImg,setLbImg]=useState(null as any);const [editBid,setEditBid]=useState(false);
 useEffect(()=>{if(autoExpand){setExp(true);setTimeout(()=>{if(fr.current)fr.current.scrollIntoView({behavior:"smooth",block:"center"});},200);}},[autoExpand]);
 const cl=stColor(task?.status||"na"),need=task?.needed,photos=task?.photos||[];const isOEM=cat.key==="oemdealer";const isCR=cat.key==="cr";
-const uploadVid=async(f: any)=>{try{const fd=new FormData();fd.append("file",f);const r=await fetch(API_URL+"/api/uploads",{method:"POST",headers:{Authorization:"Bearer "+(sessionStorage.getItem("fc_token")||"")},body:fd});const j=await r.json();return j.ok?j.data.url:URL.createObjectURL(f);}catch{return URL.createObjectURL(f);}};
+const uploadVid=async(f: any)=>{try{const fd=new FormData();fd.append("file",f);const r=await fetch(API_URL+"/api/uploads",{method:"POST",headers:{Authorization:"Bearer "+(localStorage.getItem("fc_token")||"")},body:fd});const j=await r.json();return j.ok?j.data.url:URL.createObjectURL(f);}catch{return URL.createObjectURL(f);}};
 const hu=async(e: any)=>{const fs=Array.from(e.target.files||[]);if(!fs.length)return;const np:any[]=await Promise.all((fs as File[]).map(async(f:File)=>{const isVid=f.type.startsWith("video");return {data:await uploadVid(f),name:f.name,date:new Date().toISOString().split("T")[0],type:isVid?"video":"image"};}));onPhotos([...photos,...np]);e.target.value="";};
 const sv=(task?.vendors||[]).find((v: any)=>v.selected)||(task?.vendors||[])[0]||null;
-return <span style={{display:"contents"}}>{!exp?<div ref={fr} style={{...S.card,borderLeft:`4px solid ${cl.bd}`,background:cl.bg,opacity:need?1:0.5,cursor:"pointer",minHeight:50}} onClick={()=>setExp(true)}>
+return <><style>{`@keyframes acceptBidPulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0.55)}50%{box-shadow:0 0 0 14px rgba(52,211,153,0)}}`}</style><span style={{display:"contents"}}>{!exp?<div ref={fr} style={{...S.card,borderLeft:`4px solid ${cl.bd}`,background:cl.bg,opacity:need?1:0.5,cursor:"pointer",minHeight:50}} onClick={()=>setExp(true)}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:8}}>
-{need&&<select style={{width:32,height:24,borderRadius:4,border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.1)",color:"#FFF",fontSize:12,fontWeight:800}} value={task?.order||""} onClick={(e: any)=>e.stopPropagation()} onChange={(e: any)=>{e.stopPropagation();onOrder&&onOrder(e.target.value);}}>
+{need&&<select style={{width:32,height:24,borderRadius:4,border:"1px solid #2A2A3E",background:"#12122A",color:"#E5E7EB",fontSize:12,fontWeight:800}} value={task?.order||""} onClick={(e: any)=>e.stopPropagation()} onChange={(e: any)=>{e.stopPropagation();onOrder&&onOrder(e.target.value);}}>
 <option value="">—</option>{[1,2,3,4,5,6,7,8,9,10].map(n=><option key={n} value={n} disabled={(usedOrders||[]).includes(n)&&task?.order!==n}>{n}{(usedOrders||[]).includes(n)&&task?.order!==n?" ✗":""}</option>)}</select>}
 <span style={{fontSize:20}}>{cat.icon}</span><span style={{fontWeight:700,color:"#E5E7EB",fontSize:16}}>{cat.label}{task?.noteUnread&&<span style={{marginLeft:6,fontSize:10,background:"#F59E0B",color:"#000",borderRadius:10,padding:"2px 6px",fontWeight:700}}>🔔</span>}</span></div>
 <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -45,28 +84,52 @@ return <span style={{display:"contents"}}>{!exp?<div ref={fr} style={{...S.card,
 {need&&sv&&(cat.key==="parts"||(task.workTasks||[]).some((w: any)=>w.isPart))&&(()=>{const wt2=task.workTasks||[];const pts2=(cat.key==="parts"?wt2:wt2.filter((w: any)=>w.isPart)).filter((w: any)=>{const li9=(sv.lineItems||[]).find((x: any)=>x.id===w.id)||{};return !li9.declined&&li9.accepted;});if(!pts2.length)return null;return <div style={{marginTop:4}}>{pts2.map((w: any)=>{const li2=(sv.lineItems||[]).find((x: any)=>x.id===w.id)||{};const st=li2.partInstalled?"✅ Installed":li2.partArrived?"📦 Arrived":li2.partOrdered?"🔄 Ordered":"⏳ Pending";const dt=li2.partInstalled?li2.partInstalledDate:li2.partArrived?li2.partArrivedDate:li2.partOrdered?li2.partOrderedDate:"";const clr=li2.partInstalled?"#34D399":li2.partArrived?"#60A5FA":li2.partOrdered?"#FBBF24":"#6B7280";return <div key={w.id} style={{fontSize:11,color:clr}}>{st} {w.desc}{dt?" — "+fmtDate(dt):""}</div>;})}</div>;})()}
 {need&&task?.status==="started"&&task?.etaComplete&&<div style={{fontSize:12,color:"#FBBF24",marginTop:2}}>ETA: {fmtDate(task.etaComplete)}</div>}
 {need&&task?.status==="complete"&&task?.dateCompleted&&<div style={{fontSize:12,color:"#34D399",marginTop:2}}>Completed: {fmtDate(task.dateCompleted)}</div>}
+{need&&task?.status==="complete"&&!isVendor&&!task?.approvedForPayment&&!task?.paid&&<div style={{fontSize:11,fontWeight:700,color:"#F59E0B",marginTop:2}}>💸 Awaiting payment approval</div>}
+{need&&task?.status==="complete"&&!isVendor&&task?.approvedForPayment&&!task?.paid&&<div style={{fontSize:11,fontWeight:700,color:"#6EE7B7",marginTop:2}}>💸 Pending check</div>}
 {need&&(task?.workTasks||[]).length>0&&<div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{(()=>{const wt=task.workTasks||[];const activeTasks=wt.filter((w: any)=>{const li=(sv?.lineItems||[]).find((x: any)=>x.id===w.id)||{};return !li.declined;});const done=activeTasks.filter((w: any)=>{const li=(sv?.lineItems||[]).find((x: any)=>x.id===w.id);return li?.taskDone;}).length;const rds=(task?.completedRounds||[]).length;return done===activeTasks.length&&activeTasks.length>0?<span style={{color:"#34D399"}}>✅ All {activeTasks.length} tasks done{rds>0?" (R"+(rds+1)+")":""}</span>:<span>{done}/{activeTasks.length} tasks done{rds>0?" (R"+(rds+1)+")":""}</span>;})()}</div>}
 </div>:null}
 {exp&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:20}} onClick={()=>setExp(false)}>
 <div style={{background:"#12122A",border:`2px solid ${cl.bd}`,borderRadius:12,padding:24,width:"95%",maxWidth:800,maxHeight:"90vh",overflowY:"auto"}} onClick={(e: any)=>e.stopPropagation()}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,gap:12}}>
+<div style={{display:"flex",flexDirection:"column",gap:6,flex:1,minWidth:0}}>
 <div style={{display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:32}}>{cat.icon}</span><span style={{fontWeight:800,color:"#E5E7EB",fontSize:22}}>{cat.label}</span>
 <span style={{...S.badge,background:cl.bd,color:cl.text,fontSize:14,padding:"4px 12px"}}>{stLabel(task?.status||"na")}</span></div>
-<button style={{...S.sm,fontSize:18}} onClick={()=>setExp(false)}>✕</button></div>
+{vehicle&&<div style={{display:"flex",alignItems:"center",gap:8,paddingLeft:4,flexWrap:"wrap"}}>
+<span style={{fontSize:13,fontWeight:700,color:"#9CA3AF"}}>{vehicle.year} {vehicle.make} {vehicle.model}</span>
+<span style={{fontSize:11,color:"#4B5563"}}>·</span>
+<span style={{fontSize:12,color:"#6B7280",fontFamily:"monospace"}}>#{vehicle.stockNumber||vehicle.stock_number}</span>
+{vehicle.fullVin&&<><span style={{fontSize:11,color:"#4B5563"}}>·</span><span style={{fontSize:11,color:"#4B5563",fontFamily:"monospace"}}>VIN {vehicle.fullVin}</span></>}
+<span style={{fontSize:11,color:"#4B5563"}}>·</span>
+<span style={{fontSize:12,color:"#6B7280"}}>{vehicle.location}</span>
+</div>}
+</div>
+<div style={{display:"flex",alignItems:"flex-start",gap:8,flexShrink:0}}>
+{(()=>{const thumb=(vehicle?.photos||[]).find((p:any)=>(p.url||p.data)&&!p.type?.startsWith("video"));const src=thumb?.url||thumb?.data;return src?<img src={src} alt="" onClick={(e:any)=>{e.stopPropagation();setLbImg({data:src,type:"image"});}} style={{width:96,height:72,objectFit:"cover",borderRadius:6,border:"1px solid #2A2A3E",flexShrink:0,cursor:"zoom-in",marginRight:8}}/>:null;})()}
+<button style={{...S.sm,fontSize:18}} onClick={()=>setExp(false)}>✕</button>
+</div>
+</div>
 <div>
 {isCR&&<ConditionReportEditor/>}
 {!isOEM&&!isCR&&<div style={{marginBottom:12,padding:14,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E"}}>
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
 <span style={{fontSize:16,fontWeight:700,color:"#E5E7EB"}}>📋 Work Tasks</span>
 <div style={{display:"flex",gap:6}}>
-{cat.key==="mechanical"&&!(task.workTasks||[]).some((w: any)=>w.desc==="Full Inspection")&&(!task.status||task.status==="unassigned"||task.status==="assigned")&&<button style={{...S.sm,color:"#F97316",border:"1px solid #F97316"}} onClick={()=>{const wt2=[...(task.workTasks||[]),{id:`wt${Date.now()}`,desc:"Full Inspection",isPart:false,isInspection:true}];const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:wt2.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:wt2,vendors:vs});}}>🔍 Request Inspection</button>}
-{(!task.status||task.status==="unassigned"||task.status==="assigned")?<button style={{...S.sm,color:"#3B82F6"}} onClick={()=>{const wt=[...(task.workTasks||[]),{id:`wt${Date.now()}`,desc:"",isPart:false}];const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:wt.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));const extra: any={workTasks:wt,vendors:vs};if(task.status==="complete"){const sv9=(task.vendors||[]).find((x: any)=>x.selected);const prevCost=(sv9?.lineItems||[]).filter((x: any)=>x.accepted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const prevTasks=(task.workTasks||[]).map((w: any)=>w.desc).join(", ");extra.status="started";extra.dateStarted=new Date().toISOString().split("T")[0];extra.roundPhotoStart=(task.photos||[]).length;extra.completedRounds=[...(task.completedRounds||[]),{date:task.dateCompleted,tasks:prevTasks,cost:prevCost}];}onUpdateTask(extra);}}>+ Add Task</button>:<span style={{fontSize:11,color:"#4B5563"}}>🔒 Locked</span>}</div></div>
+{!isVendor&&cat.key==="mechanical"&&!(task.workTasks||[]).some((w: any)=>w.desc==="Full Inspection")&&(!task.status||task.status==="unassigned"||task.status==="assigned")&&<button style={{...S.sm,color:"#F97316",border:"1px solid #F97316"}} onClick={()=>{const wt2=[...(task.workTasks||[]),{id:`wt${Date.now()}`,desc:"Full Inspection",isPart:false,isInspection:true}];const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:wt2.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:wt2,vendors:vs});}}>🔍 Request Inspection</button>}
+{!isVendor&&((!task.status||task.status==="unassigned"||task.status==="assigned")?<button style={{...S.sm,color:"#3B82F6"}} onClick={()=>{const wt=[...(task.workTasks||[]),{id:`wt${Date.now()}`,desc:"",isPart:false}];const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:wt.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));const extra: any={workTasks:wt,vendors:vs};if(task.status==="complete"){const sv9=(task.vendors||[]).find((x: any)=>x.selected);const prevCost=(sv9?.lineItems||[]).filter((x: any)=>x.accepted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const prevTasks=(task.workTasks||[]).map((w: any)=>w.desc).join(", ");extra.status="started";extra.dateStarted=new Date().toISOString().split("T")[0];extra.roundPhotoStart=(task.photos||[]).length;extra.completedRounds=[...(task.completedRounds||[]),{date:task.dateCompleted,tasks:prevTasks,cost:prevCost}];}onUpdateTask(extra);}}>+ Add Task</button>:<span style={{fontSize:11,color:"#4B5563"}}>🔒 Locked</span>)}</div></div>
 {(task.workTasks||[]).length===0&&<div style={{fontSize:14,color:"#4B5563",textAlign:"center",padding:10}}>Add tasks for vendor to price</div>}
-{(task.workTasks||[]).map((wt: any,wi: any)=><div key={wt.id} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
-<input style={{...S.fi,fontSize:15,padding:"10px 12px",flex:1}} placeholder="e.g. Paint Hood" value={wt.desc} onChange={(e: any)=>{const items=[...(task.workTasks||[])];items[wi]={...items[wi],desc:e.target.value};const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:items.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}/>
-<label style={{display:"flex",alignItems:"center",gap:4,fontSize:13,color:wt.isPart?"#60A5FA":"#6B7280"}}><input type="checkbox" checked={wt.isPart||false} onChange={(e: any)=>{const items=[...(task.workTasks||[])];items[wi]={...items[wi],isPart:e.target.checked};const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:items.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}/>Part</label>
-{(()=>{const hasVendors=(task.vendors||[]).length>0;const anyBid=(task.vendors||[]).some((vn2: any)=>(vn2.lineItems||[]).some((li2: any)=>li2.price>0||li2.accepted));const locked=hasVendors&&(anyBid||task.status==="started"||task.status==="complete"||task.status==="approved");return locked?<span style={{fontSize:14,color:"#4B5563",padding:"0 4px"}} title="Locked — vendor assigned">🔒</span>:<button style={{background:"none",border:"none",color:"#F87171",fontSize:18,cursor:"pointer"}} onClick={()=>{const items=(task.workTasks||[]).filter((_: any,j: any)=>j!==wi);const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:items.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex||{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}>✕</button>;})()}</div>)}</div>}
+{(task.workTasks||[]).map((wt: any,wi: any)=>{const hasVendors=(task.vendors||[]).length>0;const anyBid=(task.vendors||[]).some((vn2: any)=>(vn2.lineItems||[]).some((li2: any)=>li2.price>0||li2.accepted));const locked=hasVendors&&(anyBid||task.status==="started"||task.status==="complete"||task.status==="approved");const updateItems=(patch: any)=>{const items=[...(task.workTasks||[])];items[wi]={...items[wi],...patch};const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:items.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex?{...ex,desc:w.desc,isPart:w.isPart}:{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});};return <div key={wt.id} style={{marginBottom:8,padding:"8px 10px",background:"#0A0A18",borderRadius:6,border:"1px solid #1E1E32"}}>
+<div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+{isVendor||locked
+  ? <span style={{fontSize:15,color:"#E5E7EB",fontWeight:600,flex:1,padding:"8px 0"}}>{wt.desc||"—"}{wt.isPart&&<span style={{...S.badge,background:"#1E3A5F",color:"#93C5FD",fontSize:9,marginLeft:6}}>PART</span>}{locked&&!isVendor&&<span style={{fontSize:12,color:"#4B5563",marginLeft:6}}>🔒</span>}</span>
+  : <>
+    <input style={{...S.fi,fontSize:15,padding:"8px 12px",flex:1}} placeholder="e.g. Paint Hood" value={wt.desc} onChange={(e: any)=>updateItems({desc:e.target.value})}/>
+    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:13,color:wt.isPart?"#60A5FA":"#6B7280",whiteSpace:"nowrap"}}><input type="checkbox" checked={wt.isPart||false} onChange={(e: any)=>updateItems({isPart:e.target.checked})}/>Part</label>
+    <button style={{background:"none",border:"none",color:"#F87171",fontSize:18,cursor:"pointer"}} onClick={()=>{const items=(task.workTasks||[]).filter((_: any,j: any)=>j!==wi);const vs=(task.vendors||[]).map((vn: any)=>({...vn,lineItems:items.map((w: any)=>{const ex=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return ex||{id:w.id,desc:w.desc,price:0,isPart:w.isPart};})}));onUpdateTask({workTasks:items,vendors:vs});}}>✕</button>
+  </>}
+</div>
+{!isVendor&&<TaskNotes value={wt.notes||""} onChange={(v)=>updateItems({notes:v})}/>}
+</div>;})}</div>}
 {isOEM&&need&&<div style={{padding:12,background:"#1A1A2E",borderRadius:8,border:"1px solid #78590A",marginBottom:10}}>
 <div style={{fontSize:16,fontWeight:800,color:"#FDE68A",marginBottom:10}}>🏭 OEM Dealer Service</div>
 <label style={{...S.fl,fontSize:14}}>Dealer Name *<input style={{...S.fi,fontSize:16,padding:"10px 14px"}} value={task.oemDealer||""} onChange={(e: any)=>{onUpdateTask({oemDealer:e.target.value})}} placeholder="e.g. Larry H Miller Toyota"/></label>
@@ -126,16 +189,16 @@ if(typeof fireEmail==="function")fireEmail("buyer_work_complete",{buyer:vehicle?
 
 {!isOEM&&(task.vendors||[]).length>0&&<div style={{marginBottom:12}}>
 <div style={{fontSize:13,fontWeight:700,color:"#9CA3AF",marginBottom:8}}>VENDOR BIDS</div></div>}
-{!isOEM&&(task.vendors||[]).filter((vn: any)=>{if(!isVendor||!currentUser)return true;const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf));}).map((vn: any,i: any)=>{const bidTotal=(vn.lineItems||[]).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const lt=vn.bidLocked?(vn.lineItems||[]).filter((x: any)=>x.accepted&&!x.declined).reduce((s: any,x: any)=>s+(Number(x.price)||0),0):bidTotal;const wt=task.workTasks||[];const ap=wt.length>0&&wt.every((w: any)=>{const li=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return li&&(Number(li.price)>0||li.noCharge||li.declined);});
+{!isOEM&&(task.vendors||[]).filter((vn: any)=>{if(!isVendor||!currentUser)return true;const ce=(currentUser.email||"").toLowerCase();const cf=(currentUser.first_name||currentUser.firstName||"").toLowerCase();const cn=((currentUser.first_name||currentUser.firstName||"")+" "+(currentUser.last_name||currentUser.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();const myVid2=currentUser.vendor_id?'vn_'+currentUser.vendor_id:null;const myVReg2=(regVendors||[]).find((rv: any)=>myVid2?('vn_'+rv.id)===myVid2:(ce&&(rv.email||"").toLowerCase()===ce));const myVName2=(myVReg2?.company||myVReg2?.name||"").toLowerCase();return (ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf))||(myVName2&&vname===myVName2);}).map((vn: any,i: any)=>{const bidTotal=(vn.lineItems||[]).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);const lt=vn.bidLocked?(vn.lineItems||[]).filter((x: any)=>x.accepted&&!x.declined).reduce((s: any,x: any)=>s+(Number(x.price)||0),0):bidTotal;const wt=task.workTasks||[];const ap=wt.length>0&&wt.every((w: any)=>{const li=(vn.lineItems||[]).find((x: any)=>x.id===w.id);return li&&(Number(li.price)>0||li.noCharge||li.declined);});
 return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:vn.selected?"#0F294088":"rgba(255,255,255,0.03)",border:vn.selected?"2px solid #3B82F6":"1px solid #2A2A3E"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
 <span style={{fontSize:16,fontWeight:700,color:vn.declined?"#F87171":"#E5E7EB"}}>{vn.name}</span>
 {vn.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5"}}>❌ DECLINED</span>}
 {vn.selected&&<span style={{...S.badge,background:"#3B82F6",color:"#FFF"}}>✓ ACCEPTED</span>}
-{vn.selected&&vn.bidLocked&&<button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:editBid?"2px solid #F59E0B":"1px solid #2A2A3E",background:editBid?"#78590A":"transparent",color:editBid?"#FDE68A":"#9CA3AF",cursor:"pointer",fontWeight:700}} onClick={()=>setEditBid(!editBid)}>{editBid?"💾 Done Editing":"✏️ Edit Bid"}</button>}
+{!isVendor&&vn.selected&&vn.bidLocked&&<button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:editBid?"2px solid #F59E0B":"1px solid #2A2A3E",background:editBid?"#78590A":"transparent",color:editBid?"#FDE68A":"#9CA3AF",cursor:"pointer",fontWeight:700}} onClick={()=>setEditBid(!editBid)}>{editBid?"✕ Cancel":"✏️ Edit Bid"}</button>}
 {lt>=0&&<span style={{fontSize:18,fontWeight:800,color:lt===0&&!vn.bidAdjustment?"#9CA3AF":vn.bidAdjustedDate?"#F59E0B":"#FBBF24"}}>{lt===0&&!vn.bidAdjustment?"$0 (No Charge)":"$"+(lt+(vn.bidAdjustment||0)).toLocaleString()}{vn.bidAdjustedDate&&<span style={{fontSize:11,color:"#9CA3AF",marginLeft:4}}>(was ${bidTotal.toLocaleString()})</span>}</span>}</div>
-{!isVendor&&!vn.selected&&!vn.declined&&vn.bidLocked&&!(task.vendors||[]).some((v2: any)=>v2.selected)&&(()=>{const items=vn.lineItems||[];const allDecided=items.every((x: any)=>x.accepted||x.declined);const anyAccepted=items.some((x: any)=>x.accepted);return allDecided&&anyAccepted?<button style={{padding:"10px 20px",borderRadius:6,background:"#166534",color:"#6EE7B7",fontSize:16,fontWeight:700,border:"none",cursor:"pointer"}} onClick={()=>{onSelectVendor&&onSelectVendor(vn.id);setExp(false);}}>✅ Accept Bid</button>:!allDecided?<span style={{fontSize:16,color:"#FBBF24",fontWeight:700,padding:"8px 14px",background:"#3B2F10",borderRadius:6,border:"1px solid #78590A"}}>👆 Accept or Decline each item to continue</span>:null;})()}
+{!isVendor&&!vn.selected&&!vn.declined&&vn.bidLocked&&!(task.vendors||[]).some((v2: any)=>v2.selected)&&(()=>{const items=vn.lineItems||[];const allDecided=items.every((x: any)=>x.accepted||x.declined);const anyAccepted=items.some((x: any)=>x.accepted);return allDecided&&anyAccepted?<button style={{padding:"10px 20px",borderRadius:6,background:"#166534",color:"#6EE7B7",fontSize:16,fontWeight:700,border:"2px solid #34D399",cursor:"pointer",animation:"acceptBidPulse 1.4s ease-in-out infinite"}} onClick={()=>{onSelectVendor&&onSelectVendor(vn.id);setExp(false);}}>✅ Accept Bid</button>:!allDecided?<span style={{fontSize:16,color:"#FBBF24",fontWeight:700,padding:"8px 14px",background:"#3B2F10",borderRadius:6,border:"1px solid #78590A"}}>👆 Accept or Decline each item to continue</span>:null;})()}
 {!vn.selected&&!vn.declined&&vn.bidLocked&&(task.vendors||[]).some((v2: any)=>v2.selected)&&<div style={{padding:8,background:"#1A1A2E",borderRadius:6,border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:12,color:"#6B7280"}}>🔒 Another vendor accepted</span></div>}
 {!vn.declined&&!vn.selected&&task.status!=="complete"&&<button style={{padding:"6px 14px",borderRadius:6,background:"#7F1D1D",color:"#FCA5A5",fontSize:12,fontWeight:700,border:"1px solid #EF4444",cursor:"pointer"}} onClick={()=>{onUpdVendor(vn.id,{declined:true,declinedDate:new Date().toISOString().split("T")[0]});const others=(task.vendors||[]).filter((v2: any)=>v2.id!==vn.id);const allDeclined=others.every((v2: any)=>v2.declined);if(allDeclined){onUpdateTask({status:"declined"});}}}>❌ Decline</button>}
 {isVendor&&vn.declined&&<button style={{padding:"6px 14px",borderRadius:6,background:"#1E3A5F",color:"#93C5FD",fontSize:12,fontWeight:700,border:"1px solid #3B82F6",cursor:"pointer",marginLeft:6}} onClick={()=>{const sc=task.status==="declined"?{status:vn.bidLocked?"estimated":"assigned"}:undefined;onUpdVendor(vn.id,{declined:false,declinedDate:""},sc);}}>↩️ Undo Decline</button>}
@@ -143,22 +206,30 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 </div>
 <div style={{padding:12,background:"#0D0D1A",borderRadius:8,border:"1px solid #2A2A3E",marginBottom:8}}>
 {wt.map((w: any)=>{const li=(vn.lineItems||[]).find((x: any)=>x.id===w.id)||{};const isP=w.isPart;return <div key={w.id} style={{padding:"8px 0",borderBottom:"1px solid #2A2A3E"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<span style={{fontSize:14,color:li.declined?"#FCA5A5":"#E5E7EB",fontWeight:600,textDecoration:li.declined?"line-through":"none"}}>{w.desc||"—"}{isP&&<span style={{...S.badge,background:"#1E3A5F",color:"#93C5FD",fontSize:9,marginLeft:6}}>PART</span>}{li.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:9,marginLeft:6}}>DECLINED</span>}</span>
-{vn.bidLocked?<div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
-<span style={{fontWeight:700,color:li.declined?"#6B7280":"#FBBF24",textDecoration:li.declined?"line-through":"none"}}>${li.declined?0:Number(li.price)||0}</span>
-{!isVendor&&<>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.accepted?"2px solid #166534":"1px solid #2A2A3E",cursor:li.costType?"pointer":"not-allowed",fontWeight:700,background:li.accepted?"#166534":"transparent",color:li.accepted?"#6EE7B7":li.costType?"#6B7280":"#4B5563",opacity:li.costType?1:0.5}} onClick={()=>{if(!li.costType)return;const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],accepted:true,declined:false,acceptedDate:new Date().toISOString().split("T")[0]};onUpdVendor(vn.id,{lineItems:items});}}>✅ {li.accepted?"Accepted":"Accept"}</button>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.declined?"#7F1D1D":"transparent",color:li.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],declined:true,accepted:false};const allDeclined=items.every((x: any)=>x.declined);if(allDeclined){onUpdateTask({status:"unassigned",vendors:[],vendorId:null,vendorName:null});if(typeof fireEmail==="function"&&vehicle)fireEmail("vendor_work_canceled",{vendor:{name:vn.name},vehicle:vData(vehicle),lineItems:items.map((x: any)=>({desc:"❌ "+x.desc,price:0,costType:x.costType||"ws"})),totalRemaining:0});notify&&notify("❌ All items declined — "+vn.name+" removed and notified");}else{onUpdVendor(vn.id,{lineItems:items,cancellationSent:false});}}}>❌ Decline</button>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.costType!=="retail"?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.costType!=="retail"?"#1E3A5F":"transparent",color:li.costType!=="retail"?"#93C5FD":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],costType:"ws"};onUpdVendor(vn.id,{lineItems:items});}}>W/S</button>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.costType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.costType==="retail"?"#164E63":"transparent",color:li.costType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],costType:"retail"};onUpdVendor(vn.id,{lineItems:items});}}>🏪 Retail</button>
-</>}
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",...(!isVendor&&{marginBottom:6})}}>
+<span style={{fontSize:14,color:li.declined?"#FCA5A5":"#E5E7EB",fontWeight:600,textDecoration:li.declined?"line-through":"none",flex:1,minWidth:0,paddingRight:10}}>{w.desc||"—"}{isP&&<span style={{...S.badge,background:"#1E3A5F",color:"#93C5FD",fontSize:9,marginLeft:6}}>PART</span>}{li.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:9,marginLeft:6}}>DECLINED</span>}</span>
+{vn.bidLocked?<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+{editBid&&!isVendor
+  ?<input type="number" value={Number(li.price)||0} style={{background:"#1A1A2E",border:"2px solid #F59E0B",borderRadius:6,padding:"4px 8px",color:"#FBBF24",fontSize:14,fontWeight:700,width:80,textAlign:"right"}} onChange={(e: any)=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],price:Number(e.target.value)||0};onUpdVendor(vn.id,{lineItems:items});}}/>
+  :<span style={{fontWeight:700,color:li.declined?"#6B7280":"#FBBF24",textDecoration:li.declined?"line-through":"none",minWidth:50,textAlign:"right"}}>${li.declined?0:Number(li.price)||0}</span>}
 {isVendor&&li.costType&&<span style={{...S.badge,background:li.costType==="retail"?"#164E63":"#1E3A5F",color:li.costType==="retail"?"#67E8F9":"#93C5FD",fontSize:11}}>{li.costType==="retail"?"🏪 RETAIL":"W/S"}</span>}
 {isVendor&&li.accepted&&<span style={{...S.badge,background:"#166534",color:"#6EE7B7",fontSize:11}}>✅ Approved</span>}
 {isVendor&&li.declined&&<span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:11}}>❌ Declined</span>}
 </div>
-:(()=>{const ce=(currentUser?.email||"").toLowerCase();const cf=(currentUser?.first_name||currentUser?.firstName||"").toLowerCase();const cn=((currentUser?.first_name||currentUser?.firstName||"")+" "+(currentUser?.last_name||currentUser?.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();const myBid=isVendor&&currentUser&&((ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf)));return myBid?<div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontSize:14,color:"#6B7280"}}>$</span><input type="number" placeholder="0" value={li.price||""} style={{background:"#1A1A2E",border:"1px solid #3B82F6",borderRadius:6,padding:"6px 10px",color:"#FBBF24",fontSize:16,fontWeight:700,width:100,textAlign:"right"}} onChange={(e: any)=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);const newPrice=Number(e.target.value)||0;if(ix>=0)items[ix]={...items[ix],price:newPrice};else items.push({id:w.id,desc:w.desc,price:newPrice,isPart:w.isPart});onUpdVendor(vn.id,{lineItems:items});}}/></div>:<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:13,color:"#6B7280",fontStyle:"italic"}}>Waiting on vendor...</span></div>;})()}
+:(()=>{const ce=(currentUser?.email||"").toLowerCase();const cf=(currentUser?.first_name||currentUser?.firstName||"").toLowerCase();const cn=((currentUser?.first_name||currentUser?.firstName||"")+" "+(currentUser?.last_name||currentUser?.lastName||"")).trim().toLowerCase();const ve=(vn.email||"").toLowerCase();const vname=(vn.name||"").toLowerCase();const myVid=currentUser?.vendor_id?'vn_'+currentUser.vendor_id:null;const myVReg=(regVendors||[]).find((rv: any)=>myVid?('vn_'+rv.id)===myVid:(ce&&(rv.email||"").toLowerCase()===ce));const myVName=(myVReg?.company||myVReg?.name||"").toLowerCase();const myBid=isVendor&&currentUser&&((ce&&ve&&ce===ve)||(cn&&vname&&cn===vname)||(cf&&vname&&cf===vname)||(cf&&vname&&vname.includes(cf))||(myVName&&vname===myVName));return myBid?<div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontSize:14,color:"#6B7280"}}>$</span><input type="number" placeholder="0" value={li.price||""} style={{background:"#1A1A2E",border:"1px solid #3B82F6",borderRadius:6,padding:"6px 10px",color:"#FBBF24",fontSize:16,fontWeight:700,width:100,textAlign:"right"}} onChange={(e: any)=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);const newPrice=Number(e.target.value)||0;if(ix>=0)items[ix]={...items[ix],price:newPrice};else items.push({id:w.id,desc:w.desc,price:newPrice,isPart:w.isPart});onUpdVendor(vn.id,{lineItems:items});}}/></div>:<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:13,color:"#6B7280",fontStyle:"italic"}}>Waiting on vendor...</span></div>;})()}
 </div>
+{vn.bidLocked&&!isVendor&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginTop:2}}>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+<span style={{fontSize:11,fontWeight:700,color:"#6B7280",letterSpacing:.5,whiteSpace:"nowrap"}}>TYPE</span>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.costType==="ws"?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.costType==="ws"?"#1E3A5F":"transparent",color:li.costType==="ws"?"#93C5FD":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],costType:"ws"};onUpdVendor(vn.id,{lineItems:items});}}>W/S</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.costType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.costType==="retail"?"#164E63":"transparent",color:li.costType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],costType:"retail"};onUpdVendor(vn.id,{lineItems:items});}}>🏪 Retail</button>
+{!li.costType&&<span style={{fontSize:12,color:"#F59E0B",fontStyle:"italic",marginLeft:4}}>← select type first</span>}
+</div>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+{li.costType&&<><button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.accepted?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.accepted?"#166534":"transparent",color:li.accepted?"#6EE7B7":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],accepted:true,declined:false,acceptedDate:new Date().toISOString().split("T")[0]};onUpdVendor(vn.id,{lineItems:items});}}>✅ {li.accepted?"Accepted":"Accept"}</button>
+  <button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:li.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:li.declined?"#7F1D1D":"transparent",color:li.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],declined:true,accepted:false};const allDeclined=items.every((x: any)=>x.declined);if(allDeclined){onUpdateTask({status:"unassigned",vendors:[],vendorId:null,vendorName:null});if(typeof fireEmail==="function"&&vehicle)fireEmail("vendor_work_canceled",{vendor:{name:vn.name},vehicle:vData(vehicle),lineItems:items.map((x: any)=>({desc:"❌ "+x.desc,price:0,costType:x.costType||"ws"})),totalRemaining:0});notify&&notify("❌ All items declined — "+vn.name+" removed and notified");}else{onUpdVendor(vn.id,{lineItems:items,cancellationSent:false});}}}>❌ Decline</button></>}
+</div>
+</div>}
 {(isP||cat.key==="parts")&&vn.selected&&li.accepted&&!li.declined&&<div style={{marginTop:6,padding:8,background:"#0D0D1A",borderRadius:6,border:"1px solid #1E3A5F"}}>
 <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
 {!li.partApproved?<button style={{...S.btn,fontSize:11,padding:"4px 10px",background:"#1E3A5F"}} onClick={()=>{const items=[...(vn.lineItems||[])];const ix=items.findIndex((x: any)=>x.id===w.id);if(ix>=0)items[ix]={...items[ix],partApproved:true,partApprovedDate:new Date().toISOString().split("T")[0],partPrice:items[ix].price||0};onUpdVendor(vn.id,{lineItems:items});}}>Approve Part</button>
@@ -193,23 +264,19 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 </div>:null;})()}
 </div>}</div>
 {editBid&&<div style={{padding:14,marginTop:8,borderRadius:8,background:"#3B2F10",border:"2px solid #F59E0B"}}>
-<div style={{fontSize:16,fontWeight:800,color:"#F59E0B",marginBottom:10}}>✏️ Adjust Bid</div>
-<div style={{fontSize:14,color:"#E5E7EB",marginBottom:8}}>Original Bid: <b style={{color:"#FBBF24",fontSize:18}}>${bidTotal.toLocaleString()}</b></div>
-<label style={{...S.fl,fontSize:14}}>Adjustment Amount (+/-)<input style={{...S.fi,fontSize:20,padding:"12px 14px",textAlign:"center",border:"2px solid #F59E0B",background:"#1A1A2E"}} type="number" placeholder="e.g. -200 or +300" value={vn.bidAdjustment===0?"":vn.bidAdjustment||""} onChange={(e: any)=>{const val=e.target.value===""?0:parseFloat(e.target.value);onUpdVendor(vn.id,{bidAdjustment:val});}}/></label>
-{vn.bidAdjustment&&<div style={{fontSize:18,fontWeight:800,textAlign:"center",padding:10,marginTop:6,borderRadius:6,background:vn.bidAdjustment>0?"#1E3A5F":"#3B1515",border:vn.bidAdjustment>0?"1px solid #3B82F6":"1px solid #7F1D1D"}}>
-<span style={{color:vn.bidAdjustment>0?"#60A5FA":"#F87171"}}>{vn.bidAdjustment>0?"+":""}{vn.bidAdjustment}</span>
-<span style={{color:"#E5E7EB",marginLeft:8}}>= New Total: <b style={{color:"#FBBF24"}}>${(bidTotal+(vn.bidAdjustment||0)).toLocaleString()}</b></span>
-</div>}
-<label style={{...S.fl,fontSize:14,marginTop:10}}>Reason for Adjustment *<textarea style={{...S.fi,fontSize:14,minHeight:60,resize:"vertical",width:"100%",boxSizing:"border-box"}} placeholder="Required — e.g. poor work, scope change, negotiated down, additional work needed..." value={vn.editReason||""} onChange={(e: any)=>onUpdVendor(vn.id,{editReason:e.target.value})}/></label>
-{vn.editReason?<button style={{...S.btn,fontSize:15,padding:"10px 18px",background:"#78590A",color:"#FDE68A",marginTop:8,width:"100%"}} onClick={()=>{const adj=vn.bidAdjustment||0;const newEst=bidTotal+adj;onUpdVendor(vn.id,{bidAdjustedDate:new Date().toISOString().split("T")[0],estimate:newEst,bidOriginal:vn.bidOriginal||bidTotal,bidAdjustment:adj});setEditBid(false);}}>💾 Save Adjustment</button>
-:<div style={{fontSize:13,color:"#F87171",marginTop:8,textAlign:"center"}}>⚠️ Reason required to save adjustment</div>}
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+<span style={{fontSize:15,fontWeight:800,color:"#F59E0B"}}>✏️ Edit Line Items</span>
+<span style={{fontSize:13,color:"#9CA3AF"}}>Original: <b style={{color:"#FBBF24"}}>${(vn.bidOriginal||bidTotal).toLocaleString()}</b> → New: <b style={{color:"#FBBF24"}}>${lt.toLocaleString()}</b></span>
+</div>
+<label style={{...S.fl,fontSize:14}}>Reason for change *<textarea style={{...S.fi,fontSize:14,minHeight:60,resize:"vertical",width:"100%",boxSizing:"border-box"}} placeholder="Required — e.g. scope change, negotiated down, additional work needed..." value={vn.editReason||""} onChange={(e: any)=>onUpdVendor(vn.id,{editReason:e.target.value})}/></label>
+{vn.editReason?<button style={{...S.btn,fontSize:15,padding:"10px 18px",background:"#78590A",color:"#FDE68A",marginTop:8,width:"100%"}} onClick={()=>{onUpdVendor(vn.id,{bidAdjustedDate:new Date().toISOString().split("T")[0],estimate:lt,bidOriginal:vn.bidOriginal||bidTotal,bidAdjustment:0});setEditBid(false);}}>💾 Save Changes</button>
+:<div style={{fontSize:13,color:"#F87171",marginTop:8,textAlign:"center"}}>⚠️ Reason required to save</div>}
 </div>}
 {vn.bidAdjustedDate&&!editBid&&<div style={{padding:10,marginTop:6,borderRadius:6,background:"#3B2F10",border:"1px solid #78590A"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
 <span style={{color:"#F59E0B",fontWeight:700,fontSize:14}}>✏️ Bid Adjusted {fmtDate(vn.bidAdjustedDate)}</span>
-<span style={{fontSize:14,color:vn.bidAdjustment>0?"#60A5FA":"#F87171",fontWeight:700}}>{vn.bidAdjustment>0?"+":""}{vn.bidAdjustment||0}</span>
+<span style={{fontSize:13,color:"#9CA3AF"}}>${(vn.bidOriginal||bidTotal).toLocaleString()} → <b style={{color:"#FBBF24"}}>${lt.toLocaleString()}</b></span>
 </div>
-<div style={{fontSize:13,color:"#9CA3AF",marginTop:2}}>Original: ${vn.bidOriginal||bidTotal} → Adjusted: ${vn.estimate||bidTotal}</div>
 {vn.editReason&&<div style={{fontSize:13,color:"#FDE68A",marginTop:4,fontStyle:"italic"}}>"{vn.editReason}"</div>}
 </div>}
 {!vn.bidLocked&&<div style={{padding:10,background:"#0D0D1A",borderRadius:8,border:"1px solid #3B82F6",marginBottom:8}}>
@@ -258,11 +325,17 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 <input style={{...S.fi,fontSize:12,width:70}} type="number" placeholder="$" value={vf.price||""} onChange={(e: any)=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],price:Number(e.target.value)};onUpdVendor(vn.id,{vendorFindings:f});}}/>
 <button style={{background:"none",border:"none",color:"#6B7280",cursor:"pointer",fontSize:12}} onClick={()=>onUpdVendor(vn.id,{vendorFindings:(vn.vendorFindings||[]).filter((_: any,j: any)=>j!==vfi)})}>🗑</button></div>
 {vf.desc&&vf.price>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}>
-{vn.findingsSubmitted?<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.approved?"2px solid #166534":"1px solid #2A2A3E",cursor:vf.findingCostType?"pointer":"not-allowed",fontWeight:700,background:vf.approved?"#166534":"transparent",color:vf.approved?"#6EE7B7":vf.findingCostType?"#6B7280":"#4B5563",opacity:vf.findingCostType?1:0.5}} onClick={()=>{if(!vf.findingCostType)return;const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],approved:true};onUpdVendor(vn.id,{vendorFindings:f});}}>✅ {vf.approved?"Accepted":"Accept"}</button>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.declined?"#7F1D1D":"transparent",color:vf.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],declined:true,approved:false};onUpdVendor(vn.id,{vendorFindings:f});}}>❌ Decline</button>
-<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType!=="retail"&&vf.findingCostType?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType!=="retail"&&vf.findingCostType?"#1E3A5F":"transparent",color:vf.findingCostType!=="retail"&&vf.findingCostType?"#93C5FD":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"ws"};onUpdVendor(vn.id,{vendorFindings:f});}}>W/S</button>
+{vn.findingsSubmitted?<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginTop:2,width:"100%"}}>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+<span style={{fontSize:11,fontWeight:700,color:"#6B7280",letterSpacing:.5,whiteSpace:"nowrap"}}>TYPE</span>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType==="ws"?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType==="ws"?"#1E3A5F":"transparent",color:vf.findingCostType==="ws"?"#93C5FD":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"ws"};onUpdVendor(vn.id,{vendorFindings:f});}}>W/S</button>
 <button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType==="retail"?"#164E63":"transparent",color:vf.findingCostType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"retail"};onUpdVendor(vn.id,{vendorFindings:f});}}>🏪 Retail</button>
+{!vf.findingCostType&&<span style={{fontSize:12,color:"#F59E0B",fontStyle:"italic",marginLeft:4}}>← select type first</span>}
+</div>
+<div style={{display:"flex",alignItems:"center",gap:6}}>
+{vf.findingCostType&&<><button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.approved?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.approved?"#166534":"transparent",color:vf.approved?"#6EE7B7":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],approved:true,declined:false};onUpdVendor(vn.id,{vendorFindings:f});}}>✅ {vf.approved?"Accepted":"Accept"}</button>
+<button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.declined?"#7F1D1D":"transparent",color:vf.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],declined:true,approved:false};onUpdVendor(vn.id,{vendorFindings:f});}}>❌ Decline</button></>}
+</div>
 </div>:<div style={{fontSize:11,color:"#6B7280",marginTop:4}}>Submit findings for buyer review</div>}
 </div>}
 {(!vf.desc||!vf.price)&&<div style={{fontSize:11,color:"#6B7280"}}>Enter description and cost first</div>}
@@ -311,11 +384,11 @@ return <>
 {noVendorYet&&<label style={{...S.sm,color:"#3B82F6",cursor:"pointer"}}><input type="file" multiple style={{display:"none"}} onChange={hu}/> + Add More</label>}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",gap:4}}>{photos.map((p: any,i: any)=><div key={i} style={{position:"relative",aspectRatio:"1",borderRadius:4,overflow:"hidden",cursor:"pointer"}} onClick={()=>setLbImg(p)}>{p.type==="video"?<div style={{width:"100%",height:"100%",background:"#0D0D1A",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:24}}>🎬</span></div>:<img src={p.data} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}{noVendorYet&&<button style={{position:"absolute",top:1,right:1,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,0.8)",border:"none",color:"#F87171",fontSize:10,cursor:"pointer"}} onClick={(e: any)=>{e.stopPropagation();onPhotos(photos.filter((_: any,j: any)=>j!==i));}}>✕</button>}</div>)}</div></div>}
-{!isVendor&&(()=>{const canAdd=isGrounded&&hasTasks&&mediaReady;const existingVendorIds=(task.vendors||[]).map((x: any)=>x.id);const availableVendors=vOpts.filter((v: any)=>!existingVendorIds.includes(v.id));return <select style={{...S.sel,width:"100%",marginBottom:10,opacity:canAdd?1:0.5}} defaultValue="" disabled={!canAdd} onChange={(e: any)=>{if(e.target.value){onAssign(e.target.value);}e.target.value="";}}><option value="" disabled>{!isGrounded?"⚠️ Vehicle must be on ground":!hasTasks?"⚠️ Fill in all task descriptions first":!mediaReady?"⚠️ Add media or click Skip first":(task.vendors||[]).length>0?"+ Add Another Vendor for Bidding...":"+ Add Vendor..."}</option>{availableVendors.map((v: any)=><option key={v.id} value={v.id}>{v.name}</option>)}</select>;})()}
+{!isVendor&&(()=>{const canAdd=isGrounded&&hasTasks&&mediaReady;const existingVendorIds=(task.vendors||[]).map((x: any)=>x.id);const availableVendors=vOpts.filter((v: any)=>!existingVendorIds.includes(v.id));const hasAccepted=(task.vendors||[]).some((v2: any)=>v2.selected);return <select style={{...S.sel,width:"100%",marginBottom:10,opacity:canAdd?1:0.5}} defaultValue="" disabled={!canAdd} onChange={(e: any)=>{const vid=e.target.value;e.target.value="";if(!vid)return;if(hasAccepted){showConfirm("A vendor bid is already accepted on this task. Add another vendor anyway? Only do this if additional work is needed.",()=>onAssign(vid));}else{onAssign(vid);}}}><option value="" disabled>{!isGrounded?"⚠️ Vehicle must be on ground":!hasTasks?"⚠️ Fill in all task names first":!mediaReady?"⚠️ Add media or click Skip first":(task.vendors||[]).length>0?"+ Add Another Vendor for Bidding...":"+ Add Vendor..."}</option>{availableVendors.map((v: any)=><option key={v.id} value={v.id}>{v.name}</option>)}</select>;})()}
 {!isVendor&&(task.vendors||[]).length>0&&!(task.vendors||[]).some((v2: any)=>v2.bidLocked)&&<button style={{...S.btn,width:"100%",background:"#166534",color:"#FFF",fontSize:15,padding:12,marginBottom:10,fontWeight:700}} onClick={()=>{setExp(false);notify&&notify("✅ Sent to "+(task.vendors||[]).length+" vendor"+((task.vendors||[]).length>1?"s":"")+" for bidding");}}>✅ Done — Awaiting Vendor Bid{(task.vendors||[]).length>1?"s":""}</button>}
 </>;
 })()}
-{!isOEM&&<div style={{marginBottom:8,borderRadius:6,border:`1px solid ${task.noteUnread?"#F59E0B":"#2A2A3E"}`}}><div style={{padding:"8px 10px",cursor:"pointer",background:task.noteUnread?"rgba(245,158,11,0.1)":"rgba(255,255,255,0.03)"}} onClick={()=>{setNo(!no);setNv(task.notes||"");if(task.noteUnread)onNotes(task.notes||"",true);}}><span style={{fontSize:13,fontWeight:700,color:task.noteUnread?"#F59E0B":"#9CA3AF"}}>{task.noteUnread?"🔔 NEW NOTE":"📝 NOTES"}</span></div>
+{!isOEM&&<div style={{marginBottom:8,borderRadius:6,border:`1px solid ${task.noteUnread?"#F59E0B":"#2A2A3E"}`}}><div style={{padding:"8px 10px",cursor:"pointer",background:task.noteUnread?"rgba(245,158,11,0.1)":"rgba(255,255,255,0.03)"}} onClick={()=>{setNo(!no);setNv(task.notes||"");if(task.noteUnread)onNotes(task.notes||"",true);}}><span style={{fontSize:13,fontWeight:700,color:task.noteUnread?"#F59E0B":"#9CA3AF"}}>{task.noteUnread?"🔔 NEW NOTE":"📝 TASK NOTES"}</span></div>
 {!no&&task.notes&&<div style={{padding:"6px 10px",borderTop:"1px solid #2A2A3E",fontSize:12,color:"#9CA3AF",lineHeight:1.6,wordBreak:"break-word"}}>{linkifyText(task.notes)}</div>}
 {no&&<div style={{padding:8,borderTop:"1px solid #2A2A3E"}}><textarea style={{...S.fi,width:"100%",minHeight:60,boxSizing:"border-box"}} value={nv} onChange={(e: any)=>setNv(e.target.value)}/>
 <button style={{...S.btn,fontSize:12,marginTop:4}} onClick={()=>{onNotes(nv,false,true);setNo(false);}}>Save</button></div>}</div>}
@@ -391,13 +464,14 @@ return <span style={{display:"contents"}}>{hasInspection&&<div style={{padding:1
 {(task.completedRounds||[]).length>0&&<div style={{marginBottom:8}}>
 {(task.completedRounds||[]).map((rd: any,ri: any)=><div key={ri} style={{fontSize:12,color:"#9CA3AF",padding:"4px 8px",background:"#0D0D1A",borderRadius:4,marginBottom:2}}>Round {ri+1}: ✅ {rd.tasks||"completed"} — ${rd.cost||0}{rd.vendor?" — "+rd.vendor:""} — Completed {rd.date?fmtDate(rd.date):""}</div>)}
 </div>}
-<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14}} onClick={()=>{onUpdateTask({status:"unassigned",dateCompleted:null,dateStarted:null,workTasks:[],vendors:[],roundPhotoStart:(task.photos||[]).length});
-notify&&notify("🔄 Reopened — add tasks and assign vendor");}}>🔄 Reopen — Add More Work</button>
+{!isVendor&&<button style={{...S.btn,width:"100%",background:"#78590A",color:"#FDE68A",padding:10,fontSize:14}} onClick={()=>{onUpdateTask({status:"unassigned",dateCompleted:null,dateStarted:null,workTasks:[],vendors:[],roundPhotoStart:(task.photos||[]).length});
+notify&&notify("🔄 Reopened — add tasks and assign vendor");}}>🔄 Reopen — Add More Work</button>}
 </div>}
 </div></div></div>}
 {lbImg&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.98)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,cursor:"pointer"}} onClick={()=>setLbImg(null)}>
 <div style={{width:"98vw",height:"98vh",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={(e: any)=>e.stopPropagation()}>
 {lbImg.type==="video"?<video key={lbImg.data} src={lbImg.data} controls autoPlay playsInline style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,background:"#000"}} onClick={(e: any)=>e.stopPropagation()}/>:<img src={lbImg.data} style={{maxWidth:"96vw",maxHeight:"94vh",borderRadius:4,objectFit:"contain"}}/>}
 <button style={{position:"fixed",top:12,right:12,width:48,height:48,borderRadius:"50%",background:"#EF4444",border:"none",color:"#FFF",fontSize:24,cursor:"pointer"}} onClick={()=>setLbImg(null)}>✕</button></div></div>}
-</span>;
+</span></>;
+
 }

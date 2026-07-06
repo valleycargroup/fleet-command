@@ -25,7 +25,7 @@ const queue=useMemo(()=>{
       if(locFilter!=="all"&&v.location!==locFilter)return;
       const vendorName=task.lockedVendorName||"Unknown Vendor";
       const winnerVn=(task.vendors||[]).find((x: any)=>x.selected);
-      if(!groups[vendorName]){const vRec=regVendors.find((vr: any)=>vr.company===vendorName);groups[vendorName]={name:vendorName,location:v.location,vendorEmail:winnerVn?.email,jobs:[],total:0,totalWS:0,totalRetail:0,deliveryMethod:vRec?.deliveryMethod||"USPS Mail",paymentTerms:vRec?.paymentTerms||"weekly",cutoffDay:vRec?.cutoffDay||"Friday",cutoffTime:vRec?.cutoffTime||"5 PM"};}
+      if(!groups[vendorName]){const vRec=regVendors.find((vr: any)=>vr.company===vendorName);groups[vendorName]={name:vendorName,location:v.location,vendorEmail:vRec?.email||winnerVn?.email||null,paymentDeptEmail:vRec?.emailPrefs?.paymentDeptEmail||null,jobs:[],total:0,totalWS:0,totalRetail:0,deliveryMethod:vRec?.deliveryMethod||"USPS Mail",paymentTerms:vRec?.paymentTerms||"weekly",cutoffDay:vRec?.cutoffDay||"Friday",cutoffTime:vRec?.cutoffTime||"5 PM"};}
       const accLines=(winnerVn?.lineItems||[]).filter((x: any)=>x.accepted&&!x.declined);
       groups[vendorName].jobs.push({vehicleId:v.id,vehicle:v,categoryKey:cat.key,categoryLabel:cat.label,categoryIcon:cat.icon,lineItems:accLines,total:task.lockedTotal||0,ws:task.lockedWS||0,retail:task.lockedRetail||0,approvedBy:task.approvedBy,approvedDate:task.approvedPaymentDate});
       groups[vendorName].total+=task.lockedTotal||0;
@@ -57,11 +57,11 @@ const markPaid=(group: any)=>{
   });
   if(typeof fireEmail==="function"&&group.vendorEmail){
     fireEmail("vendor_payment_receipt",{
-      vendor:{name:group.name,email:group.vendorEmail},
+      vendor:{name:group.name,email:group.vendorEmail,paymentDeptEmail:group.paymentDeptEmail||null},
       checkNumber:f.checkNumber,checkWrittenDate:f.writtenDate,checkMailedDate:mailedDate,
       deliveryMethod:method,totalPaid:group.total,totalWS:group.totalWS,totalRetail:group.totalRetail,
       paidBy:apName,
-      jobs:paidJobs.map((j: any)=>({vehicleYear:j.vehicle.year,vehicleMake:j.vehicle.make,vehicleModel:j.vehicle.model,vehicleTrim:j.vehicle.trim,vin8:j.vehicle.vin8||j.vehicle.stockNumber,categoryLabel:j.categoryLabel,categoryIcon:j.categoryIcon,lineItems:j.lineItems.map((li: any)=>({desc:li.desc,price:li.price,costType:li.costType||"ws"})),total:j.total,approvedBy:j.approvedBy,approvedDate:j.approvedDate}))
+      jobs:paidJobs.map((j: any)=>({vehicleYear:j.vehicle.year,vehicleMake:j.vehicle.make,vehicleModel:j.vehicle.model,vehicleTrim:j.vehicle.trim,vin:j.vehicle.fullVin||j.vehicle.vin||"",vin8:j.vehicle.vin8||j.vehicle.stockNumber,categoryLabel:j.categoryLabel,categoryIcon:j.categoryIcon,lineItems:j.lineItems.map((li: any)=>({desc:li.desc,price:li.price,costType:li.costType||"ws"})),total:j.total,approvedBy:j.approvedBy,approvedDate:j.approvedDate}))
     });
   }
   notify("💸 Marked paid — "+group.name+" notified");
@@ -99,6 +99,7 @@ return <div key={gi} style={{background:"#12122A",border:"1px solid #2A2A3E",bor
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:isExp?12:0,paddingBottom:isExp?10:0,borderBottom:isExp?"1px solid #2A2A3E":"none",cursor:"pointer"}} onClick={()=>setExpandedVendor(isExp?null:group.name)}>
 <div>
 <div style={{fontSize:17,fontWeight:700,color:"#FFF"}}>{group.name}</div>
+{!group.vendorEmail&&<div style={{fontSize:11,fontWeight:700,color:"#F59E0B",marginTop:3}}>⚠️ No vendor email — digest will not be delivered</div>}
 <div style={{fontSize:11,color:"#9CA3AF",marginTop:2}}>{group.jobs.length} approved job{group.jobs.length>1?"s":""} • <span style={{padding:"2px 8px",background:group.location==="Dallas"?"#4C1D95":"#1E3A5F",color:group.location==="Dallas"?"#C4B5FD":"#93C5FD",borderRadius:4,fontSize:10,fontWeight:700,marginLeft:4}}>📍 {group.location||"PHX"}</span></div>
 </div>
 <div style={{textAlign:"right"}}>
@@ -112,7 +113,7 @@ return <div key={gi} style={{background:"#12122A",border:"1px solid #2A2A3E",bor
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
 <div>
 <div style={{color:"#FFF",fontWeight:700,fontSize:13}}>{job.vehicle.year} {job.vehicle.make} {job.vehicle.model} {job.vehicle.trim||""}</div>
-<div style={{color:"#6B7280",fontSize:11,marginTop:2}}>VIN <span style={{fontFamily:"monospace",color:"#9CA3AF"}}>{job.vehicle.vin8||job.vehicle.stockNumber||"—"}</span></div>
+<div style={{color:"#6B7280",fontSize:11,marginTop:2}}>VIN <span style={{fontFamily:"monospace",color:"#9CA3AF"}}>{job.vehicle.fullVin||job.vehicle.vin8||job.vehicle.stockNumber||"—"}</span></div>
 </div>
 <div style={{textAlign:"right"}}>
 <div style={{background:"#3B2F10",color:"#FDE68A",padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,display:"inline-block"}}>{job.categoryIcon} {job.categoryLabel.toUpperCase()}</div>
