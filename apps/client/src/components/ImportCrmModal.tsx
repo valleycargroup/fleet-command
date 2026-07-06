@@ -22,7 +22,7 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
   // 'include' (new) | 'skip' (update default) | 'merge' | 'replace'
   const [photoImport, setPhotoImport] = useState<'include'|'skip'|'merge'|'replace'>('include');
 
-  const required = ['buyingBroker', 'source', 'zipCode', 'fuelType', 'transmission', 'drive', 'motorTrailer'];
+  const required = ['buyingBroker', 'source', 'zipCode', 'fuelType'];
   const missing = required.filter((k) => !String(f[k] || '').trim());
   const fieldErr = (key: string) => submitted && required.includes(key) && !String(f[key] || '').trim();
 
@@ -105,8 +105,8 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
         <label style={S.fl}><span style={{ color: '#F87171' }}>Buyer *</span><select style={{ ...S.fi, ...(fieldErr('buyingBroker') ? { borderColor: '#DC2626', boxShadow: '0 0 0 1px #DC2626' } : {}) }} value={f.buyingBroker || ''} onChange={(e: any) => setF({ ...f, buyingBroker: e.target.value })}>{buyerList.length ? buyerList.map((b: any) => <option key={b} value={b}>{b}</option>) : <option value="">— No buyers registered —</option>}</select></label>
         {Fld("Fuel Type", "fuelType", FUEL_TYPES)}{Fld("Transmission", "transmission")}
         {Fld("Driveline", "driveline", undefined, "4WD, AWD, FWD...")}
-        <label style={S.fl}><span style={{ color: '#F87171' }}>Drive *</span>
-          <select style={{ ...S.fi, ...(fieldErr('drive') ? { borderColor: '#DC2626', boxShadow: '0 0 0 1px #DC2626' } : {}) }} value={f.drive || ''} onChange={(e: any) => { const d = e.target.value; setF({ ...f, drive: d, driveline: driveToDriveline(d) || f.driveline }); }}>
+        <label style={S.fl}>Drive
+          <select style={S.fi} value={f.drive || ''} onChange={(e: any) => { const d = e.target.value; setF({ ...f, drive: d, driveline: driveToDriveline(d) || f.driveline }); }}>
             <option value="">— select —</option>
             {DRIVE_TYPES.map((d: string) => <option key={d} value={d}>{d}</option>)}
           </select>
