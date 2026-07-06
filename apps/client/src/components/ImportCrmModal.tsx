@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SOURCES, COLORS, LOCATIONS, FUEL_TYPES, DRIVE_TYPES, driveToDriveline, driveToLongForm, fuelNormalize } from '../lib/constants';
+import { SOURCES, COLORS, LOCATIONS, FUEL_TYPES, TRANSMISSION_TYPES, DRIVE_TYPES, driveToDriveline, driveToLongForm, fuelNormalize } from '../lib/constants';
 import { S } from '../lib/styles';
 import { useStore } from '../lib/store';
 
@@ -18,7 +18,7 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
   const [existingVehicleId, setExistingVehicleId] = useState(null as any);
   const [f, setF] = useState({} as any);
   const [submitted, setSubmitted] = useState(false);
-  const [includeCR, setIncludeCR] = useState(true);
+  const [includeCR, setIncludeCR] = useState(false);
   // 'include' (new) | 'skip' (update default) | 'merge' | 'replace'
   const [photoImport, setPhotoImport] = useState<'include'|'skip'|'merge'|'replace'>('include');
 
@@ -69,14 +69,22 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
     setSaving(false);
   };
 
-  const Fld = (label: string, key: string, opts?: string[], placeholder?: string) => {
+  const Fld = (label: string, key: string, opts?: string[], placeholder?: string, combo?: boolean) => {
     const hasErr = fieldErr(key);
     const style = { ...S.fi, ...(hasErr ? { borderColor: '#DC2626', boxShadow: '0 0 0 1px #DC2626' } : {}) };
+    const dlId = `dl-${key}`;
     return (
-      <label style={S.fl}>{label}{required.includes(key) ? <span style={{ color: '#F87171' }}> *</span> : ''}
-        {opts
-          ? <select style={style} value={f[key] || ''} onChange={(e: any) => setF({ ...f, [key]: e.target.value })}>{opts.map((o) => <option key={o} value={o}>{o}</option>)}</select>
-          : <input style={style} value={f[key] || ''} onChange={(e: any) => setF({ ...f, [key]: e.target.value })} placeholder={placeholder}/>}
+      <label style={S.fl}>
+        <span>{label}{required.includes(key) ? <span style={{ color: '#F87171' }}> *</span> : ''}</span>
+        {opts && !combo
+          ? <select style={style} value={f[key] || ''} onChange={(e: any) => setF({ ...f, [key]: e.target.value })}>
+              <option value="">— select —</option>
+              {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          : <>
+              <input style={style} list={opts ? dlId : undefined} value={f[key] || ''} onChange={(e: any) => setF({ ...f, [key]: e.target.value })} placeholder={placeholder}/>
+              {opts && <datalist id={dlId}>{opts.map((o) => <option key={o} value={o}/>)}</datalist>}
+            </>}
       </label>
     );
   };
@@ -103,7 +111,7 @@ export function ImportCrmModal({ onClose }: { onClose: () => void }) {
         <label style={S.fl}>Stock #<input style={{ ...S.fi, fontFamily: 'monospace' }} value={f.stockNumber || ''} onChange={(e: any) => setF({ ...f, stockNumber: e.target.value.toUpperCase() })} placeholder="from CRM or last 8 of VIN" maxLength={30}/></label>
         {Fld("Source", "source", SOURCES)}
         <label style={S.fl}><span style={{ color: '#F87171' }}>Buyer *</span><select style={{ ...S.fi, ...(fieldErr('buyingBroker') ? { borderColor: '#DC2626', boxShadow: '0 0 0 1px #DC2626' } : {}) }} value={f.buyingBroker || ''} onChange={(e: any) => setF({ ...f, buyingBroker: e.target.value })}>{buyerList.length ? buyerList.map((b: any) => <option key={b} value={b}>{b}</option>) : <option value="">— No buyers registered —</option>}</select></label>
-        {Fld("Fuel Type", "fuelType", FUEL_TYPES)}{Fld("Transmission", "transmission")}
+        {Fld("Fuel Type", "fuelType", FUEL_TYPES, undefined, true)}{Fld("Transmission", "transmission", TRANSMISSION_TYPES, "Automatic, Manual…", true)}
         {Fld("Driveline", "driveline", undefined, "4WD, AWD, FWD...")}
         <label style={S.fl}>Drive
           <select style={S.fi} value={f.drive || ''} onChange={(e: any) => { const d = e.target.value; setF({ ...f, drive: d, driveline: driveToDriveline(d) || f.driveline }); }}>
