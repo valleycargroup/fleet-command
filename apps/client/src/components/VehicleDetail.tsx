@@ -57,7 +57,7 @@ const onClearDeepLink = () => setDeepLinkCat(null);
 const [crEditorOpen,setCrEditorOpen]=useState(false);const [crEditorMode,setCrEditorMode]=useState<'edit'|'view'>('edit');
 const openCr=(mode: 'edit'|'view')=>{setCrEditorMode(mode);setCrEditorOpen(true);};
 useEffect(()=>{if(deepLinkCr){openCr('view');setDeepLinkCr(false);}},[deepLinkCr]);const [showAuction,setShowAuction]=useState(false);const [auctionSending,setAuctionSending]=useState(false);
-const [auctionForm,setAuctionForm]=useState(()=>{const drv=driveToLongForm(v.drive||'')||"";return{zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||""};});
+const [auctionForm,setAuctionForm]=useState(()=>{const drv=driveToLongForm(v.drive||'')||"";return{zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||"",buyerTransport:false};});
 const [sm,setSm]=useState(false);const [sb,setSb]=useState(()=>{const names=((allUsers||[]).filter((u: any)=>u.role==="seller"||u.role==="admin"||u.is_seller===1).map((u: any)=>u.firstName+(u.lastName?" "+u.lastName:""))).filter((n: any)=>n);return names[0]||"";});const [st,setSt]=useState("");const [includeCR,setIncludeCR]=useState(true);
 const [showKick,setShowKick]=useState(false);const [kickReason,setKickReason]=useState("");const [lbImg2,setLbImg2]=useState(null as any);const [photoUploading,setPhotoUploading]=useState(false);const [photoManage,setPhotoManage]=useState(false);
 const [showEdit,setShowEdit]=useState(false);const [editForm,setEditForm]=useState({} as any);const [sellerMode,setSellerMode]=useState<"user"|"manual">("user");
@@ -74,6 +74,8 @@ const [showArbForm,setShowArbForm]=useState(false);const [arbSource,setArbSource
 const saveInb=(newInb: any)=>{setInbForm(newInb);const curOut=v.transport?.outbound||{};const syncOut=curOut.isDriveway?{...curOut,readyDate:newInb.driverwayClearDate||curOut.readyDate||"",eta:newInb.drivewayEta||curOut.eta||"",set:!!(newInb.driverwayClearDate||curOut.readyDate),pickedUp:newInb.drivewayPickedUp||curOut.pickedUp||false,datePickedUp:newInb.drivewayPickedUpDate||curOut.datePickedUp||""}:curOut;const locUp=newInb.destination?{location:newInb.destination}:{};onUpdate({...locUp,transport:{inbound:newInb,outbound:syncOut}});};
 const saveOut=(newOut: any)=>{setOutForm(newOut);onUpdate({transport:{...v.transport,outbound:newOut}});};
 const [inbForm,setInbForm]=useState(v.transport?.inbound||{});const [outForm,setOutForm]=useState(v.transport?.outbound||{});
+useEffect(()=>{setInbForm(v.transport?.inbound||{});},[v.transport?.inbound]);
+useEffect(()=>{setOutForm(v.transport?.outbound||{});},[v.transport?.outbound]);
 const rcNeeded=VCAT.filter(c=>v.reconTasks[c.key]?.needed);
 const rcDone=rcNeeded.filter(c=>v.reconTasks[c.key]?.status==="complete");
 const rcApproved=rcNeeded.filter(c=>{const s=v.reconTasks[c.key]?.status;return s==="complete"||s==="approved";});
@@ -727,8 +729,6 @@ if(!auctionForm.drive&&!auctionForm.driveline)missingFields.push("Drive / Drivel
 const warnings=[];
 if(!isGrounded)warnings.push({label:"Vehicle not on ground",sev:"error"});
 if(!reconReady){if(rc2.length===0)warnings.push({label:"No recon tasks assigned — add tasks or check No Recon Needed",sev:"warn"});else warnings.push({label:`Recon incomplete (${rcDone2.length}/${rc2.length} done)`,sev:"warn"});}
-if(!hasCR)warnings.push({label:"No condition report",sev:"warn"});
-else if(!crDone)warnings.push({label:"Condition report not marked complete",sev:"warn"});
 if(missingFields.length)warnings.push({label:`Missing: ${missingFields.join(", ")}`,sev:"error"});
 const hasErrors=warnings.some(w=>w.sev==="error");
 return <div style={S.ov}><div style={{...S.modal,maxWidth:560,maxHeight:"90vh",overflowY:"auto"}}>
@@ -767,14 +767,32 @@ return <div style={S.ov}><div style={{...S.modal,maxWidth:560,maxHeight:"90vh",o
 <label style={S.fl}>Engine / Motor<input style={S.fi} value={auctionForm.motorTrailer} onChange={(e: any)=>setAuctionForm({...auctionForm,motorTrailer:e.target.value})} placeholder="3.5L V6"/></label>
 </div>
 
-{/* CR toggle */}
-{hasCR&&<label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",borderRadius:8,background:includeCR?"#0D3B1E":"#1A1A2E",border:`1px solid ${includeCR?"#166534":"#2A2A3E"}`,marginBottom:12,userSelect:"none"}}>
-<input type="checkbox" checked={includeCR} onChange={e=>setIncludeCR(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+{/* Buyer responsible for transport */}
+<label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",borderRadius:8,background:auctionForm.buyerTransport?"#1A2340":"#1A1A2E",border:`1px solid ${auctionForm.buyerTransport?"#3B82F6":"#2A2A3E"}`,marginBottom:8,userSelect:"none"}}>
+<input type="checkbox" checked={auctionForm.buyerTransport} onChange={e=>setAuctionForm({...auctionForm,buyerTransport:e.target.checked})} style={{width:16,height:16,cursor:"pointer"}}/>
 <div>
-<div style={{fontSize:13,fontWeight:700,color:includeCR?"#34D399":"#9CA3AF"}}>📋 Include Condition Report</div>
-<div style={{fontSize:11,color:"#6B7280"}}>{crDone?"Complete":"In progress"} {v.conditionReport?.meta?.last_saved_at?`· Last updated ${new Date(v.conditionReport.meta.last_saved_at).toLocaleDateString()}`:""}</div>
+<div style={{fontSize:13,fontWeight:700,color:auctionForm.buyerTransport?"#93C5FD":"#9CA3AF"}}>🚛 Buyer Responsible for Transportation</div>
+<div style={{fontSize:11,color:"#6B7280"}}>Buyer arranges and pays for pickup — dealer is not responsible for delivery</div>
 </div>
-</label>}
+</label>
+
+{/* CR toggle — always shown, informational when missing */}
+{hasCR
+  ?<label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",borderRadius:8,background:includeCR?"#0D3B1E":"#1A1A2E",border:`1px solid ${includeCR?"#166534":"#2A2A3E"}`,marginBottom:12,userSelect:"none"}}>
+    <input type="checkbox" checked={includeCR} onChange={e=>setIncludeCR(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+    <div>
+      <div style={{fontSize:13,fontWeight:700,color:includeCR?"#34D399":"#9CA3AF"}}>📋 Include Condition Report</div>
+      <div style={{fontSize:11,color:"#6B7280"}}>{crDone?"Complete":"In progress"}{v.conditionReport?.meta?.last_saved_at?` · Last updated ${new Date(v.conditionReport.meta.last_saved_at).toLocaleDateString()}`:""}</div>
+    </div>
+  </label>
+  :<div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 10px",borderRadius:8,background:"#12122A",border:"1px solid #2A2A3E",marginBottom:12}}>
+    <span style={{fontSize:16,marginTop:1}}>📋</span>
+    <div>
+      <div style={{fontSize:13,fontWeight:700,color:"#6B7280"}}>No Condition Report on File</div>
+      <div style={{fontSize:11,color:"#4B5563",marginTop:2}}>This won't hold up publishing — a condition report is optional for auction listings. You can add one from the vehicle detail page at any time.</div>
+    </div>
+  </div>
+}
 
 {(()=>{const aPhotos=v.photos||[];if(!aPhotos.length)return null;
 const aMainIdx=Math.max(0,aPhotos.findIndex((p: any)=>p.isMain));

@@ -325,7 +325,7 @@ router.post('/:id/send-to-auction', async (req: Request, res: Response) => {
       vehicle.photos = req.body.photos;
     }
 
-    const result = await sendVehicleToAuction(vehicle, { replaceExistingImages: !!req.body?.replace_existing_images });
+    const result = await sendVehicleToAuction(vehicle, { replaceExistingImages: !!req.body?.replace_existing_images, buyerTransport: !!req.body?.buyer_transport });
     if (!result.ok) return res.status(result.status || 502).json({ error: 'Auction app rejected the request', details: result.data });
     res.json({ ok: true, auction: result.data, skippedNonUrlMedia: result.skippedNonUrlMedia });
   } catch (e: any) {

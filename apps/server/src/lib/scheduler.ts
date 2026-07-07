@@ -10,9 +10,10 @@
  *   - Weekend/holiday rollover check → 8am Mon–Fri
  *
  * Digest schedule (read from site_settings at runtime — no restart needed):
- *   digest_daily_hours  "8,12,17"   → hours completion-terms vendors are notified
- *   digest_weekly_day   "Friday"    → day of week weekly-terms vendors are notified
- *   digest_weekly_hour  "17"        → hour on that day weekly-terms vendors are notified
+ *   digest_daily_hours   "8,12,17"  → hours completion-terms vendors are notified (payment digest)
+ *   digest_weekly_day    "Friday"   → day of week weekly-terms vendors are notified (payment digest)
+ *   digest_weekly_hour   "17"       → hour on that day weekly-terms vendors are notified (payment digest)
+ *   work_reminder_hours  "8,12,17"  → hours vendors with pending incomplete work are reminded
  */
 
 import cron from "node-cron";
@@ -24,19 +25,29 @@ export interface DigestSettings {
 	dailyHours: number[];
 	weeklyDay: string;
 	weeklyHour: number;
+	workReminderHours: number[];
+	paymentEmailsEnabled: boolean;
+	workRemindersEnabled: boolean;
+	dailyEmailsEnabled: boolean;
+	weeklyEmailsEnabled: boolean;
 }
 
 const DEFAULTS: DigestSettings = {
 	dailyHours: [8, 12, 17],
 	weeklyDay: "Friday",
 	weeklyHour: 17,
+	workReminderHours: [8, 12, 17],
+	paymentEmailsEnabled: true,
+	workRemindersEnabled: true,
+	dailyEmailsEnabled: true,
+	weeklyEmailsEnabled: true,
 };
 
 async function getDigestSettings(): Promise<DigestSettings> {
 	try {
 		const rows = (
 			await db.raw(
-				`SELECT key, value FROM site_settings WHERE key IN ('digest_daily_hours','digest_weekly_day','digest_weekly_hour')`,
+				`SELECT key, value FROM site_settings WHERE key IN ('digest_daily_hours','digest_weekly_day','digest_weekly_hour','work_reminder_hours','payment_emails_enabled','work_reminders_enabled','daily_emails_enabled','weekly_emails_enabled')`,
 			)
 		).rows;
 		const map: Record<string, string> = {};
@@ -52,8 +63,19 @@ async function getDigestSettings(): Promise<DigestSettings> {
 		const weeklyHour = map["digest_weekly_hour"]
 			? parseInt(map["digest_weekly_hour"], 10)
 			: DEFAULTS.weeklyHour;
+		const workReminderHours = map["work_reminder_hours"]
+			? map["work_reminder_hours"]
+					.split(",")
+					.map((h: string) => parseInt(h.trim(), 10))
+					.filter((h: number) => !isNaN(h))
+			: DEFAULTS.workReminderHours;
 
-		return { dailyHours, weeklyDay, weeklyHour };
+		const paymentEmailsEnabled = map["payment_emails_enabled"] !== "false";
+		const workRemindersEnabled  = map["work_reminders_enabled"]  !== "false";
+		const dailyEmailsEnabled    = map["daily_emails_enabled"]    !== "false";
+		const weeklyEmailsEnabled   = map["weekly_emails_enabled"]   !== "false";
+
+		return { dailyHours, weeklyDay, weeklyHour, workReminderHours, paymentEmailsEnabled, workRemindersEnabled, dailyEmailsEnabled, weeklyEmailsEnabled };
 	} catch {
 		return DEFAULTS;
 	}
@@ -126,16 +148,32 @@ register("vendor-digest", "0 * * * 1-5", async () => {
 			timeZone: TZ,
 		}) === settings.weeklyDay && currentHour === settings.weeklyHour;
 
-	if (!isDailyRun && !isWeeklyRun) return;
+	const isWorkReminderRun = settings.workReminderHours.includes(currentHour);
+
+	if (!isDailyRun && !isWeeklyRun && !isWorkReminderRun) return;
 
 	console.log(
-		`[scheduler] vendor-digest running — hour ${currentHour} | daily=${isDailyRun} weekly=${isWeeklyRun}`,
+		`[scheduler] vendor-digest running — hour ${currentHour} | daily=${isDailyRun} weekly=${isWeeklyRun} workReminder=${isWorkReminderRun}`,
 	);
-	try {
-		const { runVendorDigest } = await import("./paymentBatch");
-		await runVendorDigest(settings, false, "cron");
-	} catch (e) {
-		console.error("[scheduler] vendor-digest failed:", e);
+	if ((isDailyRun || isWeeklyRun) && settings.paymentEmailsEnabled) {
+		try {
+			const { runVendorDigest } = await import("./paymentBatch");
+			await runVendorDigest(settings, false, "cron");
+		} catch (e) {
+			console.error("[scheduler] vendor-digest failed:", e);
+		}
+	} else if (isDailyRun || isWeeklyRun) {
+		console.log("[scheduler] vendor-digest skipped — payment emails disabled");
+	}
+	if (isWorkReminderRun && settings.workRemindersEnabled) {
+		try {
+			const { runVendorWorkReminder } = await import("./paymentBatch");
+			await runVendorWorkReminder(settings, false);
+		} catch (e) {
+			console.error("[scheduler] work-reminder failed:", e);
+		}
+	} else if (isWorkReminderRun) {
+		console.log("[scheduler] work-reminder skipped — work reminders disabled");
 	}
 });
 

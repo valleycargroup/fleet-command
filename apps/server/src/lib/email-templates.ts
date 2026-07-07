@@ -431,6 +431,25 @@ export const TEMPLATES: Record<string, EmailTemplate> = {
     };
   },
 
+  vendor_work_reminder: (d) => {
+    const statusLabel = (s: string) => s === 'started' ? '🔧 In Progress' : s === 'approved' ? '⏳ Not Started' : '📤 Bids Pending';
+    const statusColor = (s: string) => s === 'started' ? '#FBBF24' : s === 'approved' ? '#93C5FD' : '#6B7280';
+    const vehicleRow = (v: any) => {
+      const vehicleUrl = (d.appUrl || APP_URL) + (v.vehicleId ? `?vehicle=${v.vehicleId}` : '');
+      const soldTag = v.soldTo ? `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#7F1D1D;color:#FCA5A5;border-radius:4px;font-size:10px;font-weight:700;">SOLD → ${v.soldTo}</span>` : '';
+      const taskRows = (v.tasks || []).map((t: any) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0D0D1A;border-radius:6px;margin-top:4px;border-left:3px solid ${statusColor(t.taskStatus)}">${t.categoryIcon} <span style="font-size:13px;color:#E5E7EB;flex:1;">${t.categoryLabel}</span><span style="font-size:11px;color:${statusColor(t.taskStatus)};font-weight:700;white-space:nowrap;">${statusLabel(t.taskStatus)}</span></div>${(t.workItems || []).length > 0 ? `<div style="margin:2px 0 0 24px;font-size:11px;color:#6B7280;line-height:1.7;">${t.workItems.map((w: string) => `• ${w}`).join('<br>')}</div>` : ''}`).join('');
+      return `<a href="${vehicleUrl}" style="display:block;text-decoration:none;padding:12px;background:#1A2340;border-radius:8px;border-left:3px solid ${v.soldTo ? '#EF4444' : '#3B82F6'};margin-bottom:8px;"><div style="margin-bottom:6px;"><span style="color:#93C5FD;font-size:14px;font-weight:700;">${v.year} ${v.make} ${v.model} ${v.trim || ''}</span>${soldTag}</div><div style="font-size:11px;color:#6B7280;font-family:monospace;margin-bottom:6px;">VIN ${v.vin || '—'} • ${v.color || ''} • ${(v.miles || 0).toLocaleString()} mi • ${v.location || ''}</div>${taskRows}</a>`;
+    };
+    const soldVehicles = (d.vehicles || []).filter((v: any) => v.soldTo || v.vehicleStatus === 'sold');
+    const otherVehicles = (d.vehicles || []).filter((v: any) => !v.soldTo && v.vehicleStatus !== 'sold');
+    const soldBanner = soldVehicles.length > 0 ? `<div style="background:#7F1D1D;padding:10px 20px;text-align:center;font-size:13px;font-weight:700;color:#FCA5A5;letter-spacing:1px;">🔴 ${soldVehicles.length} SOLD VEHICLE${soldVehicles.length > 1 ? 'S' : ''} — BUYER WAITING — PRIORITY</div>` : '';
+    const body = `<div style="font-size:18px;font-weight:700;color:#FFF;margin:0 0 8px;">${d.vendorName},</div><div style="font-size:14px;color:#9CA3AF;line-height:1.7;margin:0 0 20px;">You have <b style="color:#93C5FD;">${d.taskCount} pending job${d.taskCount === 1 ? '' : 's'}</b> assigned to you in Fleet Command. Please review and complete the work below.</div>${soldVehicles.length > 0 ? `<div style="font-size:11px;color:#FCA5A5;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;">🔴 Sold Vehicles — Priority</div>${soldVehicles.map(vehicleRow).join('')}<div style="height:10px;"></div>` : ''}${otherVehicles.length > 0 ? `<div style="font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;">Pending Jobs</div>${otherVehicles.map(vehicleRow).join('')}` : ''}<div style="margin-top:16px;padding:12px;background:#0D0D1A;border-radius:8px;border-left:3px solid #3B82F6;font-size:12px;color:#9CA3AF;line-height:1.7;">If you have questions, contact your Fleet Command administrator. Jobs marked <b style="color:#FBBF24;">In Progress</b> are counted as active — please update status when complete.</div>`;
+    return {
+      subject: `🔧 ${d.taskCount} Pending Job${d.taskCount === 1 ? '' : 's'} — Action Required — ${d.vendorName}`,
+      html: shell('#1A2340', '#1E3A5F', '#93C5FD', '#3B82F6', '🔧', 'Pending Work Reminder', body, soldBanner),
+    };
+  },
+
   vendor_payment_receipt: (d) => ({
     subject: `💸 Payment Sent — Check #${d.checkNumber} — $${(d.totalPaid || 0).toLocaleString()} to ${d.vendor?.name || 'Vendor'}`,
     html: shell('#0D3B1E', '#166534', '#6EE7B7', '#34D399', '💸', 'Payment Sent',
