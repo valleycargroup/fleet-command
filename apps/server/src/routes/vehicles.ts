@@ -374,7 +374,7 @@ router.post('/import-from-crm', async (req: Request, res: Response) => {
     const vin = String(fields.vin || '').trim().toUpperCase();
     if (!vin) return res.status(400).json({ error: 'VIN required' });
 
-    const required = ['buyingBroker', 'source', 'zipCode', 'fuelType', 'transmission', 'drive', 'motorTrailer'];
+    const required = ['buyingBroker', 'source', 'zipCode', 'fuelType', 'transmission', 'drive'];
     const missing = required.filter((k) => !String(fields[k] || '').trim());
     if (missing.length) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
 
