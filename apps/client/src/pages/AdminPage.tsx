@@ -280,66 +280,148 @@ return <div style={{padding:10}}>
       </div>
     </div>;
   })()}
-  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"14px 0",borderTop:"1px solid #1E1E32",gap:16}}>
-    <div style={{flex:1}}>
-      <div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>Daily Vendor Digest Times</div>
-      <div style={{fontSize:13,color:"#6B7280",marginTop:3}}>Hours the digest fires for <b style={{color:"#E5E7EB"}}>completion-terms</b> vendors (Mon–Fri). Typically 3× per day. Changes take effect immediately.</div>
-      <div style={{fontSize:11,color:"#4B5563",marginTop:6,padding:"3px 8px",background:"#0D0D1A",borderRadius:4,display:"inline-block",border:"1px solid #1E1E32"}}>🌐 Server timezone: <span style={{color:"#9CA3AF",fontFamily:"monospace"}}>{siteSettings.server_timezone||"America/Phoenix"}</span> — change via TZ env var</div>
+  {/* ── Vendor Email Schedule ────────────────────────────────────── */}
+  {(()=>{
+    const payOn=siteSettings.payment_emails_enabled!=="false";
+    const remOn=siteSettings.work_reminders_enabled!=="false";
+    const dailyOn=siteSettings.daily_emails_enabled!=="false";
+    const weeklyOn=siteSettings.weekly_emails_enabled!=="false";
+    const toggle=async(key: string,cur: boolean)=>{
+      const val=cur?"false":"true";
+      try{
+        const token=localStorage.getItem("fc_token")||"";
+        const r=await fetch(`${API_URL}/api/settings/${key}`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:val})});
+        if(r.ok){setSiteSettings({...siteSettings,[key]:val});notify(val==="true"?"✅ Enabled":"⛔ Disabled");}
+        else notify("⚠️ Failed to save");
+      }catch{notify("⚠️ Could not reach server");}
+    };
+    const Toggle=({on,onToggle}:{on:boolean,onToggle:()=>void})=>(
+      <button onClick={onToggle} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",background:on?"#0D3B1E":"#3B1515",color:on?"#34D399":"#F87171",fontSize:12,fontWeight:700,flexShrink:0}}>
+        <span style={{width:28,height:16,borderRadius:8,background:on?"#166534":"#7F1D1D",display:"inline-flex",alignItems:"center",padding:"0 2px",transition:"all .2s"}}>
+          <span style={{width:12,height:12,borderRadius:"50%",background:"#FFF",display:"block",marginLeft:on?12:0,transition:"all .2s"}}/>
+        </span>
+        {on?"On":"Off"}
+      </button>
+    );
+  return <>
+  <div style={{background:"#0D0D1A",border:`1px solid ${payOn?"#2A2A3E":"#7F1D1D"}`,borderRadius:10,padding:20,marginTop:8,opacity:payOn?1:0.7}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+      <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB"}}>💰 Vendor Payment Emails</div>
+      <Toggle on={payOn} onToggle={()=>toggle("payment_emails_enabled",payOn)}/>
     </div>
-    <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:320}}>
+    <div style={{fontSize:12,color:"#6B7280",marginBottom:payOn?14:0}}>{payOn?"Fleet Command emails vendors a list of their approved jobs that haven't been paid yet. Choose when those emails go out.":"Payment emails are currently disabled — no emails will be sent to vendors."}</div>
+
+    {payOn&&<>{/* Paid-on-completion vendors: daily send times */}
+    <div style={{marginBottom:14,paddingBottom:14,borderBottom:"1px solid #1E1E32",opacity:dailyOn?1:0.6}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+          <span style={{fontSize:13,fontWeight:700,color:"#E5E7EB"}}>Vendors paid on completion</span>
+          <span style={{fontSize:11,color:"#6B7280"}}>— email sent at these times, Mon–Fri</span>
+        </div>
+        <Toggle on={dailyOn} onToggle={()=>toggle("daily_emails_enabled",dailyOn)}/>
+      </div>
+      {dailyOn&&<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+        {[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map((h: number)=>{
+          const label=h===12?"12pm":h<12?`${h}am`:`${h-12}pm`;
+          const fireHours=(siteSettings.digest_daily_hours||"8,12,17").split(",").map(Number);
+          const on=fireHours.includes(h);
+          return <button key={h} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#0D3B1E":"transparent",color:on?"#34D399":"#6B7280",minWidth:44}} onClick={async()=>{
+            const newHours=on?fireHours.filter((x: number)=>x!==h):[...fireHours,h].sort((a: number,b: number)=>a-b);
+            const val=newHours.join(",");
+            try{
+              const token=localStorage.getItem("fc_token")||"";
+              const r=await fetch(`${API_URL}/api/settings/digest_daily_hours`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:val})});
+              if(r.ok){setSiteSettings({...siteSettings,digest_daily_hours:val});notify(`⏰ On-completion send times: ${newHours.map((x: number)=>x===12?"12pm":x<12?`${x}am`:`${x-12}pm`).join(", ")||"none"}`)}
+              else notify("⚠️ Failed to save setting");
+            }catch{notify("⚠️ Could not reach server");}
+          }}>{label}</button>;
+        })}
+      </div>}
+    </div>
+
+    {/* Weekly vendors: day + time */}
+    <div style={{opacity:weeklyOn?1:0.6}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+          <span style={{fontSize:13,fontWeight:700,color:"#E5E7EB"}}>Vendors on a weekly payment schedule</span>
+          <span style={{fontSize:11,color:"#6B7280"}}>— one email per week (rolls to next business day if a holiday)</span>
+        </div>
+        <Toggle on={weeklyOn} onToggle={()=>toggle("weekly_emails_enabled",weeklyOn)}/>
+      </div>
+      {weeklyOn&&<div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-start"}}>
+        <div>
+          <div style={{fontSize:11,color:"#6B7280",marginBottom:4}}>Day of week</div>
+          <div style={{display:"flex",gap:4}}>
+            {["Monday","Tuesday","Wednesday","Thursday","Friday"].map((day: string)=>{
+              const cur=siteSettings.digest_weekly_day||"Friday";
+              const on=cur===day;
+              return <button key={day} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#0D3B1E":"transparent",color:on?"#34D399":"#6B7280"}} onClick={async()=>{
+                try{
+                  const token=localStorage.getItem("fc_token")||"";
+                  const r=await fetch(`${API_URL}/api/settings/digest_weekly_day`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:day})});
+                  if(r.ok){setSiteSettings({...siteSettings,digest_weekly_day:day});notify(`📅 Weekly payment day set to ${day}`);}
+                  else notify("⚠️ Failed to save setting");
+                }catch{notify("⚠️ Could not reach server");}
+              }}>{day.slice(0,3)}</button>;
+            })}
+          </div>
+        </div>
+        <div>
+          <div style={{fontSize:11,color:"#6B7280",marginBottom:4}}>Time</div>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {[8,9,10,11,12,13,14,15,16,17,18,19,20].map((h: number)=>{
+              const label=h===12?"12pm":h<12?`${h}am`:`${h-12}pm`;
+              const cur=parseInt(siteSettings.digest_weekly_hour||"17",10);
+              const on=cur===h;
+              return <button key={h} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#0D3B1E":"transparent",color:on?"#34D399":"#6B7280",minWidth:44}} onClick={async()=>{
+                try{
+                  const token=localStorage.getItem("fc_token")||"";
+                  const r=await fetch(`${API_URL}/api/settings/digest_weekly_hour`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:String(h)})});
+                  if(r.ok){setSiteSettings({...siteSettings,digest_weekly_hour:String(h)});notify(`⏰ Weekly payment time set to ${label}`);}
+                  else notify("⚠️ Failed to save setting");
+                }catch{notify("⚠️ Could not reach server");}
+              }}>{label}</button>;
+            })}
+          </div>
+        </div>
+      </div>}
+    </div>
+
+    <div style={{fontSize:11,color:"#4B5563",marginTop:12,padding:"3px 8px",background:"#12122A",borderRadius:4,display:"inline-block",border:"1px solid #1E1E32"}}>🌐 Server timezone: <span style={{color:"#9CA3AF",fontFamily:"monospace"}}>{siteSettings.server_timezone||"America/Phoenix"}</span> — change via TZ env var</div>
+    </>}
+  </div>
+
+  {/* ── Pending Work Reminders ───────────────────────────────────── */}
+  <div style={{background:"#0D0D1A",border:`1px solid ${remOn?"#2A2A3E":"#7F1D1D"}`,borderRadius:10,padding:20,marginTop:12,opacity:remOn?1:0.7}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+      <div style={{fontSize:14,fontWeight:700,color:"#E5E7EB"}}>🔧 Pending Work Reminders</div>
+      <Toggle on={remOn} onToggle={()=>toggle("work_reminders_enabled",remOn)}/>
+    </div>
+    <div style={{fontSize:12,color:"#6B7280",marginBottom:remOn?12:0}}>{remOn?"Sends vendors a list of their recon jobs that are assigned but not yet finished. Choose which times to send — only vendors with outstanding work receive an email.":"Work reminders are currently disabled — vendors will not be reminded of pending jobs."}</div>
+    {remOn&&<><div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:6}}>
+      <span style={{fontSize:13,fontWeight:700,color:"#E5E7EB"}}>Send reminders at</span>
+      <span style={{fontSize:11,color:"#6B7280"}}>— Mon–Fri only</span>
+    </div>
+    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
       {[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map((h: number)=>{
         const label=h===12?"12pm":h<12?`${h}am`:`${h-12}pm`;
-        const fireHours=(siteSettings.digest_daily_hours||"8,12,17").split(",").map(Number);
+        const fireHours=(siteSettings.work_reminder_hours||"8,12,17").split(",").map(Number);
         const on=fireHours.includes(h);
-        return <button key={h} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#0D3B1E":"transparent",color:on?"#34D399":"#6B7280",minWidth:44}} onClick={async()=>{
+        return <button key={h} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #78350F":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#1C1000":"transparent",color:on?"#FBBF24":"#6B7280",minWidth:44}} onClick={async()=>{
           const newHours=on?fireHours.filter((x: number)=>x!==h):[...fireHours,h].sort((a: number,b: number)=>a-b);
           const val=newHours.join(",");
           try{
             const token=localStorage.getItem("fc_token")||"";
-            const r=await fetch(`${API_URL}/api/settings/digest_daily_hours`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:val})});
-            if(r.ok){setSiteSettings({...siteSettings,digest_daily_hours:val});notify(`⏰ Daily digest times: ${newHours.map((x: number)=>x===12?"12pm":x<12?`${x}am`:`${x-12}pm`).join(", ")||"none"}`)}
+            const r=await fetch(`${API_URL}/api/settings/work_reminder_hours`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:val})});
+            if(r.ok){setSiteSettings({...siteSettings,work_reminder_hours:val});notify(`🔧 Work reminder times: ${newHours.map((x: number)=>x===12?"12pm":x<12?`${x}am`:`${x-12}pm`).join(", ")||"none"}`)}
             else notify("⚠️ Failed to save setting");
           }catch{notify("⚠️ Could not reach server");}
         }}>{label}</button>;
       })}
     </div>
+    </>}
   </div>
-  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"14px 0",borderTop:"1px solid #1E1E32",gap:16}}>
-    <div style={{flex:1}}>
-      <div style={{fontSize:15,fontWeight:700,color:"#E5E7EB"}}>Weekly Vendor Digest Schedule</div>
-      <div style={{fontSize:13,color:"#6B7280",marginTop:3}}>Day and time the digest fires for <b style={{color:"#E5E7EB"}}>weekly-terms</b> vendors. If that day falls on a weekend or holiday, it rolls to the next business day.</div>
-    </div>
-    <div style={{display:"flex",flexDirection:"column",gap:8,alignItems:"flex-end"}}>
-      <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
-        {["Monday","Tuesday","Wednesday","Thursday","Friday"].map((day: string)=>{
-          const cur=siteSettings.digest_weekly_day||"Friday";
-          const on=cur===day;
-          return <button key={day} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#0F2940":"transparent",color:on?"#93C5FD":"#6B7280"}} onClick={async()=>{
-            try{
-              const token=localStorage.getItem("fc_token")||"";
-              const r=await fetch(`${API_URL}/api/settings/digest_weekly_day`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:day})});
-              if(r.ok){setSiteSettings({...siteSettings,digest_weekly_day:day});notify(`📅 Weekly digest day set to ${day}`);}
-              else notify("⚠️ Failed to save setting");
-            }catch{notify("⚠️ Could not reach server");}
-          }}>{day.slice(0,3)}</button>;
-        })}
-      </div>
-      <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
-        {[8,9,10,11,12,13,14,15,16,17,18,19,20].map((h: number)=>{
-          const label=h===12?"12pm":h<12?`${h}am`:`${h-12}pm`;
-          const cur=parseInt(siteSettings.digest_weekly_hour||"17",10);
-          const on=cur===h;
-          return <button key={h} style={{padding:"5px 10px",borderRadius:6,border:on?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontSize:12,fontWeight:700,background:on?"#0F2940":"transparent",color:on?"#93C5FD":"#6B7280",minWidth:44}} onClick={async()=>{
-            try{
-              const token=localStorage.getItem("fc_token")||"";
-              const r=await fetch(`${API_URL}/api/settings/digest_weekly_hour`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:String(h)})});
-              if(r.ok){setSiteSettings({...siteSettings,digest_weekly_hour:String(h)});notify(`⏰ Weekly digest time set to ${label}`);}
-              else notify("⚠️ Failed to save setting");
-            }catch{notify("⚠️ Could not reach server");}
-          }}>{label}</button>;
-        })}
-      </div>
-    </div>
+  </>;})()}
 
   {/* Email preview retention */}
   <div style={{background:"#0D0D1A",border:"1px solid #2A2A3E",borderRadius:10,padding:20,marginTop:16}}>
@@ -367,9 +449,8 @@ return <div style={{padding:10}}>
       })()}
     </div>
   </div>
-
-  </div>
 </div>
+
 </div>}
 
 {showAdd==="user"&&<AddUserForm onClose={()=>setShowAdd(null)} onSave={saveUser}/>}

@@ -33,6 +33,8 @@ export function DevUserSwitcher() {
   const [loading, setLoading] = useState(false);
   const [digestStatus, setDigestStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [digestBusy, setDigestBusy] = useState(false);
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const currentUser = useStore(s => s.currentUser);
   const authToken   = useStore(s => s.authToken);
   const handleLogin = useStore(s => s.handleLogin);
@@ -77,6 +79,29 @@ export function DevUserSwitcher() {
     } finally {
       setDigestBusy(false);
       setTimeout(() => setDigestStatus(null), 4000);
+    }
+  }
+
+  async function doTriggerWorkReminder() {
+    if (reminderBusy) return;
+    setReminderBusy(true);
+    setReminderStatus(null);
+    try {
+      const res = await fetch(`${API_URL}/api/payments/trigger-work-reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setReminderStatus({ ok: true, msg: body.message || 'Reminders sent ✓' });
+      } else {
+        setReminderStatus({ ok: false, msg: body.error || `Error ${res.status}` });
+      }
+    } catch {
+      setReminderStatus({ ok: false, msg: 'Server unreachable' });
+    } finally {
+      setReminderBusy(false);
+      setTimeout(() => setReminderStatus(null), 4000);
     }
   }
 
@@ -218,6 +243,32 @@ export function DevUserSwitcher() {
               {digestStatus && (
                 <div style={{ marginTop: 5, fontSize: 10, fontWeight: 700, textAlign: 'center', color: digestStatus.ok ? '#34D399' : '#F87171' }}>
                   {digestStatus.msg}
+                </div>
+              )}
+              <button
+                disabled={reminderBusy}
+                onClick={() => doTriggerWorkReminder()}
+                title="Send pending work reminders to all vendors with incomplete assigned tasks"
+                style={{
+                  width: '100%',
+                  marginTop: 5,
+                  background: reminderBusy ? '#0D0D1A' : '#1A1000',
+                  border: '1px solid #78350F',
+                  borderRadius: 6,
+                  padding: '5px 4px',
+                  color: reminderBusy ? '#374151' : '#FBBF24',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: reminderBusy ? 'wait' : 'pointer',
+                  letterSpacing: '.2px',
+                  lineHeight: 1.3,
+                }}
+              >
+                {reminderBusy ? '…' : '🔧 Send Work Reminders'}
+              </button>
+              {reminderStatus && (
+                <div style={{ marginTop: 5, fontSize: 10, fontWeight: 700, textAlign: 'center', color: reminderStatus.ok ? '#FBBF24' : '#F87171' }}>
+                  {reminderStatus.msg}
                 </div>
               )}
             </div>

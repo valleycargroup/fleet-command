@@ -10,20 +10,25 @@
 import { Router, Request, Response } from 'express';
 import db from '../lib/db';
 import { requireAuth } from '../lib/auth';
-import { buildVendorPaymentQueue, runVendorDigest } from '../lib/paymentBatch';
+import { buildVendorPaymentQueue, runVendorDigest, runVendorWorkReminder } from '../lib/paymentBatch';
 import { DigestSettings } from '../lib/scheduler';
 
 async function loadSettings(): Promise<DigestSettings> {
   try {
-    const rows = (await db.raw(`SELECT key, value FROM site_settings WHERE key IN ('digest_daily_hours','digest_weekly_day','digest_weekly_hour')`)).rows;
+    const rows = (await db.raw(`SELECT key, value FROM site_settings WHERE key IN ('digest_daily_hours','digest_weekly_day','digest_weekly_hour','work_reminder_hours','payment_emails_enabled','work_reminders_enabled','daily_emails_enabled','weekly_emails_enabled')`)).rows;
     const map: Record<string, string> = {};
     for (const r of rows) map[r.key] = r.value;
     return {
-      dailyHours: map['digest_daily_hours'] ? map['digest_daily_hours'].split(',').map((h: string) => parseInt(h.trim(), 10)) : [8, 12, 17],
-      weeklyDay:  map['digest_weekly_day']  || 'Friday',
-      weeklyHour: map['digest_weekly_hour'] ? parseInt(map['digest_weekly_hour'], 10) : 17,
+      dailyHours:           map['digest_daily_hours']  ? map['digest_daily_hours'].split(',').map((h: string) => parseInt(h.trim(), 10)) : [8, 12, 17],
+      weeklyDay:            map['digest_weekly_day']   || 'Friday',
+      weeklyHour:           map['digest_weekly_hour']  ? parseInt(map['digest_weekly_hour'], 10) : 17,
+      workReminderHours:    map['work_reminder_hours'] ? map['work_reminder_hours'].split(',').map((h: string) => parseInt(h.trim(), 10)) : [8, 12, 17],
+      paymentEmailsEnabled: map['payment_emails_enabled'] !== 'false',
+      workRemindersEnabled:  map['work_reminders_enabled']  !== 'false',
+      dailyEmailsEnabled:   map['daily_emails_enabled']   !== 'false',
+      weeklyEmailsEnabled:  map['weekly_emails_enabled']  !== 'false',
     };
-  } catch { return { dailyHours: [8, 12, 17], weeklyDay: 'Friday', weeklyHour: 17 }; }
+  } catch { return { dailyHours: [8, 12, 17], weeklyDay: 'Friday', weeklyHour: 17, workReminderHours: [8, 12, 17], paymentEmailsEnabled: true, workRemindersEnabled: true, dailyEmailsEnabled: true, weeklyEmailsEnabled: true }; }
 }
 
 const router = Router();
@@ -67,6 +72,22 @@ router.post('/trigger-digest', async (req: Request, res: Response) => {
     const settings = await loadSettings();
     await runVendorDigest(settings, forceAll, 'manual');
     res.json({ ok: true, forceAll, message: forceAll ? 'Digest triggered (all vendors)' : 'Digest triggered (schedule-gated)' });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/payments/trigger-work-reminder  (admin manual trigger)
+router.post('/trigger-work-reminder', async (req: Request, res: Response) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase())) return res.status(403).json({ error: 'Admin only' });
+
+    const settings = await loadSettings();
+    await runVendorWorkReminder(settings, true); // forceAll=true: ignore schedule
+    res.json({ ok: true, message: 'Work reminder triggered (all vendors with pending tasks)' });
   } catch (e: any) {
     console.error(e);
     res.status(500).json({ error: 'Internal server error' });

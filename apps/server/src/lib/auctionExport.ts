@@ -82,7 +82,7 @@ function toAuctionReachableUrl(url: string): string {
   return url.replace(/^(https?:\/\/)localhost(:\d+)/i, '$1host.docker.internal$2');
 }
 
-export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?: boolean } = {}) {
+export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?: boolean; buyerTransport?: boolean } = {}) {
   const reconData: Record<string, ReconTask> = vehicle.recon_data || {};
 
   const conditionReport: Record<string, any> = {};
@@ -136,6 +136,7 @@ export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?
     stock_number: vehicle.stock_number || undefined,
     create_vehicle_if_missing: true,
     replace_existing_images: !!opts.replaceExistingImages,
+    buyer_responsible_transport: !!opts.buyerTransport,
   };
 
   // Prefer the structured condition_report column (created via ConditionReportEditor) if it
@@ -170,7 +171,7 @@ export function buildAuctionPayload(vehicle: any, opts: { replaceExistingImages?
   return { payload, skippedNonUrlMedia };
 }
 
-export async function sendVehicleToAuction(vehicle: any, opts: { replaceExistingImages?: boolean } = {}) {
+export async function sendVehicleToAuction(vehicle: any, opts: { replaceExistingImages?: boolean; buyerTransport?: boolean } = {}) {
   if (!vehicle.vin) throw new Error('Vehicle has no VIN — required to send to Auction');
 
   const baseUrl = getAuctionBaseUrl();

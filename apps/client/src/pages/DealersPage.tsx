@@ -2,20 +2,26 @@ import { useState, useEffect } from 'react';
 import { S } from '../lib/styles';
 import { useStore, selectRoles } from '../lib/store';
 
-const EMPTY = { name:'', email:'', phone:'', address:'', city:'', state:'', zip_code:'', responsible_for_pickup:false };
+const EMPTY = {
+  name: '', email: '', phone: '', fax: '', website: '',
+  address: '', city: '', state: '', zip_code: '', country: '',
+  working_hours: '', yard_address: '',
+  payment_department_first_name: '', payment_department_last_name: '',
+  payment_department_email: '', payment_department_phone: '',
+  responsible_for_pickup: false,
+};
 
 export function DealersPage() {
-  const dealers     = useStore((s: any) => s.dealers);
+  const dealers      = useStore((s: any) => s.dealers);
   const fetchDealers = useStore((s: any) => s.fetchDealers);
-  const api         = useStore((s: any) => s.api);
-  const notify      = useStore((s: any) => s.notify);
-  const { isAdmin } = useStore(selectRoles);
-  const search      = useStore((s: any) => s.search);
+  const api          = useStore((s: any) => s.api);
+  const notify       = useStore((s: any) => s.notify);
+  const { isAdmin }  = useStore(selectRoles);
+  const search       = useStore((s: any) => s.search);
 
-  const [form, setForm] = useState<any>(null);   // null=closed, {} or dealer=editing
+  const [form, setForm] = useState<any>(null);
   const [importing, setImporting] = useState(false);
 
-  // Auto-import from Auction on first open if the list is empty
   useEffect(() => {
     if (isAdmin && dealers.length === 0) importFromAuction();
   }, []);
@@ -75,6 +81,12 @@ export function DealersPage() {
         onChange={e => setForm((f: any) => ({ ...f, [key]: e.target.value }))}
       />
     </label>
+  );
+
+  const sectionLabel = (text: string) => (
+    <div style={{ gridColumn: '1 / -1', fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 8 }}>
+      {text}
+    </div>
   );
 
   return (
@@ -159,18 +171,34 @@ export function DealersPage() {
       {/* add / edit modal */}
       {form && (
         <div style={S.ov} onClick={e => { if (e.target === e.currentTarget) setForm(null); }}>
-          <div style={{ ...S.modal, maxWidth: 500, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ ...S.modal, maxWidth: 540, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ fontWeight: 700, fontSize: 16, color: '#F1F5F9', marginBottom: 16 }}>
               {form.id ? 'Edit Dealer' : 'Add Dealer'}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {sectionLabel('Contact')}
               {field('Name *', 'name')}
               {field('Phone', 'phone')}
               {field('Email', 'email', 'email')}
+              {field('Fax', 'fax')}
+              {field('Website', 'website', 'url')}
+              {field('Working Hours', 'working_hours')}
+
+              {sectionLabel('Address')}
               {field('Address', 'address')}
+              {field('Yard / Lot Address', 'yard_address')}
               {field('City', 'city')}
               {field('State', 'state')}
               {field('Zip Code', 'zip_code')}
+              {field('Country', 'country')}
+
+              {sectionLabel('Payment Department')}
+              {field('First Name', 'payment_department_first_name')}
+              {field('Last Name', 'payment_department_last_name')}
+              {field('Email', 'payment_department_email', 'email')}
+              {field('Phone', 'payment_department_phone')}
+
+              {sectionLabel('Options')}
               <label style={{ ...S.fl, justifyContent: 'flex-end' }}>
                 Responsible for Pickup
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>

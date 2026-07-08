@@ -13,7 +13,7 @@ import { sendEmail, logEmail, APP_URL } from './email';
 import { TEMPLATES } from './email-templates';
 import { isBusinessDay, nextBusinessDay, DigestSettings } from './scheduler';
 
-const DEFAULT_SETTINGS: DigestSettings = { dailyHours: [8, 12, 17], weeklyDay: 'Friday', weeklyHour: 17 };
+const DEFAULT_SETTINGS: DigestSettings = { dailyHours: [8, 12, 17], weeklyDay: 'Friday', weeklyHour: 17, workReminderHours: [8, 12, 17], paymentEmailsEnabled: true, workRemindersEnabled: true, dailyEmailsEnabled: true, weeklyEmailsEnabled: true };
 
 // Recon category keys — must match client-side VCAT constant
 const VCAT_KEYS = [
@@ -224,8 +224,8 @@ export async function buildVendorPaymentQueue(settings: DigestSettings = DEFAULT
     const nowDay  = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TZ });
     const nowHour = parseInt(now.toLocaleTimeString('en-US', { hour: 'numeric', hour12: false, timeZone: TZ }), 10);
     const isDue = forceAll ||
-      (paymentTerms === 'completion' && settings.dailyHours.includes(nowHour)) ||
-      (paymentTerms === 'weekly'     && nowDay === settings.weeklyDay && nowHour === settings.weeklyHour);
+      (paymentTerms === 'completion' && settings.dailyEmailsEnabled  && settings.dailyHours.includes(nowHour)) ||
+      (paymentTerms === 'weekly'     && settings.weeklyEmailsEnabled && nowDay === settings.weeklyDay && nowHour === settings.weeklyHour);
 
     // Build recipient list
     const prefs: Record<string, any> = meta?.email_prefs || {};
@@ -362,4 +362,171 @@ export async function runRolloverCheck(settings: DigestSettings = DEFAULT_SETTIN
 
   console.log('[paymentBatch] rollover-check: yesterday was non-business day, re-running weekly digest');
   await runVendorDigest(settings, true, 'cron'); // forceAll=true: rollover sends regardless of current hour
+}
+
+// ── Vendor work reminder ──────────────────────────────────────────────────────
+// Separate from the payment digest. Finds vendors with assigned-but-incomplete
+// recon tasks and sends a reminder showing what still needs to be done.
+
+interface PendingWorkTask {
+  categoryKey: string;
+  categoryLabel: string;
+  categoryIcon: string;
+  taskStatus: string;
+  workItems: string[];
+}
+
+interface PendingWorkVehicle {
+  vehicleId: number;
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+  vin: string;
+  color: string;
+  miles: number;
+  location: string;
+  vehicleStatus: string;
+  soldTo: string | null;
+  tasks: PendingWorkTask[];
+}
+
+export async function runVendorWorkReminder(settings: DigestSettings = DEFAULT_SETTINGS, forceAll = false): Promise<void> {
+  if (!forceAll && !isBusinessDay()) return;
+
+  const TZ = process.env.TZ || 'America/Phoenix';
+  const nowHour = parseInt(new Date().toLocaleTimeString('en-US', { hour: 'numeric', hour12: false, timeZone: TZ }), 10);
+  if (!forceAll && !settings.workReminderHours.includes(nowHour)) return;
+
+  const vehicles = (await db.raw(
+    `SELECT id, year, make, model, trim, vin, color, miles, location, status, sold_to, recon_data
+     FROM vehicles WHERE recon_data IS NOT NULL AND status != 'delivered'`
+  )).rows;
+
+  const vendorRows = (await db.raw(
+    `SELECT v.id, v.name, v.email_prefs,
+            COALESCE(u.email, (
+              SELECT u2.email FROM users u2
+              WHERE u2.vendor_id = v.id AND u2.active = TRUE ORDER BY u2.id LIMIT 1
+            )) AS contact_email
+     FROM vendors v
+     LEFT JOIN users u ON v.primary_user_id = u.id
+     WHERE v.active = TRUE`
+  )).rows;
+
+  const vendorMap: Record<string, typeof vendorRows[0]> = {};
+  vendorRows.forEach((vr: any) => { vendorMap[vr.name?.toLowerCase()?.trim()] = vr; });
+
+  // Load all linked user emails for vendors with ccAllOnDigest
+  const allLinkedEmails: Record<string, string[]> = {};
+  const reminderVendorIds = vendorRows.filter((vr: any) => vr.email_prefs?.ccAllOnDigest).map((vr: any) => vr.id);
+  if (reminderVendorIds.length > 0) {
+    const linked = (await db.raw(
+      `SELECT vendor_id, email FROM users WHERE vendor_id = ANY(?) AND active = TRUE AND email IS NOT NULL`,
+      [reminderVendorIds]
+    )).rows;
+    for (const r of linked) {
+      if (!allLinkedEmails[r.vendor_id]) allLinkedEmails[r.vendor_id] = [];
+      allLinkedEmails[r.vendor_id].push(r.email.toLowerCase());
+    }
+  }
+
+  // Group pending (incomplete) tasks by vendor
+  const groups: Record<string, { vehicles: Map<number, PendingWorkVehicle>; meta: any }> = {};
+
+  for (const v of vehicles) {
+    let recon: Record<string, any> = {};
+    try { recon = typeof v.recon_data === 'string' ? JSON.parse(v.recon_data) : v.recon_data; } catch { continue; }
+
+    for (const key of VCAT_KEYS) {
+      const task = recon[key];
+      if (!task || !task.needed) continue;
+      if (task.status === 'complete') continue;
+
+      // Resolve vendor: locked name → accepted bid (selected) → assigned-but-not-yet-accepted (first entry)
+      const selectedVendor = (task.vendors || []).find((x: any) => x.selected);
+      const assignedVendor = (task.vendors || [])[0]; // at 'assigned'/'estimated' there's exactly one
+      const effectiveVendorName: string = task.lockedVendorName || selectedVendor?.name || assignedVendor?.name || '';
+      if (!effectiveVendorName) continue;
+
+      const vendorName: string = effectiveVendorName;
+      const vendorKey = vendorName.toLowerCase().trim();
+      const meta = vendorMap[vendorKey] || null;
+
+      if (!groups[vendorName]) groups[vendorName] = { vehicles: new Map(), meta };
+
+      const existing = groups[vendorName].vehicles.get(v.id);
+      const taskEntry: PendingWorkTask = {
+        categoryKey: key,
+        categoryLabel: CATEGORY_META[key]?.label || key,
+        categoryIcon: CATEGORY_META[key]?.icon || '🔧',
+        taskStatus: task.status || 'assigned',
+        workItems: (task.workTasks || []).map((w: any) => w.desc || '').filter(Boolean),
+      };
+
+      if (existing) {
+        existing.tasks.push(taskEntry);
+      } else {
+        groups[vendorName].vehicles.set(v.id, {
+          vehicleId: v.id,
+          year: v.year,
+          make: v.make,
+          model: v.model,
+          trim: v.trim || '',
+          vin: v.vin,
+          color: v.color || '',
+          miles: Number(v.miles) || 0,
+          location: v.location || '',
+          vehicleStatus: v.status,
+          soldTo: v.sold_to || null,
+          tasks: [taskEntry],
+        });
+      }
+    }
+  }
+
+  const fn = TEMPLATES['vendor_work_reminder'];
+  if (!fn) { console.warn('[paymentBatch] vendor_work_reminder template not found'); return; }
+
+  let sent = 0;
+  for (const [vendorName, { vehicles: vMap, meta }] of Object.entries(groups)) {
+    const vehicleList = Array.from(vMap.values());
+    // Sold vehicles first
+    vehicleList.sort((a, b) => (a.vehicleStatus === 'sold' ? 0 : 1) - (b.vehicleStatus === 'sold' ? 0 : 1));
+
+    const taskCount = vehicleList.reduce((sum, v) => sum + v.tasks.length, 0);
+
+    const prefs: Record<string, any> = meta?.email_prefs || {};
+    const recipientSet = new Set<string>();
+    if (meta?.contact_email) recipientSet.add(meta.contact_email.toLowerCase());
+    if (prefs.ccAllOnDigest && meta?.id && allLinkedEmails[meta.id]) {
+      for (const e of allLinkedEmails[meta.id]) recipientSet.add(e);
+    }
+
+    if (recipientSet.size === 0) {
+      console.warn(`[paymentBatch] work-reminder: no recipients for "${vendorName}" — skipping`);
+      continue;
+    }
+
+    const rendered = fn({ vendorName, vehicles: vehicleList, taskCount, appUrl: APP_URL });
+    if (!rendered) continue;
+
+    for (const recipient of Array.from(recipientSet)) {
+      const result = await sendEmail(recipient, rendered.subject, rendered.html);
+      await logEmail(
+        'vendor_work_reminder', recipient, null, rendered.subject,
+        result.ok ? 'sent' : 'failed',
+        result.ok ? null : (result.error || null),
+        { vendor: vendorName },
+        'cron',
+        result.messageId,
+        rendered.html
+      );
+    }
+
+    console.log(`[paymentBatch] work-reminder sent to "${vendorName}" — ${taskCount} task(s) on ${vehicleList.length} vehicle(s)`);
+    sent++;
+  }
+
+  console.log(`[paymentBatch] work-reminder: ${sent} vendor(s) notified`);
 }

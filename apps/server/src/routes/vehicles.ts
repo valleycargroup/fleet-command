@@ -325,7 +325,7 @@ router.post('/:id/send-to-auction', async (req: Request, res: Response) => {
       vehicle.photos = req.body.photos;
     }
 
-    const result = await sendVehicleToAuction(vehicle, { replaceExistingImages: !!req.body?.replace_existing_images });
+    const result = await sendVehicleToAuction(vehicle, { replaceExistingImages: !!req.body?.replace_existing_images, buyerTransport: !!req.body?.buyer_transport });
     if (!result.ok) return res.status(result.status || 502).json({ error: 'Auction app rejected the request', details: result.data });
     res.json({ ok: true, auction: result.data, skippedNonUrlMedia: result.skippedNonUrlMedia });
   } catch (e: any) {
@@ -374,7 +374,7 @@ router.post('/import-from-crm', async (req: Request, res: Response) => {
     const vin = String(fields.vin || '').trim().toUpperCase();
     if (!vin) return res.status(400).json({ error: 'VIN required' });
 
-    const required = ['buyingBroker', 'source', 'zipCode', 'fuelType', 'transmission', 'drive', 'motorTrailer'];
+    const required = ['buyingBroker', 'source', 'zipCode', 'fuelType', 'transmission', 'drive'];
     const missing = required.filter((k) => !String(fields[k] || '').trim());
     if (missing.length) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
 

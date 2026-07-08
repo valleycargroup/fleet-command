@@ -59,7 +59,7 @@ const list = useMemo(() => {
   if (currentUser?.role === "Buyer/Seller") { const fn=currentUser.first_name||currentUser.firstName||""; const ln=currentUser.last_name||currentUser.lastName||""; const full=(fn+" "+ln).trim(); const em=currentUser.email||""; l = l.filter((v: any) => (full&&(v.buyingBroker===full||v.sellingBroker===full))||(em&&(v.buyingBroker===em||v.sellingBroker===em))); }
   if (fLoc !== "All") l = l.filter((v: any) => v.location === fLoc);
   if (search) { const q = search.toLowerCase(); l = l.filter((v: any) => (v.fullVin||v.vin8||"").toLowerCase().includes(q)||v.vin8.toLowerCase().includes(q)||`${v.year} ${v.make} ${v.model}`.toLowerCase().includes(q)||v.buyingBroker.toLowerCase().includes(q)||(v.sellingBroker||"").toLowerCase().includes(q)||(v.soldTo||"").toLowerCase().includes(q)); }
-  if (myCrOnly) l = l.filter((v: any) => v.crAssignedTo && v.crAssignedTo === currentUser?.id && !isCrDone(v));
+  if (myCrOnly) l = l.filter((v: any) => v.crAssignedTo && Number(v.crAssignedTo) === Number(currentUser?.id) && !isCrDone(v));
   // Phase 3 sort — priority tiers agreed 2026-06-29:
   // 1. Kicked + Delivered (returned after delivery — pulled back to main tab)
   // 2. Kicked + Not Yet Resold
@@ -171,7 +171,7 @@ const stats=useMemo(()=>{
     if(v.transport?.outbound?.set&&!v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered)outSet++;
     if(v.transport?.outbound?.pickedUp&&!v.transport?.outbound?.delivered)pickedUp++;
     if((v.kicked||v.kickedFromCSV||v.kickedReturn)&&v.status!=="sold"&&v.status!=="delivered")kicked++;
-    if(v.crAssignedTo&&v.crAssignedTo===currentUser?.id&&!isCrDone(v))myCr++;
+    if(v.crAssignedTo&&Number(v.crAssignedTo)===Number(currentUser?.id)&&!isCrDone(v))myCr++;
   }
   return {sold,recon,r2s,inbound,onGround,outSet,pickedUp,kicked,myCr};
 },[list,currentUser]);

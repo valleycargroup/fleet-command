@@ -393,7 +393,7 @@ export const useStore = create<any>((set, get) => ({
     const { api, notify } = get();
     if (!v._dbId) { notify('⚠️ Save the vehicle before sending to auction'); return; }
     try {
-      const res = await api(`/api/vehicles/${v._dbId}/send-to-auction`, 'POST', { replace_existing_images: !!opts.replaceExistingImages, photos: v.photos || [] });
+      const res = await api(`/api/vehicles/${v._dbId}/send-to-auction`, 'POST', { replace_existing_images: !!opts.replaceExistingImages, photos: v.photos || [], buyer_transport: !!v.buyerTransport });
       notify(`🔨 Sent to Auction — ${res.skippedNonUrlMedia ? res.skippedNonUrlMedia + ' local photo(s) skipped (no hosted URL)' : 'media included'}`);
       return res;
     } catch (e: any) {
