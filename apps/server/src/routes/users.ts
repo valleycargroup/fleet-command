@@ -170,6 +170,41 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/users/welcome-batch  — resend welcome emails using passwords from seed file
+router.post('/welcome-batch', async (req: Request, res: Response) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    if (!['admin','tech support','tech_support','techsupport'].includes(user.role?.toLowerCase()) && !user.is_buyer && !user.is_seller)
+      return res.status(403).json({ error: 'Forbidden' });
+
+    const entries: { email: string; password: string }[] = req.body.users || [];
+    if (!Array.isArray(entries) || entries.length === 0)
+      return res.status(400).json({ error: 'Provide a users array of { email, password }' });
+
+    const results: { email: string; status: string }[] = [];
+    for (const entry of entries) {
+      const cleanEmail = String(entry.email || '').trim().toLowerCase();
+      if (!cleanEmail || !entry.password) { results.push({ email: cleanEmail, status: 'skipped_incomplete' }); continue; }
+
+      const dbUser = (await db.raw('SELECT id, first_name, email, role, location FROM users WHERE email = ? AND active = TRUE', [cleanEmail])).rows[0];
+      if (!dbUser) { results.push({ email: cleanEmail, status: 'not_found' }); continue; }
+
+      const { subject, html } = welcomeUserEmail(dbUser.first_name, dbUser.email, entry.password, dbUser.role, dbUser.location || 'Both');
+      const emailRes = await sendEmail(dbUser.email, subject, html);
+      await logEmail('welcome_user', dbUser.email, null, subject, emailRes.ok ? 'sent' : (emailRes.error === 'notifications disabled' ? 'suppressed' : 'failed'), emailRes.error || null, { name: dbUser.first_name, role: dbUser.role }, 'manual', emailRes.messageId, html);
+      results.push({ email: cleanEmail, status: emailRes.ok ? 'sent' : emailRes.error === 'notifications disabled' ? 'suppressed_kill_switch' : 'failed' });
+    }
+
+    const sent = results.filter(r => r.status === 'sent').length;
+    const suppressed = results.filter(r => r.status === 'suppressed_kill_switch').length;
+    res.json({ ok: true, sent, suppressed, results });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // DELETE /api/users/:id  (soft delete)
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
