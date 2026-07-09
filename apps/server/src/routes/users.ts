@@ -40,6 +40,10 @@ router.post('/', async (req: Request, res: Response) => {
             location, vendor_tag, parts_location, auction_assignments,
             recon_categories, recon_customized, password } = body;
 
+    const isTechSupportRole = (r: string) => ['tech support','tech_support','techsupport'].includes(String(r||'').toLowerCase());
+    if (isTechSupportRole(role) && !isTechSupportRole(user.role))
+      return res.status(403).json({ error: 'Only Tech Support users can assign the Tech Support role' });
+
     if (!email || !phone || !first_name) return res.status(400).json({ error: 'Email, phone, and first name required' });
 
     const cleanEmail = String(email).trim().toLowerCase();
@@ -122,6 +126,10 @@ router.put('/:id', async (req: Request, res: Response) => {
       fields.push('email = ?');
       values.push(newEmail);
     }
+
+    const isTechSupportRole = (r: string) => ['tech support','tech_support','techsupport'].includes(String(r||'').toLowerCase());
+    if (body.role !== undefined && isTechSupportRole(body.role) && !isTechSupportRole(user.role))
+      return res.status(403).json({ error: 'Only Tech Support users can assign the Tech Support role' });
 
     const allowed = ['first_name', 'last_name', 'phone', 'role', 'is_buyer', 'is_seller', 'is_ap',
                      'location', 'vendor_tag', 'vendor_id', 'parts_location',

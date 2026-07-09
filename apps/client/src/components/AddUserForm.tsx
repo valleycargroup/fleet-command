@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LOCATIONS } from '../lib/constants';
 import { S } from '../lib/styles';
+import { useStore, selectRoles } from '../lib/store';
 
 interface UserFormData {
   firstName: string;
@@ -37,6 +38,7 @@ function normalizeRole(r: any): string {
 
 export function AddUserForm({ onSave, onClose, initial, vendorList, canEditEmail }: Props) {
   const isEdit = !!initial;
+  const { isTechSupport } = useStore(selectRoles);
 
   const initVendorId = initial?.vendorId ? String(initial.vendorId) : '';
   const initIsPrimary = !!(initVendorId && vendorList?.find(v => String(v.id) === initVendorId && String(v.primaryUserId) === String(initial?.id)));
@@ -108,7 +110,7 @@ export function AddUserForm({ onSave, onClose, initial, vendorList, canEditEmail
               <option>Seller</option>
               <option>Buyer/Seller</option>
               <option>Accounts Payable</option>
-              <option>TechSupport</option>
+              {isTechSupport && <option>TechSupport</option>}
               <option>Vendor</option>
             </select>
           </label>
