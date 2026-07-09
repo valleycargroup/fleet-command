@@ -451,6 +451,59 @@ return <div style={{padding:10}}>
   </div>
 </div>
 
+{isTechSupport&&(()=>{
+  const killOn=siteSettings.notifications_disabled==="true";
+  const saveSetting=async(key: string,val: string)=>{
+    const token=localStorage.getItem("fc_token")||"";
+    try{
+      const r=await fetch(`${API_URL}/api/settings/${key}`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({value:val})});
+      if(r.ok)setSiteSettings({...siteSettings,[key]:val});
+      else notify("⚠️ Failed to save");
+    }catch{notify("⚠️ Could not reach server");}
+  };
+  return <div style={{...S.card,border:killOn?"2px solid #7F1D1D":"1px solid #2A2A3E",marginTop:16}}>
+    <div style={{fontSize:11,fontWeight:700,color:"#EF4444",letterSpacing:1,marginBottom:10}}>TECH SUPPORT ONLY</div>
+    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16,marginBottom:killOn?16:0}}>
+      <div>
+        <div style={{fontSize:15,fontWeight:700,color:killOn?"#FCA5A5":"#E5E7EB"}}>🔕 Master Notification Kill Switch</div>
+        <div style={{fontSize:12,color:"#6B7280",marginTop:3}}>
+          {killOn
+            ?"⛔ All outbound emails are suppressed. Only addresses on the exception list will receive emails."
+            :"Disables ALL outbound emails system-wide. Accounts on the exception list still receive emails."}
+        </div>
+      </div>
+      <button onClick={async()=>{
+        const next=killOn?"false":"true";
+        await saveSetting("notifications_disabled",next);
+        notify(next==="true"?"🔕 All notifications disabled":"✅ Notifications re-enabled");
+      }} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,border:"none",cursor:"pointer",background:killOn?"#3B1515":"#0D3B1E",color:killOn?"#F87171":"#34D399",fontSize:12,fontWeight:700,flexShrink:0}}>
+        <span style={{width:28,height:16,borderRadius:8,background:killOn?"#7F1D1D":"#166534",display:"inline-flex",alignItems:"center",padding:"0 2px"}}>
+          <span style={{width:12,height:12,borderRadius:"50%",background:"#FFF",display:"block",marginLeft:killOn?12:0,transition:"all .2s"}}/>
+        </span>
+        {killOn?"KILL SWITCH ON":"Off"}
+      </button>
+    </div>
+    {killOn&&<>
+      <div style={{borderTop:"1px solid #2A2A3E",paddingTop:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#E5E7EB",marginBottom:4}}>Exception List</div>
+        <div style={{fontSize:12,color:"#6B7280",marginBottom:8}}>Emails on this list will still receive notifications even while the kill switch is active. One email per line or comma-separated.</div>
+        <textarea id="kill-switch-exceptions" defaultValue={siteSettings.notifications_exception_emails||""}
+          style={{width:"100%",boxSizing:"border-box",minHeight:80,padding:"8px 10px",borderRadius:6,border:"1px solid #2A2A3E",background:"#0D0D1A",color:"#E5E7EB",fontSize:13,fontFamily:"monospace",resize:"vertical"}}
+          placeholder={"admin@example.com\ntech@example.com"}/>
+        <button style={{...S.btn,fontSize:12,padding:"6px 14px",marginTop:8}} onClick={async()=>{
+          const raw=(document.getElementById("kill-switch-exceptions") as HTMLTextAreaElement)?.value||"";
+          const normalized=raw.split(/[\n,]/).map((e: string)=>e.trim().toLowerCase()).filter(Boolean).join(", ");
+          await saveSetting("notifications_exception_emails",normalized);
+          notify("✅ Exception list saved");
+        }}>Save Exception List</button>
+        {(siteSettings.notifications_exception_emails||"").trim()&&<div style={{fontSize:11,color:"#9CA3AF",marginTop:8}}>
+          Currently allowing: <span style={{color:"#34D399",fontFamily:"monospace"}}>{siteSettings.notifications_exception_emails}</span>
+        </div>}
+      </div>
+    </>}
+  </div>;
+})()}
+
 </div>}
 
 {showAdd==="user"&&<AddUserForm onClose={()=>setShowAdd(null)} onSave={saveUser}/>}

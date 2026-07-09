@@ -12,6 +12,21 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     return { ok: false, error: 'SENDGRID_API_KEY not configured' };
   }
 
+  try {
+    const killRow = await db('site_settings').where({ key: 'notifications_disabled' }).first();
+    if (killRow?.value === 'true') {
+      const exRow = await db('site_settings').where({ key: 'notifications_exception_emails' }).first();
+      const exceptions = (exRow?.value || '').split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+      if (!exceptions.includes(to.toLowerCase())) {
+        console.log(`[email] suppressed by kill switch: ${to}`);
+        return { ok: false, error: 'notifications disabled' };
+      }
+      console.log(`[email] kill switch active but ${to} is on exception list — sending`);
+    }
+  } catch (e) {
+    console.error('[email] kill switch check failed:', e);
+  }
+
   const payload = JSON.stringify({
     personalizations: [{ to: [{ email: to }] }],
     from: { email: FROM_EMAIL, name: FROM_NAME },
