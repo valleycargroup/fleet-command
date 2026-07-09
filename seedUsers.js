@@ -72,35 +72,61 @@ async function seedUsers(token) {
   console.log(`\n👤  Users (${users.length})${isDry ? '  [DRY RUN]' : ''}`);
 
   if (isDry) {
-    users.forEach((u, i) => console.log(`  ${i + 1}. ${u.first_name} ${u.last_name || ''} <${u.email}>  role=${u.role}  loc=${u.location || 'Both'}`));
+    users.forEach((u, i) => console.log(`  ${i + 1}. ${u.first_name} ${u.last_name || ''} <${u.email}>  phone=${u.phone}  role=${u.role}  loc=${u.location || 'Both'}`));
     return;
   }
 
-  let ok = 0, skipped = 0, failed = 0;
+  // Fetch existing users so we can update by ID instead of skipping
+  const { data: existingData } = await apiFetch('/api/users', 'GET', null, token);
+  const existingByEmail = {};
+  for (const u of existingData.users || []) {
+    existingByEmail[u.email.toLowerCase()] = u;
+  }
+
+  let created = 0, updated = 0, skipped = 0, failed = 0;
   for (const u of users) {
     if (!u.email || !u.phone || !u.first_name) {
       console.warn(`  ⚠️  Skipping incomplete entry:`, JSON.stringify(u));
       skipped++; continue;
     }
-    const payload = {
-      email:      u.email.trim().toLowerCase(),
-      phone:      u.phone,
-      first_name: u.first_name,
-      last_name:  u.last_name  || '',
-      role:       u.role       || 'admin',
-      is_buyer:   !!u.is_buyer,
-      is_seller:  !!u.is_seller,
-      is_ap:      !!u.is_ap,
-      location:   u.location   || 'Both',
-      password:   u.password   || '',
-    };
-    const { ok: success, data } = await apiFetch('/api/users', 'POST', payload, token);
-    if (success) { console.log(`  ✅  ${u.first_name} ${u.last_name || ''} <${u.email}>`); ok++; }
-    else if (data.error?.includes('already registered')) { console.log(`  ⏭️   ${u.email} — already exists, skipped`); skipped++; }
-    else { console.error(`  ❌  ${u.email} — ${data.error || JSON.stringify(data)}`); failed++; }
+
+    const cleanEmail = u.email.trim().toLowerCase();
+    const existing = existingByEmail[cleanEmail];
+
+    if (existing) {
+      // Only update phone if it's a real number and differs from what's stored
+      const cleanPhone = u.phone.replace(/\D/g, '');
+      const storedPhone = (existing.phone || '').replace(/\D/g, '');
+      if (cleanPhone === '0000000000' || cleanPhone === storedPhone) {
+        console.log(`  ⏭️   ${cleanEmail} — already exists, phone unchanged`);
+        skipped++; continue;
+      }
+      const updates = { phone: u.phone };
+      if (u.role && u.role !== existing.role) updates.role = u.role;
+      const { ok: success, data } = await apiFetch(`/api/users/${existing.id}`, 'PUT', updates, token);
+      const whatChanged = [cleanPhone !== storedPhone ? 'phone' : null, updates.role ? 'role' : null].filter(Boolean).join(', ');
+      if (success) { console.log(`  📞  ${u.first_name} ${u.last_name || ''} <${cleanEmail}> — updated ${whatChanged}`); updated++; }
+      else { console.error(`  ❌  ${cleanEmail} — update failed: ${data.error || JSON.stringify(data)}`); failed++; }
+    } else {
+      const payload = {
+        email:      cleanEmail,
+        phone:      u.phone,
+        first_name: u.first_name,
+        last_name:  u.last_name  || '',
+        role:       u.role       || 'admin',
+        is_buyer:   !!u.is_buyer,
+        is_seller:  !!u.is_seller,
+        is_ap:      !!u.is_ap,
+        location:   u.location   || 'Both',
+        password:   u.password   || '',
+      };
+      const { ok: success, data } = await apiFetch('/api/users', 'POST', payload, token);
+      if (success) { console.log(`  ✅  ${u.first_name} ${u.last_name || ''} <${cleanEmail}> — created`); created++; }
+      else { console.error(`  ❌  ${cleanEmail} — ${data.error || JSON.stringify(data)}`); failed++; }
+    }
   }
-  console.log(`     Added: ${ok}  Skipped: ${skipped}  Failed: ${failed}`);
-  if (ok > 0) console.log('     📧  Welcome emails sent (password = phone digits unless overridden)');
+  console.log(`     Created: ${created}  Updated: ${updated}  Skipped: ${skipped}  Failed: ${failed}`);
+  if (created > 0) console.log('     📧  Welcome emails sent for new users');
 }
 
 async function seedVendors(token) {

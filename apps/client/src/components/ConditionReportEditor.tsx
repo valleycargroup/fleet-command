@@ -221,7 +221,9 @@ function printCR(cr: ConditionReport, vehicle: any) {
   const badge = (v: string, m: Record<string, string>) =>
     `<span style="background:${m[v]||'#374151'};color:#fff;padding:1px 7px;border-radius:4px;font-size:11px">${v}</span>`;
   const thumbs = (urls: string[] = []) => urls.length
-    ? urls.map(u => `<img src="${u}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;margin-right:4px;border:1px solid #e5e7eb">`).join('')
+    ? urls.map(u => isVideo(u)
+        ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:#1e3a5f;border-radius:4px;margin-right:4px;border:1px solid #e5e7eb;font-size:20px;vertical-align:middle">&#127909;</span>`
+        : `<img src="${u}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;margin-right:4px;border:1px solid #e5e7eb">`).join('')
     : '—';
   const detSec = (lbl: string, items: CRItem[] = []) => !items.length ? '' :
     `<div style="margin-bottom:18px"><div style="background:#1e3a5f;color:#fff;font-weight:700;font-size:12px;padding:5px 10px;border-radius:4px 4px 0 0;text-transform:uppercase;letter-spacing:0.05em">${lbl} (${items.length})</div>
