@@ -207,6 +207,12 @@ Resources:
                       DomainName: !GetAtt FilesBucket.RegionalDomainName
                       S3OriginConfig:
                           OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${FilesOAI}"
+                    - Id: AlbApi
+                      DomainName: !GetAtt FleetLoadBalancer.DNSName
+                      CustomOriginConfig:
+                          HTTPSPort: 443
+                          OriginProtocolPolicy: https-only
+                          OriginSSLProtocols: [TLSv1.2]
 
                 Aliases: !If
                     - IsProd
@@ -240,6 +246,31 @@ Resources:
                     MaxTTL: 0
 
                 CacheBehaviors:
+                    - PathPattern: "/api/*"
+                      TargetOriginId: AlbApi
+                      ViewerProtocolPolicy: https-only
+                      AllowedMethods:
+                          - GET
+                          - HEAD
+                          - OPTIONS
+                          - PUT
+                          - POST
+                          - PATCH
+                          - DELETE
+                      CachedMethods:
+                          - GET
+                          - HEAD
+                      Compress: false
+                      ForwardedValues:
+                          QueryString: true
+                          Headers:
+                              - Authorization
+                              - Content-Type
+                          Cookies:
+                              Forward: all
+                      MinTTL: 0
+                      DefaultTTL: 0
+                      MaxTTL: 0
                     - PathPattern: "/images/*"
                       TargetOriginId: ImageS3
                       ViewerProtocolPolicy: redirect-to-https
