@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../auction"
+		},
+		{
+			"path": "../vcg-crm"
 		}
 	],
 	"settings": {}
