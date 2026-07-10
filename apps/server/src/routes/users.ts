@@ -148,9 +148,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     if (body.password !== undefined && typeof body.password === 'string' && body.password.trim().length > 0) {
       const newPw = body.password.trim();
-      if (newPw.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-      if (!/[A-Z]/.test(newPw)) return res.status(400).json({ error: 'Password must contain an uppercase letter' });
-      if (!/[0-9]/.test(newPw)) return res.status(400).json({ error: 'Password must contain a number' });
+      const selfReset = String(user.id) === userId;
+      if (selfReset) {
+        if (newPw.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        if (!/[A-Z]/.test(newPw)) return res.status(400).json({ error: 'Password must contain an uppercase letter' });
+        if (!/[0-9]/.test(newPw)) return res.status(400).json({ error: 'Password must contain a number' });
+      }
       const hash = await hashPassword(newPw);
       fields.push('password_hash = ?');
       values.push(hash);
