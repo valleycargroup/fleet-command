@@ -36,7 +36,13 @@
       "Bash(ipconfig)",
       "Bash(curl -s -X POST http://localhost:5002/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@example.com\",\"password\":\"changeme123\"}')",
       "Bash(node createTables.js)",
-      "Bash(curl -s \"http://localhost:5001/external/fleet-command-vehicle/1FTFW1E83MFA56515\" -H \"x-api-key: JpbcpTZU58gpKfQxRn6Y7ZZdjucroK\")"
+      "Bash(curl -s \"http://localhost:5001/external/fleet-command-vehicle/1FTFW1E83MFA56515\" -H \"x-api-key: JpbcpTZU58gpKfQxRn6Y7ZZdjucroK\")",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(git checkout *)",
+      "Bash(git merge hotfix/v1.0.1 --no-ff -m 'hotfix: merge v1.0.1 into develop *)",
+      "Bash(git merge *)",
+      "Bash(git tag *)",
+      "Bash(git branch *)"
     ],
     "additionalDirectories": [
       "D:\\websites\\vcg-crm\\crm-backend\\src\\routes",
