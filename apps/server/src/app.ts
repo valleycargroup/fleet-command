@@ -24,8 +24,8 @@ const corsOptions: CorsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`CORS: Origin ${origin} not allowed`);
-      callback(new Error('Not allowed by CORS'), false);
+      console.warn(`[cors] blocked origin: ${origin}`);
+      callback(null, false);
     }
   },
   credentials: true,
@@ -42,7 +42,7 @@ const uploadDir = path.resolve(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 app.use('/uploads', (_req, res, next) => { res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); next(); }, express.static(uploadDir));
 
-app.use('/api', router);
+app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); }, router);
 
 app.get('/health', (_req, res) =>
   res.json({ ok: true, message: 'Fleet Command API is running.', uptime: process.uptime() })
