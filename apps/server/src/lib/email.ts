@@ -95,11 +95,21 @@ function baseLayout(title: string, body: string) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;"><table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0A0A14" style="background:#0A0A14;"><tr><td align="center" style="padding:20px;"><table width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;background:#12121E;border-radius:16px;border:1px solid #2A2A3E;overflow:hidden;"><tr><td align="center" bgcolor="#1E3A5F" style="background:#1E3A5F;padding:28px;"><div style="font-size:26px;font-weight:700;color:#FFF;font-family:Arial,sans-serif;">Fleet<span style="color:#3B82F6">Command</span></div><div style="margin-top:6px;font-size:13px;color:#93C5FD;font-family:Arial,sans-serif;letter-spacing:1px;text-transform:uppercase;">${title}</div></td></tr><tr><td style="padding:28px;font-family:Arial,sans-serif;color:#E5E7EB;">${body}</td></tr><tr><td align="center" bgcolor="#0A0A14" style="background:#0A0A14;padding:20px 28px;border-top:1px solid #2A2A3E;"><div style="font-size:12px;color:#4B5563;line-height:1.8;font-family:Arial,sans-serif;">Valley Car Group &mdash; PHX &bull; Dallas<br>Questions? Contact your Fleet Command administrator.</div></td></tr></table></td></tr></table></body></html>`;
 }
 
-export function welcomeUserEmail(firstName: string, email: string, password: string, role: string, location: string) {
+export function welcomeUserEmail(firstName: string, email: string, password: string, role: string, location: string, resetUrl?: string) {
   const subject = 'Welcome to Fleet Command';
-  const body = `<p style="font-size:18px;font-weight:700;color:#FFF;margin:0 0 8px;">Hi ${firstName},</p>
-<p style="margin:0 0 20px;color:#9CA3AF;line-height:1.7;">Your Fleet Command account has been created and is ready to use. Below are your login credentials — please keep them secure.</p>
-<div style="background:#0D0D1A;border-radius:10px;padding:18px;margin:0 0 24px;border:1px solid #2A2A3E;">
+  const credentialsBlock = resetUrl
+    ? `<div style="background:#0D0D1A;border-radius:10px;padding:18px;margin:0 0 24px;border:1px solid #2A2A3E;">
+  <div style="font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;">Your Credentials</div>
+  <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:6px 0;color:#6B7280;font-size:13px;">Email</td><td style="padding:6px 0;color:#E5E7EB;font-size:13px;text-align:right;">${email}</td></tr><tr><td style="padding:6px 0;color:#6B7280;font-size:13px;border-top:1px solid #1E1E32;">Role</td><td style="padding:6px 0;color:#93C5FD;font-size:13px;text-align:right;border-top:1px solid #1E1E32;font-weight:700;">${role} &mdash; ${location}</td></tr></table>
+</div>
+<div style="text-align:center;margin:0 0 24px;">
+  <a href="${resetUrl}" style="display:inline-block;padding:14px 48px;background:#3B82F6;color:#FFF;font-size:16px;font-weight:700;border-radius:10px;text-decoration:none;font-family:Arial,sans-serif;">Set My Password</a>
+</div>
+<div style="background:#1A1A2E;border-radius:8px;padding:14px 16px;border-left:3px solid #3B82F6;">
+  <div style="font-size:12px;font-weight:700;color:#93C5FD;margin-bottom:4px;">Next Steps</div>
+  <div style="font-size:13px;color:#9CA3AF;line-height:1.7;">1. Click the button above to set your password.<br>2. The link expires in 24 hours — request a new one from the login page if needed.<br>3. Contact your administrator if you need role or location changes.</div>
+</div>`
+    : `<div style="background:#0D0D1A;border-radius:10px;padding:18px;margin:0 0 24px;border:1px solid #2A2A3E;">
   <div style="font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:700;">Your Credentials</div>
   <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:6px 0;color:#6B7280;font-size:13px;">Email</td><td style="padding:6px 0;color:#E5E7EB;font-size:13px;text-align:right;">${email}</td></tr><tr><td style="padding:6px 0;color:#6B7280;font-size:13px;border-top:1px solid #1E1E32;">Password</td><td style="padding:6px 0;color:#E5E7EB;font-size:13px;text-align:right;border-top:1px solid #1E1E32;font-family:monospace;">${password}</td></tr><tr><td style="padding:6px 0;color:#6B7280;font-size:13px;border-top:1px solid #1E1E32;">Role</td><td style="padding:6px 0;color:#93C5FD;font-size:13px;text-align:right;border-top:1px solid #1E1E32;font-weight:700;">${role} &mdash; ${location}</td></tr></table>
 </div>
@@ -110,6 +120,9 @@ export function welcomeUserEmail(firstName: string, email: string, password: str
   <div style="font-size:12px;font-weight:700;color:#93C5FD;margin-bottom:4px;">Next Steps</div>
   <div style="font-size:13px;color:#9CA3AF;line-height:1.7;">1. Log in using the credentials above.<br>2. You will be prompted to change your password on first login.<br>3. Contact your administrator if you need role or location changes.</div>
 </div>`;
+  const body = `<p style="font-size:18px;font-weight:700;color:#FFF;margin:0 0 8px;">Hi ${firstName},</p>
+<p style="margin:0 0 20px;color:#9CA3AF;line-height:1.7;">Your Fleet Command account has been created and is ready to use. ${resetUrl ? 'Click the button below to set your password and get started.' : 'Below are your login credentials — please keep them secure.'}</p>
+${credentialsBlock}`;
   return { subject, html: baseLayout('Welcome', body) };
 }
 
