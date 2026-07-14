@@ -2,12 +2,6 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "../auction"
-		},
-		{
-			"path": "../vcg-crm"
 		}
 	],
 	"settings": {}
