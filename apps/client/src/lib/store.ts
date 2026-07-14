@@ -157,7 +157,7 @@ export const useStore = create<any>((set, get) => ({
   // ============ API HELPER ============
   api: async (path: string, method="GET", body: any=null) => {
     const token = localStorage.getItem("fc_token");
-    const opts: any = { method, headers: { "Content-Type": "application/json" } };
+    const opts: any = { method, cache: 'no-store', headers: { "Content-Type": "application/json" } };
     if (token) opts.headers["Authorization"] = "Bearer " + token;
     if (body) opts.body = JSON.stringify(body);
     const r = await fetch(API_URL + path, opts);
@@ -244,7 +244,10 @@ export const useStore = create<any>((set, get) => ({
       const freshSelV=currentSelV?mapped.find((v: any)=>v._dbId===currentSelV._dbId)||currentSelV:null;
       set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, dealers:dlRes.dealers||[], siteSettings:stRes.data||{}, apiReady:true, selV:freshSelV });
     } catch(e) {
-      console.error("API load failed, falling back to localStorage:", e);
+      const msg = (e as any)?.message || String(e);
+      const serverDown = msg.includes('<!doctype') || msg.includes('not valid JSON') || msg.includes('Failed to fetch');
+      console.error('[loadData]', serverDown ? 'Server unreachable or returned HTML error page' : msg, e);
+      if (serverDown) get().notify('Could not reach the server — please refresh or clear your browser cache.');
       try{const sv=localStorage.getItem("fc_vehicles");if(sv){const p=JSON.parse(sv);if(p&&p.length>0)set({vehicles:p});}}catch(e2){}
       try{const sv=localStorage.getItem("fc_vendors");if(sv)set({vendors:JSON.parse(sv)});}catch(e2){}
     }
