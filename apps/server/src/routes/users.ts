@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import db from '../lib/db';
 import { hashPassword, requireAuth } from '../lib/auth';
-import { sendEmail, logEmail, welcomeUserEmail } from '../lib/email';
+import { sendEmail, logEmail, welcomeUserEmail, APP_URL } from '../lib/email';
 import { broadcast } from '../lib/ws';
 
 const router = Router();
@@ -182,18 +183,27 @@ router.post('/welcome-batch', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
 
     const entries: { email: string; password: string }[] = req.body.users || [];
+    const useResetLink: boolean = !!req.body.reset_link;
     if (!Array.isArray(entries) || entries.length === 0)
       return res.status(400).json({ error: 'Provide a users array of { email, password }' });
 
     const results: { email: string; status: string }[] = [];
     for (const entry of entries) {
       const cleanEmail = String(entry.email || '').trim().toLowerCase();
-      if (!cleanEmail || !entry.password) { results.push({ email: cleanEmail, status: 'skipped_incomplete' }); continue; }
+      if (!cleanEmail || (!entry.password && !useResetLink)) { results.push({ email: cleanEmail, status: 'skipped_incomplete' }); continue; }
 
       const dbUser = (await db.raw('SELECT id, first_name, email, role, location FROM users WHERE email = ? AND active = TRUE', [cleanEmail])).rows[0];
       if (!dbUser) { results.push({ email: cleanEmail, status: 'not_found' }); continue; }
 
-      const { subject, html } = welcomeUserEmail(dbUser.first_name, dbUser.email, entry.password, dbUser.role, dbUser.location || 'Both');
+      let resetUrl: string | undefined;
+      if (useResetLink) {
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await db.raw('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)', [dbUser.id, `reset:${resetToken}`, expires]);
+        resetUrl = `${APP_URL}?reset=${resetToken}`;
+      }
+
+      const { subject, html } = welcomeUserEmail(dbUser.first_name, dbUser.email, entry.password || '', dbUser.role, dbUser.location || 'Both', resetUrl);
       const emailRes = await sendEmail(dbUser.email, subject, html);
       await logEmail('welcome_user', dbUser.email, null, subject, emailRes.ok ? 'sent' : (emailRes.error === 'notifications disabled' ? 'suppressed' : 'failed'), emailRes.error || null, { name: dbUser.first_name, role: dbUser.role }, 'manual', emailRes.messageId, html);
       results.push({ email: cleanEmail, status: emailRes.ok ? 'sent' : emailRes.error === 'notifications disabled' ? 'suppressed_kill_switch' : 'failed' });

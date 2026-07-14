@@ -1,0 +1,145 @@
+[
+  {
+    "first_name": "Stone",
+    "last_name": "Colby",
+    "email": "stone@valleycargroup.com",
+    "phone": "4802683214",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Stone123"
+  },
+  {
+    "first_name": "Slater",
+    "last_name": "Colby",
+    "email": "slater@valleycargroup.com",
+    "phone": "4804332521",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Slater123"
+  },
+  {
+    "first_name": "Jayson",
+    "last_name": "Holcomb",
+    "email": "jason@valleycargroup.com",
+    "phone": "4804552501",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Jayson123"
+  },
+  {
+    "first_name": "Branden",
+    "last_name": "Burch",
+    "email": "branden@valleycargroup.com",
+    "phone": "9727412406",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Branden123"
+  },
+  {
+    "first_name": "Colby",
+    "last_name": "Dunham",
+    "email": "colby@valleycargroup.com",
+    "phone": "4805360301",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Colby123"
+  },
+  {
+    "first_name": "Eli",
+    "last_name": "Matheny",
+    "email": "eli@valleycargroup.com",
+    "phone": "7168668497",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Eli123"
+  },
+  {
+    "first_name": "Korbin",
+    "last_name": "Plotke",
+    "email": "korbin@valleycargroup.com",
+    "phone": "4806460135",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Korbin123"
+  },
+  {
+    "first_name": "Nick",
+    "last_name": "Dopke",
+    "email": "nick@valleycargroup.com",
+    "phone": "0000000000",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Nick123"
+  },
+  {
+    "first_name": "Casey",
+    "last_name": "Aragon",
+    "email": "aragoncasey@gmail.com",
+    "phone": "0000000000",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Casey123"
+  },
+  {
+    "first_name": "James",
+    "last_name": "Onken",
+    "email": "james@valleycargroup.com",
+    "phone": "4807377652",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "James123"
+  },
+  {
+    "first_name": "Michael",
+    "last_name": "Wainwright",
+    "email": "michael.alanw@gmail.com",
+    "phone": "8157082228",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Michael123"
+  },
+  {
+    "first_name": "Will",
+    "last_name": "Jetton",
+    "email": "will@valleycargroup.com",
+    "phone": "0000000000",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Will123"
+  },
+  {
+    "first_name": "Darren",
+    "last_name": "Colby",
+    "email": "darren@valleycargroup.com",
+    "phone": "6023996722",
+    "role": "admin",
+    "is_buyer": true,
+    "is_seller": true,
+    "location": "Both",
+    "password": "Darren123"
+  }
+]

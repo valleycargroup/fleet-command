@@ -2,15 +2,13 @@
 /**
  * sendWelcomeEmails.js — send (or resend) welcome emails to users in seed-users.json
  *
- * Use this after seeding users with the master kill switch ON, then turning it
- * OFF when you're ready for welcome emails to go out.
- *
  * Usage:
- *   node sendWelcomeEmails.js                  # targets local (http://localhost:5001)
- *   node sendWelcomeEmails.js --env prod       # targets prod
- *   node sendWelcomeEmails.js --env prod --dry # preview only, no emails sent
+ *   node sendWelcomeEmails.js --env prod              # send with password from seed file
+ *   node sendWelcomeEmails.js --env prod --reset-link # send with "Set My Password" link (recommended)
+ *   node sendWelcomeEmails.js --env prod --dry        # preview only, no emails sent
  *
- * Reads users + passwords from seed-users.json in the same directory.
+ * --reset-link generates a 24hr password reset link per user so no passwords
+ * are stored or emailed in plain text. Use this for all future welcome sends.
  */
 
 const fs   = require('fs');
@@ -22,10 +20,11 @@ const API_URLS = {
   prod:  'https://api.fleetcommandrecon.net',
 };
 
-const args   = process.argv.slice(2);
-const envArg = args.includes('--env') ? args[args.indexOf('--env') + 1] : 'local';
-const isDry  = args.includes('--dry');
-const BASE   = API_URLS[envArg] || API_URLS.local;
+const args       = process.argv.slice(2);
+const envArg     = args.includes('--env') ? args[args.indexOf('--env') + 1] : 'local';
+const isDry      = args.includes('--dry');
+const resetLink  = args.includes('--reset-link');
+const BASE       = API_URLS[envArg] || API_URLS.local;
 
 const ADMIN_EMAIL    = process.env.SEED_ADMIN_EMAIL    || 'michael.alanw@gmail.com';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || '';
@@ -54,7 +53,7 @@ async function login() {
 }
 
 async function main() {
-  console.log(`\n📧  Fleet Command Welcome Emails → ${BASE}${isDry ? '  [DRY RUN]' : ''}\n`);
+  console.log(`\n📧  Fleet Command Welcome Emails → ${BASE}${isDry ? '  [DRY RUN]' : ''}${resetLink ? '  [RESET LINK MODE]' : ''}\n`);
 
   const usersFile = path.resolve(__dirname, 'seed-users.json');
   if (!fs.existsSync(usersFile)) {
@@ -83,7 +82,7 @@ async function main() {
     .filter(u => u.email && u.password)
     .map(u => ({ email: u.email.trim().toLowerCase(), password: u.password }));
 
-  const { ok, data } = await apiFetch('/api/users/welcome-batch', 'POST', { users: payload }, token);
+  const { ok, data } = await apiFetch('/api/users/welcome-batch', 'POST', { users: payload, reset_link: resetLink }, token);
 
   if (!ok) {
     console.error('❌  Request failed:', data.error || JSON.stringify(data));
