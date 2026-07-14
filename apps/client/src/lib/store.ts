@@ -226,18 +226,16 @@ export const useStore = create<any>((set, get) => ({
 
   // ============ LOAD ALL DATA ============
   loadData: async () => {
-    const { mapVehicle } = get();
-    const token = localStorage.getItem("fc_token");
-    if (!token) return;
+    const { mapVehicle, api } = get();
+    if (!localStorage.getItem("fc_token")) return;
     set({ loading: true });
     try {
-      const hdrs={"Content-Type":"application/json","Authorization":"Bearer "+token};
       const [vRes,vnRes,uRes,dlRes,stRes]=await Promise.all([
-        fetch(API_URL+"/api/vehicles",{headers:hdrs}).then(r=>r.json()),
-        fetch(API_URL+"/api/vendors",{headers:hdrs}).then(r=>r.json()),
-        fetch(API_URL+"/api/users",{headers:hdrs}).then(r=>r.json()),
-        fetch(API_URL+"/api/dealers",{headers:hdrs}).then(r=>r.json()).catch(()=>({dealers:[]})),
-        fetch(API_URL+"/api/settings",{headers:hdrs}).then(r=>r.json()).catch(()=>({data:{}})),
+        api('/api/vehicles'),
+        api('/api/vendors'),
+        api('/api/users'),
+        api('/api/dealers').catch(()=>({dealers:[]})),
+        api('/api/settings').catch(()=>({data:{}})),
       ]);
       const mapped=(vRes.vehicles||[]).map((v: any)=>mapVehicle(v));
       const { vnMap, regVList } = _mapVendors(vnRes.vendors||[]);
