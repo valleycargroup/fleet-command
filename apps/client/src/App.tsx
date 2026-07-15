@@ -189,7 +189,7 @@ function App() {
         {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 {!isMobile&&"Email Log"}</button>}
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flex:isMobile?"1 1 100%":"none"}}>
-        <div style={{position:"relative",flex:isMobile?"1":"none"}}>
+        <div style={{position:"relative",flex:isMobile?"1 1 100%":"none"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>🔍</span>
           <input style={{...S.inp,paddingLeft:32,width:isMobile?"100%":"auto",minWidth:isMobile?"auto":280,fontFamily:"monospace",boxSizing:"border-box"}} placeholder="Search..." value={localSearch} onChange={(e: any)=>setLocalSearch(e.target.value.toUpperCase())}/>
         </div>
