@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useState } from 'react';
 import { useStore, selectRoles } from './lib/store';
 import { API_URL, VCAT, LOCATIONS } from './lib/constants';
 import { S } from './lib/styles';
+import { useIsMobile } from './lib/useIsMobile';
 import { LandingPage } from './components/LandingPage';
 import { VehicleTable } from './components/VehicleTable';
 import { AddVehicleModal } from './components/AddVehicleModal';
@@ -19,6 +20,7 @@ import { DevUserSwitcher } from './components/DevUserSwitcher';
 const DEV_TOOLS = import.meta.env.DEV || import.meta.env.VITE_DEV_TOOLS === 'true';
 
 function App() {
+  const isMobile = useIsMobile();
   const currentUser = useStore(s => s.currentUser);
   const { isAdmin, isVendor, isAP, isTechSupport } = useStore(selectRoles);
   const tab = useStore(s => s.tab);
@@ -157,42 +159,47 @@ function App() {
     <header style={S.hdr}>
       <div style={{display:"flex",alignItems:"center",gap:12}}>
         <div style={S.logo}>🚗</div>
-        <div><h1 style={S.h1}>FLEET COMMAND</h1><p style={S.sub}>Recon & Transport</p></div>
+        <div>
+          <h1 style={{...S.h1,fontSize:isMobile?16:20}}>FLEET COMMAND</h1>
+          {!isMobile&&<p style={S.sub}>Recon & Transport</p>}
+        </div>
+        {!isMobile&&<span style={{fontSize:13,color:"#9CA3AF"}}>{apiReady?"🟢":"🟡"} {stats.active} active • {stats.delivered} delivered</span>}
       </div>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        <span style={{fontSize:13,color:"#9CA3AF"}}>{apiReady?"🟢":"🟡"} {stats.active} active • {stats.delivered} delivered</span>
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 14px",borderRadius:8,background:"#1A1A2E",border:"1px solid #2A2A3E"}}>
-          <span style={{fontSize:13,color:isTechSupport?"#A78BFA":isAdmin?"#FBBF24":isVendor?"#60A5FA":isAP?"#34D399":"#34D399",fontWeight:700}}>{isTechSupport?"🛠️ Tech Support":isAdmin?"🛡️ Admin":isVendor?"🔧 Vendor":isAP?"💸 AP":currentUser?.role==="Buyer"?"👤 Buyer":currentUser?.role==="Seller"?"👤 Seller":"👤 "+currentUser?.role}</span>
-          <span style={{fontSize:13,color:"#E5E7EB",fontWeight:600}}>{currentUser?.first_name||currentUser?.firstName||currentUser?.name}</span>
-          <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #7F1D1D",background:"transparent",color:"#F87171",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={handleLogout}>Logout</button>
-          {isAdmin&&<><input ref={csvRef} type="file" accept=".csv,.tsv" style={{display:"none"}} onChange={(e: any)=>{handleCSVUpload(e.target.files[0]);if(csvRef.current)csvRef.current.value="";}}/>
-          <button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #166534",background:"transparent",color:"#34D399",fontSize:12,cursor:"pointer",fontWeight:600,opacity:csvUploading?0.5:1}} disabled={csvUploading} onClick={()=>csvRef.current?.click()}>{csvUploading?"Uploading...":"📄 CSV Upload"}</button></>}
-          {isAdmin&&<button style={{padding:"4px 10px",borderRadius:4,border:"1px solid #78590A",background:"transparent",color:"#FBBF24",fontSize:12,cursor:"pointer",fontWeight:600}} onClick={()=>{showConfirm("Reload all data from server?",async()=>{await loadData();},"Refresh Data",false);}}>🔄 Refresh</button>}
+      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+        {isMobile&&<span style={{fontSize:12,color:"#9CA3AF"}}>{apiReady?"🟢":"🟡"} {stats.active}</span>}
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:8,background:"#1A1A2E",border:"1px solid #2A2A3E"}}>
+          <span style={{fontSize:12,color:isTechSupport?"#A78BFA":isAdmin?"#FBBF24":isVendor?"#60A5FA":isAP?"#34D399":"#34D399",fontWeight:700}}>{isTechSupport?"🛠️":isAdmin?"🛡️":isVendor?"🔧":isAP?"💸":"👤"} {isMobile?"":isTechSupport?"Tech Support":isAdmin?"Admin":isVendor?"Vendor":isAP?"AP":currentUser?.role||""}</span>
+          <span style={{fontSize:12,color:"#E5E7EB",fontWeight:600}}>{currentUser?.first_name||currentUser?.firstName||currentUser?.name}</span>
+          <button style={{padding:"4px 8px",borderRadius:4,border:"1px solid #7F1D1D",background:"transparent",color:"#F87171",fontSize:11,cursor:"pointer",fontWeight:600}} onClick={handleLogout}>Logout</button>
+          {isAdmin&&!isMobile&&<><input ref={csvRef} type="file" accept=".csv,.tsv" style={{display:"none"}} onChange={(e: any)=>{handleCSVUpload(e.target.files[0]);if(csvRef.current)csvRef.current.value="";}}/>
+          <button style={{padding:"4px 8px",borderRadius:4,border:"1px solid #166534",background:"transparent",color:"#34D399",fontSize:11,cursor:"pointer",fontWeight:600,opacity:csvUploading?0.5:1}} disabled={csvUploading} onClick={()=>csvRef.current?.click()}>{csvUploading?"…":"📄 CSV"}</button></>}
+          {isAdmin&&!isMobile&&<button style={{padding:"4px 8px",borderRadius:4,border:"1px solid #78590A",background:"transparent",color:"#FBBF24",fontSize:11,cursor:"pointer",fontWeight:600}} onClick={()=>{showConfirm("Reload all data from server?",async()=>{await loadData();},"Refresh Data",false);}}>🔄</button>}
         </div>
       </div>
     </header>
-    <div style={S.bar}>
-      <div style={{display:"flex",gap:6}}>
+    <div style={{...S.bar,flexWrap:isMobile?"wrap":"nowrap"}}>
+      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none",paddingBottom:2,flex:isMobile?"1 1 100%":"none"}}>
         <button style={tab==="active"?S.tOn:S.tOff} onClick={()=>setTab("active")}>Inventory</button>
         {!isVendor&&<button style={tab==="delivered"?S.tOn:S.tOff} onClick={()=>setTab("delivered")}>Delivered {stats.delivered>0&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:10,background:"#166534",color:"#34D399",marginLeft:4}}>{stats.delivered}</span>}</button>}
         {!isVendor&&<button style={tab==="vendors"?S.tOn:S.tOff} onClick={()=>setTab("vendors")}>Vendors</button>}
-        {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ Register</button>}
-        {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 Reports</button>}
-        {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 Payment Queue</button>}
-        {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 Dealers</button>}
-        {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 Email Log</button>}
+        {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ {!isMobile&&"Register"}</button>}
+        {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 {!isMobile&&"Reports"}</button>}
+        {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 {!isMobile&&"Payment Queue"}</button>}
+        {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 {!isMobile&&"Dealers"}</button>}
+        {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 {!isMobile&&"Email Log"}</button>}
       </div>
-      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <div style={{position:"relative"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flex:isMobile?"1 1 100%":"none"}}>
+        <div style={{position:"relative",flex:isMobile?"1 1 100%":"none"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}>🔍</span>
-          <input style={{...S.inp,paddingLeft:32,minWidth:280,fontFamily:"monospace"}} placeholder="Search..." value={localSearch} onChange={(e: any)=>setLocalSearch(e.target.value.toUpperCase())}/>
+          <input style={{...S.inp,paddingLeft:32,width:isMobile?"100%":"auto",minWidth:isMobile?"auto":280,fontFamily:"monospace",boxSizing:"border-box"}} placeholder="Search..." value={localSearch} onChange={(e: any)=>setLocalSearch(e.target.value.toUpperCase())}/>
         </div>
         <select style={S.sel} value={fLoc} onChange={(e: any)=>setFLoc(e.target.value)}>
           <option value="All">All Locations</option>
           {LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
         </select>
-        {tab!=="vendors"&&tab!=="register"&&!isVendor&&<button style={S.btn} onClick={()=>setShowAdd(true)}>+ Add Vehicle</button>}
-        {tab!=="vendors"&&tab!=="register"&&isAdmin&&<button style={{...S.btn,background:"#1E3A5F",color:"#93C5FD"}} onClick={()=>setShowImportCrm(true)}>⬇️ Import from CRM</button>}
+        {tab!=="vendors"&&tab!=="register"&&!isVendor&&<button style={S.btn} onClick={()=>setShowAdd(true)}>+ Add</button>}
+        {tab!=="vendors"&&tab!=="register"&&isAdmin&&!isMobile&&<button style={{...S.btn,background:"#1E3A5F",color:"#93C5FD"}} onClick={()=>setShowImportCrm(true)}>⬇️ Import from CRM</button>}
+        {tab!=="vendors"&&tab!=="register"&&isAdmin&&isMobile&&<button style={{...S.btn,background:"#1E3A5F",color:"#93C5FD"}} onClick={()=>setShowImportCrm(true)}>⬇️ CRM</button>}
       </div>
     </div>
     <div style={{padding:"12px 16px"}}>

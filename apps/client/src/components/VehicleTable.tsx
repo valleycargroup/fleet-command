@@ -3,6 +3,7 @@ import { VCAT } from '../lib/constants';
 import { fmtDate, stColor, stLabel } from '../lib/utils';
 import { S } from '../lib/styles';
 import { useStore, selectRoles } from '../lib/store';
+import { useIsMobile } from '../lib/useIsMobile';
 
 const CR_STATUS_BADGE: Record<string, { bg: string; color: string; bd: string; label: string }> = {
   baseline:    { bg: '#1E3A5F', color: '#93C5FD', bd: '#3B82F6', label: '📋 CR' },
@@ -11,6 +12,7 @@ const CR_STATUS_BADGE: Record<string, { bg: string; color: string; bd: string; l
 };
 
 export function VehicleTable() {
+const isMobile = useIsMobile();
 const vehicles = useStore((s: any) => s.vehicles);
 const tab = useStore((s: any) => s.tab);
 const fLoc = useStore((s: any) => s.fLoc);
@@ -190,6 +192,7 @@ useEffect(()=>{
 },[sentinelRef.current,sorted2.length]);
 
 if(!list.length)return <div style={{textAlign:"center",padding:60,color:"#4B5563",fontSize:17}}>No vehicles found.</div>;
+
 const isMyVendorRecord=(vn: any)=>{
   if(!isVendor||!currentUser)return false;
   const ce=(currentUser.email||"").toLowerCase();
@@ -205,6 +208,54 @@ const isMyVendorRecord=(vn: any)=>{
 };
 const getVendorStatus=(v: any)=>{if(!isVendor||!currentUser)return null;const myTasks=VCAT.filter(c=>{const t=v.reconTasks[c.key];return t?.needed&&(t.vendors||[]).some(isMyVendorRecord);});if(!myTasks.length)return null;let bidPending=false,working=false,done=true;for(const c of myTasks){const t=v.reconTasks[c.key];const me=(t.vendors||[]).find(isMyVendorRecord);if(!me)continue;if(t.status==="complete"){continue;}done=false;if(me.bidLocked&&me.selected){working=true;}else if(!me.bidLocked){bidPending=true;}}if(bidPending)return{key:"bid_pending",label:"⏳ BID PENDING",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};if(working)return{key:"working",label:"🔧 WORKING",bg:"#1E3A5F",color:"#93C5FD",border:"#3B82F6"};if(done)return{key:"done",label:"✅ DONE",bg:"#0D3B1E",color:"#6EE7B7",border:"#166534"};return{key:"awaiting",label:"⏳ AWAITING BUYER",bg:"#3B2F10",color:"#FDE68A",border:"#78590A"};};
 const visibleRows=sorted2.slice(0,renderLimit);
+
+if(isMobile) return <span style={{display:"contents"}}>
+  <div style={{display:"flex",gap:8,marginBottom:10,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",paddingBottom:4}}>
+    {isVendor?<>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#9CA3AF"}}>Total</div><div style={{fontSize:16,fontWeight:800,color:"#E5E7EB"}}>{sorted2.length}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"#3B2F10",border:"1px solid #78590A",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#FBBF24"}}>Pending</div><div style={{fontSize:16,fontWeight:800,color:"#FDE68A"}}>{list.filter((v: any)=>getVendorStatus(v)?.key==="bid_pending").length}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"#1E3A5F",border:"1px solid #3B82F6",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#93C5FD"}}>Working</div><div style={{fontSize:16,fontWeight:800,color:"#BFDBFE"}}>{list.filter((v: any)=>getVendorStatus(v)?.key==="working").length}</div></div>
+    </>:<>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#9CA3AF"}}>Total</div><div style={{fontSize:16,fontWeight:800,color:"#E5E7EB"}}>{list.length}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #166534",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#34D399"}}>Sold</div><div style={{fontSize:16,fontWeight:800,color:"#34D399"}}>{soldCount}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"rgba(96,165,250,0.1)",border:"1px solid #1E3A5F",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#60A5FA"}}>Inbound</div><div style={{fontSize:16,fontWeight:800,color:"#60A5FA"}}>{inboundCount}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"rgba(52,211,153,0.1)",border:"1px solid #0D3B1E",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#34D399"}}>Ground</div><div style={{fontSize:16,fontWeight:800,color:"#34D399"}}>{onGroundCount}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"rgba(251,191,36,0.1)",border:"1px solid #78590A",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#FBBF24"}}>Recon</div><div style={{fontSize:16,fontWeight:800,color:"#FBBF24"}}>{reconCount}</div></div>
+      <div style={{padding:"6px 12px",borderRadius:8,background:"rgba(239,68,68,0.1)",border:"1px solid #7F1D1D",textAlign:"center",flexShrink:0}}><div style={{fontSize:10,color:"#F87171"}}>Kicked</div><div style={{fontSize:16,fontWeight:800,color:"#F87171"}}>{kickedCount}</div></div>
+    </>}
+  </div>
+  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+    {visibleRows.map((v: any)=>{
+      const rc=VCAT.filter(c=>v.reconTasks[c.key]?.needed),dn=rc.filter(c=>v.reconTasks[c.key]?.status==="complete");
+      const sold=v.status==="sold"||v.status==="delivered";
+      const inb=v.transport?.inbound;
+      const vPriority=getPriority(v);
+      const borderClr=v.arb?.open?"#EF4444":vPriority===0?"#EF4444":vPriority===1?"#F59E0B":sold?"#34D399":dn.length===rc.length&&rc.length>0?"#06B6D4":rc.length>0&&rc.some(c=>v.reconTasks[c.key]?.status==="started")?"#FBBF24":rc.length>0?"#F97316":"#4B5563";
+      const inbStatus=inb?.delivered?{label:"ON GROUND",bg:"#166534",color:"#6EE7B7"}:inb?.eta?{label:"ETA "+fmtDate(inb.eta),bg:"#78590A",color:"#FDE68A"}:inb?.set?{label:"INBOUND",bg:"#1E3A5F",color:"#93C5FD"}:{label:"NOT SET",bg:"#3B1515",color:"#F87171"};
+      const vendorSt=isVendor?getVendorStatus(v):null;
+      return <div key={v.id} onClick={()=>onSelect(v)} style={{background:"#12122A",border:"1px solid #1E1E32",borderLeft:`4px solid ${borderClr}`,borderRadius:8,padding:"12px 14px",cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:6}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,color:"#F1F5F9",fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.year} {v.make} {v.model}</div>
+            <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{v.stockNumber||v.vin8}{v.color?` • ${v.color}`:""}{v.miles?` • ${v.miles.toLocaleString()}mi`:""}</div>
+          </div>
+          <div style={{flexShrink:0}}>
+            {sold?<span style={{...S.badge,background:"#166534",color:"#6EE7B7"}}>SOLD</span>
+            :vendorSt?<span style={{...S.badge,background:vendorSt.bg,color:vendorSt.color,border:`1px solid ${vendorSt.border}`}}>{vendorSt.label}</span>
+            :<span style={{...S.badge,background:inbStatus.bg,color:inbStatus.color,fontSize:10}}>{inbStatus.label}</span>}
+          </div>
+        </div>
+        {!isVendor&&<div style={{fontSize:12,color:"#9CA3AF",marginBottom:rc.length>0?6:0}}>{v.buyingBroker||"—"} • {v.location}{v.source?` • ${v.source}`:""}</div>}
+        {rc.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:4}}>
+          {rc.slice(0,6).map((c: any)=>{const t=v.reconTasks[c.key],cl=stColor(t.status);return<span key={c.key} style={{padding:"2px 6px",borderRadius:4,background:cl.bg,border:`1px solid ${cl.bd}`,fontSize:10,fontWeight:600,color:cl.text}}>{t.status==="complete"?"✓ ":""}{c.label}</span>;})}
+          {rc.length>6&&<span style={{padding:"2px 6px",borderRadius:4,background:"#1A1A2E",border:"1px solid #2A2A3E",fontSize:10,color:"#6B7280"}}>+{rc.length-6}</span>}
+        </div>}
+      </div>;
+    })}
+    {sorted2.length>renderLimit&&<div ref={sentinelRef} style={{height:20}}/>}
+  </div>
+</span>;
+
 return <span style={{display:"contents"}}><div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
 {isVendor?<>
 <div style={{padding:"8px 16px",borderRadius:8,background:"#0D0D1A",border:"1px solid #2A2A3E",textAlign:"center"}}><span style={{fontSize:11,color:"#9CA3AF"}}>Total Active</span> <span style={{fontSize:18,fontWeight:800,color:"#E5E7EB"}}>{sorted2.length}</span></div>
