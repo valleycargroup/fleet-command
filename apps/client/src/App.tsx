@@ -96,12 +96,8 @@ function App() {
     if (!apiReady || !currentUser) return;
     const interval = setInterval(async () => {
       try {
-        const token = localStorage.getItem("fc_token");
-        if (!token) return;
-        const r = await fetch(API_URL+"/api/vehicles", { headers:{"Content-Type":"application/json","Authorization":"Bearer "+token} });
-        if (!r.ok) return;
-        const data = await r.json();
-        const { mapVehicle } = useStore.getState();
+        const { mapVehicle, api } = useStore.getState();
+        const data = await api('/api/vehicles');
         const deletedIds = (window as any)._deletedDbIds || [];
         const fresh = (data.vehicles||[]).map((v: any)=>mapVehicle(v)).filter((v: any)=>!deletedIds.includes(v._dbId));
         useStore.setState((prev: any) => {
