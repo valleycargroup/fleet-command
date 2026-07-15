@@ -160,7 +160,8 @@ export const useStore = create<any>((set, get) => ({
     const opts: any = { method, cache: 'no-store', headers: { "Content-Type": "application/json" } };
     if (token) opts.headers["Authorization"] = "Bearer " + token;
     if (body) opts.body = JSON.stringify(body);
-    const r = await fetch(API_URL + path, opts);
+    const sep = path.includes('?') ? '&' : '?';
+    const r = await fetch(`${API_URL}${path}${sep}_v=${__BUILD_TS__}`, opts);
     if (!r.ok) {
       const errData = await r.json().catch(()=>({ error:"Request failed" }));
       if (r.status === 401) get().handleLogout();
