@@ -326,7 +326,7 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 <button style={{background:"none",border:"none",color:"#6B7280",cursor:"pointer",fontSize:12}} onClick={()=>onUpdVendor(vn.id,{vendorFindings:(vn.vendorFindings||[]).filter((_: any,j: any)=>j!==vfi)})}>🗑</button></div>
 {vf.desc&&vf.price>0&&<div style={{display:"flex",gap:4,alignItems:"center"}}>
 {vn.findingsSubmitted?<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginTop:2,width:"100%"}}>
-<div style={{display:"flex",alignItems:"center",gap:6}}>
+{!isVendor?<><div style={{display:"flex",alignItems:"center",gap:6}}>
 <span style={{fontSize:11,fontWeight:700,color:"#6B7280",letterSpacing:.5,whiteSpace:"nowrap"}}>TYPE</span>
 <button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType==="ws"?"2px solid #1E3A5F":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType==="ws"?"#1E3A5F":"transparent",color:vf.findingCostType==="ws"?"#93C5FD":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"ws"};onUpdVendor(vn.id,{vendorFindings:f});}}>W/S</button>
 <button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.findingCostType==="retail"?"2px solid #164E63":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.findingCostType==="retail"?"#164E63":"transparent",color:vf.findingCostType==="retail"?"#67E8F9":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],findingCostType:"retail"};onUpdVendor(vn.id,{vendorFindings:f});}}>🏪 Retail</button>
@@ -335,7 +335,8 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 <div style={{display:"flex",alignItems:"center",gap:6}}>
 {vf.findingCostType&&<><button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.approved?"2px solid #166534":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.approved?"#166534":"transparent",color:vf.approved?"#6EE7B7":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],approved:true,declined:false};onUpdVendor(vn.id,{vendorFindings:f});}}>✅ {vf.approved?"Accepted":"Accept"}</button>
 <button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.declined?"#7F1D1D":"transparent",color:vf.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],declined:true,approved:false};onUpdVendor(vn.id,{vendorFindings:f});}}>❌ Decline</button></>}
-</div>
+</div></>
+:<span style={{fontSize:12,fontWeight:700,color:vf.approved?"#34D399":vf.declined?"#F87171":"#F59E0B"}}>{vf.approved?"✅ Approved":vf.declined?"❌ Declined":"⏳ Pending review"}</span>}
 </div>:<div style={{fontSize:11,color:"#6B7280",marginTop:4}}>Submit findings for buyer review</div>}
 </div>}
 {(!vf.desc||!vf.price)&&<div style={{fontSize:11,color:"#6B7280"}}>Enter description and cost first</div>}
