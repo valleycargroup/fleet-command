@@ -27,6 +27,7 @@ export function AddVendorForm({ onSave, onClose, initial }: any) {
   const [pendingRemoveIds, setPendingRemoveIds] = useState<string[]>([]);
   const [pendingAddIds,    setPendingAddIds]    = useState<string[]>([]);
   const [addPickerId,      setAddPickerId]      = useState('');
+  const [validationError,  setValidationError]  = useState('');
 
   // Base list of users currently assigned to this vendor (from store)
   const assignedUsers = isEdit
@@ -85,7 +86,8 @@ export function AddVendorForm({ onSave, onClose, initial }: any) {
       }
     }
     if (isEdit && effectiveUsers.length === 0) { missing.push('at least one linked user (vendor cannot receive emails without one)'); }
-    if (missing.length) { alert('Please fill in: ' + missing.join(', ')); return; }
+    if (missing.length) { setValidationError('Please fill in: ' + missing.join(', ')); return; }
+    setValidationError('');
     const extra = !isEdit && linkMode === 'existing' ? { link_user_id: linkUserId } : {};
     onSave({ ...f, addUserIds: pendingAddIds, removeUserIds: pendingRemoveIds, ...extra });
   };
@@ -361,6 +363,7 @@ export function AddVendorForm({ onSave, onClose, initial }: any) {
         {/* Payment Details hidden — coming soon */}
 
         {/* ── Actions ──────────────────────────────────────────────── */}
+        {validationError && <div style={{ padding: '10px 12px', borderRadius: 6, background: '#3B1515', border: '1px solid #7F1D1D', color: '#FCA5A5', fontSize: 13, marginBottom: 8 }}>⚠️ {validationError}</div>}
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
           <button style={{ ...S.btn, flex: 1, fontSize: 16, padding: 12 }} onClick={handleSave}>
             {isEdit ? 'Save Changes' : 'Register Vendor'}

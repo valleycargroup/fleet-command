@@ -110,8 +110,9 @@ const saveVendor=async(f: any)=>{
     const res=await fetch(API_URL+"/api/vendors",{method:"POST",headers:authHdrs(),body:JSON.stringify(payload)});
     const data=await res.json();
     if(!res.ok||data.error){notify("⚠️ "+(data.error||"Failed to register vendor"));setBusy(false);return;}
-    await reloadVendors();setShowAdd(null);
-    if(data.warning){notify("⚠️ "+data.warning);}else if(data.updated){notify("✅ Vendor updated (was already in system)");}else{notify("✅ Vendor registered");}
+    await Promise.all([reloadVendors(), reloadUsers()]);setShowAdd(null);
+    const newLoginCreated = !f.link_user_id && f.firstName?.trim();
+    if(data.warning){notify("⚠️ "+data.warning);}else if(data.updated){notify("✅ Vendor updated (was already in system)");}else if(newLoginCreated){notify("✅ Vendor registered · Login created for "+f.firstName+" "+f.lastName);}else{notify("✅ Vendor registered");}
   }catch(e: any){notify("⚠️ "+e.message);}
   setBusy(false);
 };
