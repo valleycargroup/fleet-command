@@ -337,7 +337,7 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 <button style={{fontSize:13,padding:"6px 14px",borderRadius:6,border:vf.declined?"2px solid #7F1D1D":"1px solid #2A2A3E",cursor:"pointer",fontWeight:700,background:vf.declined?"#7F1D1D":"transparent",color:vf.declined?"#FCA5A5":"#6B7280"}} onClick={()=>{const f=[...(vn.vendorFindings||[])];f[vfi]={...f[vfi],declined:true,approved:false};onUpdVendor(vn.id,{vendorFindings:f});}}>❌ Decline</button></>}
 </div></>
 :<span style={{fontSize:12,fontWeight:700,color:vf.approved?"#34D399":vf.declined?"#F87171":"#F59E0B"}}>{vf.approved?"✅ Approved":vf.declined?"❌ Declined":"⏳ Pending review"}</span>}
-</div>}
+</div>:null}
 </div>}
 {(!vf.desc||!vf.price)&&<div style={{fontSize:11,color:"#6B7280"}}>Enter description and cost first</div>}
 </div>}</div>)}</div>
