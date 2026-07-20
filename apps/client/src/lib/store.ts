@@ -234,7 +234,7 @@ export const useStore = create<any>((set, get) => ({
       const [vRes,vnRes,uRes,dlRes,stRes]=await Promise.all([
         api('/api/vehicles'),
         api('/api/vendors'),
-        api('/api/users'),
+        api('/api/users').catch(()=>({users:[]})),
         api('/api/dealers').catch(()=>({dealers:[]})),
         api('/api/settings').catch(()=>({data:{}})),
       ]);
