@@ -166,42 +166,48 @@ export function JobsPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select style={S.sel} value={fVendor} onChange={(e: any) => setFVendor(e.target.value)}>
-          {vendors.map(v => <option key={v} value={v}>{v === 'All' ? 'All Vendors' : v}</option>)}
-        </select>
-        <select style={S.sel} value={fCat} onChange={(e: any) => setFCat(e.target.value)}>
-          <option value="All">All Categories</option>
-          {VCAT.map(c => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
-        </select>
-        <select style={S.sel} value={fStatus} onChange={(e: any) => setFStatus(e.target.value)}>
-          <option value="All">All Statuses</option>
-          <option value="Active">Active (open)</option>
-          {STATUS_ORDER.map(s => <option key={s} value={s}>{s}{statCounts[s] ? ` (${statCounts[s]})` : ''}</option>)}
-        </select>
-        <select style={S.sel} value={fLoc} onChange={(e: any) => setFLoc(e.target.value)}>
-          <option value="All">All Locations</option>
-          <option value="PHX">PHX</option>
-          <option value="Dallas">Dallas</option>
-        </select>
-        <select style={S.sel} value={fBuyer} onChange={(e: any) => setFBuyer(e.target.value)}>
-          {buyers.map(b => <option key={b} value={b}>{b === 'All' ? 'All Buyers' : b}</option>)}
-        </select>
-        <input
-          style={{ ...S.sel, minWidth: 180, flex: 1 }}
-          placeholder="Search vendor, vehicle, VIN..."
-          value={fSearch}
-          onChange={(e: any) => setFSearch(e.target.value)}
-        />
-        {(fVendor !== 'All' || fCat !== 'All' || fStatus !== 'All' || fLoc !== 'All' || fBuyer !== 'All' || fSearch) &&
-          <button style={{ ...S.sel, color: '#F87171', borderColor: '#7F1D1D', cursor: 'pointer' }}
-            onClick={() => setJobsFilters({ vendor: 'All', cat: 'All', status: 'Active', loc: 'All', buyer: 'All', search: '' })}>
-            ✕ Clear
-          </button>}
-        <span style={{ fontSize: 12, color: '#6B7280', alignSelf: 'center', marginLeft: 4 }}>
-          {filtered.length} job{filtered.length !== 1 ? 's' : ''}
-        </span>
-      </div>
+      {(() => {
+        const isFiltered = fVendor !== 'All' || fCat !== 'All' || fStatus !== 'All' || fLoc !== 'All' || fBuyer !== 'All' || !!fSearch;
+        const act = (active: boolean) => active ? { ...S.sel, borderColor: '#F59E0B', color: '#FDE68A' } : S.sel;
+        return (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select style={act(fVendor !== 'All')} value={fVendor} onChange={(e: any) => setFVendor(e.target.value)}>
+              {vendors.map(v => <option key={v} value={v}>{v === 'All' ? 'All Vendors' : v}</option>)}
+            </select>
+            <select style={act(fCat !== 'All')} value={fCat} onChange={(e: any) => setFCat(e.target.value)}>
+              <option value="All">All Categories</option>
+              {VCAT.map(c => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
+            </select>
+            <select style={act(fStatus !== 'All')} value={fStatus} onChange={(e: any) => setFStatus(e.target.value)}>
+              <option value="All">All Statuses</option>
+              <option value="Active">Active (open)</option>
+              {STATUS_ORDER.map(s => <option key={s} value={s}>{s}{statCounts[s] ? ` (${statCounts[s]})` : ''}</option>)}
+            </select>
+            <select style={act(fLoc !== 'All')} value={fLoc} onChange={(e: any) => setFLoc(e.target.value)}>
+              <option value="All">All Locations</option>
+              <option value="PHX">PHX</option>
+              <option value="Dallas">Dallas</option>
+            </select>
+            <select style={act(fBuyer !== 'All')} value={fBuyer} onChange={(e: any) => setFBuyer(e.target.value)}>
+              {buyers.map(b => <option key={b} value={b}>{b === 'All' ? 'All Buyers' : b}</option>)}
+            </select>
+            <input
+              style={{ ...act(!!fSearch), minWidth: 180, flex: 1 }}
+              placeholder="Search vendor, vehicle, VIN..."
+              value={fSearch}
+              onChange={(e: any) => setFSearch(e.target.value)}
+            />
+            {isFiltered &&
+              <button style={{ ...S.sel, color: '#F87171', borderColor: '#7F1D1D', cursor: 'pointer' }}
+                onClick={() => setJobsFilters({ vendor: 'All', cat: 'All', status: 'Active', loc: 'All', buyer: 'All', search: '' })}>
+                ✕ Clear
+              </button>}
+            <span style={{ fontSize: 12, color: isFiltered ? '#F59E0B' : '#6B7280', alignSelf: 'center', marginLeft: 4, whiteSpace: 'nowrap' }}>
+              {isFiltered ? `${filtered.length} of ${jobs.length} jobs` : `${jobs.length} job${jobs.length !== 1 ? 's' : ''}`}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Job rows */}
       {filtered.length === 0 && (
