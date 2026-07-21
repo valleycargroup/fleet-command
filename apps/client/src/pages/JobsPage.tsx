@@ -52,7 +52,7 @@ export function JobsPage() {
 
   const [fVendor, setFVendor] = useState('All');
   const [fCat,    setFCat]    = useState('All');
-  const [fStatus, setFStatus] = useState('All');
+  const [fStatus, setFStatus] = useState('Active');
   const [fLoc,    setFLoc]    = useState('All');
 
   const { jobs, vendors, statCounts } = useMemo(() => {
@@ -97,16 +97,27 @@ export function JobsPage() {
     return { jobs, vendors: ['All', ...Array.from(vendorSet).sort()], statCounts };
   }, [vehicles]);
 
-  const filtered = useMemo(() => jobs.filter(j =>
-    (fVendor === 'All' || j.vendor === fVendor) &&
-    (fCat    === 'All' || j.catKey === fCat) &&
-    (fStatus === 'All' || j.status === fStatus) &&
-    (fLoc    === 'All' || j.location === fLoc)
-  ), [jobs, fVendor, fCat, fStatus, fLoc]);
+  const ACTIVE_STATUSES = new Set(['In Progress','Bid Submitted','Bid Requested','Assigned','Accepted']);
+  const filtered = useMemo(() => {
+    const f = jobs.filter(j =>
+      (fVendor === 'All' || j.vendor === fVendor) &&
+      (fCat    === 'All' || j.catKey === fCat) &&
+      (fStatus === 'All' || (fStatus === 'Active' ? ACTIVE_STATUSES.has(j.status) : j.status === fStatus)) &&
+      (fLoc    === 'All' || j.location === fLoc)
+    );
+    // Sort by VCAT order first, then status within each category
+    const catOrder = VCAT.reduce((m, c, i) => { m[c.key] = i; return m; }, {} as Record<string,number>);
+    f.sort((a, b) => {
+      const catDiff = (catOrder[a.catKey] ?? 99) - (catOrder[b.catKey] ?? 99);
+      if (catDiff !== 0) return catDiff;
+      return STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+    });
+    return f;
+  }, [jobs, fVendor, fCat, fStatus, fLoc]);
 
   const openVehicle = (vehicleId: string) => {
     const v = vehicles.find((x: any) => x.id === vehicleId);
-    if (v) { setSelV(v); setTab('active'); }
+    if (v) { setTab('active'); setSelV(v); }
   };
 
   const activeCount   = (statCounts['In Progress'] || 0) + (statCounts['Bid Submitted'] || 0) + (statCounts['Bid Requested'] || 0) + (statCounts['Assigned'] || 0);
@@ -144,6 +155,7 @@ export function JobsPage() {
         </select>
         <select style={S.sel} value={fStatus} onChange={(e: any) => setFStatus(e.target.value)}>
           <option value="All">All Statuses</option>
+          <option value="Active">Active (open)</option>
           {STATUS_ORDER.map(s => <option key={s} value={s}>{s}{statCounts[s] ? ` (${statCounts[s]})` : ''}</option>)}
         </select>
         <select style={S.sel} value={fLoc} onChange={(e: any) => setFLoc(e.target.value)}>
@@ -165,7 +177,20 @@ export function JobsPage() {
       {filtered.length === 0 && (
         <div style={{ textAlign: 'center', color: '#4B5563', padding: 40 }}>No jobs match the current filters</div>
       )}
-      {filtered.map((j, i) => (
+      {filtered.map((j, i) => {
+        const showHeader = i === 0 || filtered[i - 1].catKey !== j.catKey;
+        return (<>
+          {showHeader && (
+            <div key={`hdr-${j.catKey}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 6px', marginTop: i > 0 ? 8 : 0 }}>
+              <span style={{ fontSize: 18 }}>{j.catIcon}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#E5E7EB' }}>{j.catLabel}</span>
+              <span style={{ fontSize: 11, color: '#4B5563' }}>
+                {filtered.filter(x => x.catKey === j.catKey).length} job{filtered.filter(x => x.catKey === j.catKey).length !== 1 ? 's' : ''}
+              </span>
+              <div style={{ flex: 1, height: 1, background: '#1E1E32' }} />
+            </div>
+          )}
+          <div key={i} style={{
         <div key={i} style={{
           display: 'grid',
           gridTemplateColumns: '28px 1fr 70px 110px 160px 100px 65px 110px',
@@ -215,7 +240,8 @@ export function JobsPage() {
           {/* Status badge */}
           <span style={S.badge(j.status)}>{j.status}</span>
         </div>
-      ))}
+        </>);
+      })}
     </div>
   );
 }
