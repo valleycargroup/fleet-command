@@ -12,6 +12,7 @@ import { VendorsPage } from './pages/VendorsPage';
 import { DealersPage } from './pages/DealersPage';
 import { AdminPage } from './pages/AdminPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { JobsPage } from './pages/JobsPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { EmailLogPage } from './pages/EmailLogPage';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -209,6 +210,7 @@ function App() {
         {!isVendor&&<button style={tab==="vendors"?S.tOn:S.tOff} onClick={()=>setTab("vendors")}>Vendors</button>}
         {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ {!isMobile&&"Register"}</button>}
         {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 {!isMobile&&"Reports"}</button>}
+        {isAdmin&&<button style={tab==="jobs"?S.tOn:S.tOff} onClick={()=>setTab("jobs")}>🔧 {!isMobile&&"Jobs"}</button>}
         {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 {!isMobile&&"Payment Queue"}</button>}
         {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 {!isMobile&&"Dealers"}</button>}
         {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 {!isMobile&&"Email Log"}</button>}
@@ -230,6 +232,7 @@ function App() {
     <div style={{padding:"12px 16px"}}>
       {tab==="register"?<AdminPage/>
       :tab==="reports"?<ReportsPage/>
+      :tab==="jobs"?<JobsPage/>
       :tab==="payments"?<PaymentsPage/>
       :tab==="dealers"?<DealersPage/>
       :tab==="emaillog"?<EmailLogPage/>
