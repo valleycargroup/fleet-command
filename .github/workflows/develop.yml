@@ -20,7 +20,7 @@ jobs:
             - name: Validate required secrets
               run: |
                   [ -n "${{ secrets.DEV_EC2_SSH_HOST_FLEET }}" ] || (echo "Missing DEV_EC2_SSH_HOST_FLEET" && exit 1)
-                  [ -n "${{ secrets.EC2_SSH_PRIVATE_KEY_FLEET }}" ] || (echo "Missing EC2_SSH_PRIVATE_KEY_FLEET" && exit 1)
+                  [ -n "${{ secrets.DEV_EC2_SSH_PRIVATE_KEY_FLEET }}" ] || (echo "Missing EC2_SSH_PRIVATE_KEY_FLEET" && exit 1)
                   [ -n "${{ secrets.FLEET_DEV_DB_USER }}" ] || (echo "Missing FLEET_DEV_DB_USER" && exit 1)
                   [ -n "${{ secrets.FLEET_DEV_DB_PASSWORD }}" ] || (echo "Missing FLEET_DEV_DB_PASSWORD" && exit 1)
                   [ -n "${{ secrets.FLEET_DEV_DB_NAME }}" ] || (echo "Missing FLEET_DEV_DB_NAME" && exit 1)
@@ -37,7 +37,7 @@ jobs:
             - name: Setup SSH
               run: |
                   mkdir -p ~/.ssh
-                  printf "%s" "${{ secrets.EC2_SSH_PRIVATE_KEY_FLEET }}" > ~/.ssh/id_rsa
+                  printf "%s" "${{ secrets.DEV_EC2_SSH_PRIVATE_KEY_FLEET }}" > ~/.ssh/id_rsa
                   chmod 600 ~/.ssh/id_rsa
                   ssh-keyscan -H "${{ secrets.DEV_EC2_SSH_HOST_FLEET }}" >> ~/.ssh/known_hosts
 
@@ -179,7 +179,7 @@ jobs:
               env:
                   VITE_API_BASE_URL: ${{ secrets.FLEET_DEV_VITE_API_BASE_URL }}
                   VITE_APP_URL: ${{ secrets.FLEET_DEV_APP_URL }}
-                  VITE_DEV_TOOLS: 'true'
+                  VITE_DEV_TOOLS: "true"
               run: |
                   cd apps/client
                   rm -f package-lock.json
@@ -210,4 +210,3 @@ jobs:
                   else
                     echo "No CloudFront distribution ID set. Skipping."
                   fi
- 
