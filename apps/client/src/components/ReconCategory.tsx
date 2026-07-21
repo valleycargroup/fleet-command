@@ -371,7 +371,7 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
       notify&&notify(`🔍 ${vfList.length} finding${vfList.length!==1?"s":""} submitted — $${findingsTotal.toLocaleString()} pending review`);
       setExp(false);
     }}>
-    🔍 Submit {vfList.length} Finding{vfList.length!==1?"s":""} — ${findingsTotal.toLocaleString()}
+    🔍 Submit {vfList.length} Finding{vfList.length!==1?"s":""} — ${findingsTotal.toLocaleString()} <span style={{fontSize:11,opacity:0.75,fontWeight:400}}>(findings total)</span>
   </button>;
 })()}
 {vn.findingsSubmitted&&<div style={{fontSize:12,color:"#F59E0B",marginTop:4}}>🔍 Findings submitted {fmtDate(vn.findingsSubmittedDate)}</div>}
