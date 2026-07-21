@@ -153,11 +153,12 @@ export function JobsPage() {
       {/* Summary strip */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         {[
-          { label: 'Open',     value: activeCount,   color: '#F59E0B' },
-          { label: 'Accepted', value: acceptedCount,  color: '#60A5FA' },
-          { label: 'Complete', value: completeCount,  color: '#34D399' },
-          { label: 'Canceled', value: canceledCount,  color: '#F87171' },
-          { label: 'Total',    value: jobs.length,    color: '#E5E7EB' },
+          { label: 'Awaiting',  value: statCounts['Awaiting Approval'] || 0, color: '#FB923C' },
+          { label: 'Open',      value: activeCount,                           color: '#F59E0B' },
+          { label: 'Accepted',  value: acceptedCount,                         color: '#60A5FA' },
+          { label: 'Complete',  value: completeCount,                         color: '#34D399' },
+          { label: 'Canceled',  value: canceledCount,                         color: '#F87171' },
+          { label: 'Total',     value: jobs.length,                           color: '#E5E7EB' },
         ].map(({ label, value, color }) => (
           <div key={label} style={S.stat}>
             <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
