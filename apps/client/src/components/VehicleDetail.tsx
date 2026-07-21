@@ -20,6 +20,9 @@ const upd = useStore((s: any) => s.upd);
 const deleteVehicle = useStore((s: any) => s.deleteVehicle);
 const setSelV = useStore((s: any) => s.setSelV);
 const setDeepLinkCat = useStore((s: any) => s.setDeepLinkCat);
+const returnTab = useStore((s: any) => s.returnTab);
+const setReturnTab = useStore((s: any) => s.setReturnTab);
+const setTab = useStore((s: any) => s.setTab);
 const showConfirm = useStore((s: any) => s.showConfirm);
 const deepLinkCat = useStore((s: any) => s.deepLinkCat);
 const deepLinkCr = useStore((s: any) => s.deepLinkCr);
@@ -46,7 +49,10 @@ const isVendorForCat = (catKey: string): boolean => {
     (myVendorName && (vn.name || '').toLowerCase() === myVendorName)
   );
 };
-const onBack = () => { setSelV(null); setDeepLinkCat(null); };
+const onBack = () => {
+  if (returnTab) { setTab(returnTab); setReturnTab(null); }
+  else { setSelV(null); setDeepLinkCat(null); }
+};
 const onUpdate = (u: any) => upd(v.id, u);
 const onDelete = () => showConfirm(
   `This will permanently remove the vehicle and all its photos. This cannot be undone.`,
@@ -159,7 +165,7 @@ const inb=v.transport?.inbound,outb=v.transport?.outbound;
 const reconCost=VCAT.reduce((s: any,c)=>{const t=v.reconTasks[c.key];if(!t?.needed)return s;if(t.status!=="approved"&&t.status!=="complete")return s;
 const sel=(t.vendors||[]).find((vn: any)=>vn.selected);return s+(sel?Number(sel.estimate)||0:Number(t.estimate)||0);},0);
 const inbCost=inb?.cost||0;const outbCost=outb?.cost||0;
-return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button style={{padding:"10px 20px",fontSize:16,fontWeight:700,borderRadius:8,background:"#1E3A5F",color:"#93C5FD",border:"2px solid #3B82F6",cursor:"pointer"}} onClick={onBack}>← Back</button>
+return <div><div style={{display:"flex",gap:8,alignItems:"center"}}><button style={{padding:"10px 20px",fontSize:16,fontWeight:700,borderRadius:8,background:"#1E3A5F",color:"#93C5FD",border:"2px solid #3B82F6",cursor:"pointer"}} onClick={onBack}>{returnTab==="jobs"?"← Back to Jobs":"← Back"}</button>
 {isAdmin&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:700,borderRadius:8,background:"#3B2F10",color:"#FDE68A",border:"1px solid #78590A",cursor:"pointer"}} onClick={()=>{const drv=driveToLongForm(v.drive||'')||"";setAuctionForm({zipCode:v.zipCode||"",fuelType:fuelNormalize(v.fuelType||""),transmission:v.transmission||"",driveline:(driveToDriveline(v.drive||'')||v.driveline||"").toUpperCase(),drive:drv,motorTrailer:v.motorTrailer||""});setShowAuction(true);}}>🏛️ Publish to Internal Auction</button>}
 {isAdmin&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:600,borderRadius:8,background:"transparent",color:"#93C5FD",border:"1px solid #1E3A5F",cursor:"pointer"}} onClick={openEdit}>✏️ Edit</button>}
 {isAdmin&&onDelete&&<button style={{padding:"10px 16px",fontSize:13,fontWeight:600,borderRadius:8,background:"transparent",color:"#F87171",border:"1px solid #7F1D1D",cursor:"pointer"}} onClick={onDelete}>🗑️ Delete</button>}</div>

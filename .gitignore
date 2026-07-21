@@ -28,3 +28,7 @@ test-import.csv
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Claude Code
+.claude/settings.json
+fleet-command.code-workspace

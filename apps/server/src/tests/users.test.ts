@@ -85,31 +85,43 @@ describe('PUT /api/users/:id', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 for password shorter than 8 chars', async () => {
-    mockAuth();
+  // Password complexity is only enforced on self-resets (user updating their own account).
+  // Admins setting another user's password bypass validation to allow temporary passwords.
+  const selfUser = { id: 2, email: 'user@test.com', role: 'admin', is_buyer: false, is_seller: false };
+
+  it('returns 400 for password shorter than 8 chars (self-reset)', async () => {
+    mockAuth(selfUser);
     const res = await request(app).put('/api/users/2').set(authHeader).send({ password: 'Ab1' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/8 characters/i);
   });
 
-  it('returns 400 for password missing uppercase', async () => {
-    mockAuth();
+  it('returns 400 for password missing uppercase (self-reset)', async () => {
+    mockAuth(selfUser);
     const res = await request(app).put('/api/users/2').set(authHeader).send({ password: 'alllower1' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/uppercase/i);
   });
 
-  it('returns 400 for password missing number', async () => {
-    mockAuth();
+  it('returns 400 for password missing number (self-reset)', async () => {
+    mockAuth(selfUser);
     const res = await request(app).put('/api/users/2').set(authHeader).send({ password: 'NoNumbers!' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/number/i);
   });
 
-  it('updates user with a valid password', async () => {
-    mockAuth();
+  it('updates user with a valid password (self-reset)', async () => {
+    mockAuth(selfUser);
     mockDb.mockResolvedValueOnce({ rows: [] }); // UPDATE
     const res = await request(app).put('/api/users/2').set(authHeader).send({ password: 'ValidPass1' });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  it('admin can set any password for another user (no complexity check)', async () => {
+    mockAuth(); // admin id:1 updating user id:2
+    mockDb.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).put('/api/users/2').set(authHeader).send({ password: 'simple' });
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
