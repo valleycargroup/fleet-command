@@ -58,17 +58,19 @@ export function JobsPage() {
   const fStatus = jobsFilters.status;
   const fLoc    = jobsFilters.loc;
   const fSearch = jobsFilters.search || '';
+  const fBuyer  = jobsFilters.buyer || 'All';
   const setFVendor = (vendor: string) => setJobsFilters({ ...jobsFilters, vendor });
   const setFCat    = (cat: string)    => setJobsFilters({ ...jobsFilters, cat });
   const setFStatus = (status: string) => setJobsFilters({ ...jobsFilters, status });
   const setFLoc    = (loc: string)    => setJobsFilters({ ...jobsFilters, loc });
+  const setFBuyer  = (buyer: string)  => setJobsFilters({ ...jobsFilters, buyer });
   const setFSearch = (search: string) => setJobsFilters({ ...jobsFilters, search });
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleCat = (key: string) =>
     setCollapsed(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
 
-  const { jobs, vendors, statCounts } = useMemo(() => {
+  const { jobs, vendors, buyers, statCounts } = useMemo(() => {
     const jobs: Job[] = [];
     const vendorSet = new Set<string>();
 
@@ -107,7 +109,9 @@ export function JobsPage() {
     const statCounts: Record<string, number> = {};
     jobs.forEach(j => { statCounts[j.status] = (statCounts[j.status] || 0) + 1; });
 
-    return { jobs, vendors: ['All', ...Array.from(vendorSet).sort()], statCounts };
+    const buyerSet = new Set<string>();
+    jobs.forEach(j => { if (j.buyer) buyerSet.add(j.buyer); });
+    return { jobs, vendors: ['All', ...Array.from(vendorSet).sort()], buyers: ['All', ...Array.from(buyerSet).sort()], statCounts };
   }, [vehicles]);
 
   const ACTIVE_STATUSES = new Set(['In Progress','Bid Submitted','Bid Requested','Assigned','Accepted']);
@@ -118,6 +122,7 @@ export function JobsPage() {
       if (fCat    !== 'All' && j.catKey !== fCat) return false;
       if (fStatus !== 'All' && !(fStatus === 'Active' ? ACTIVE_STATUSES.has(j.status) : j.status === fStatus)) return false;
       if (fLoc    !== 'All' && j.location !== fLoc) return false;
+      if (fBuyer  !== 'All' && j.buyer !== fBuyer) return false;
       if (q && ![j.vendor, j.vehicleLabel, j.fullVin, j.buyer, j.catLabel, j.status].some(s => s.toLowerCase().includes(q))) return false;
       return true;
     });
@@ -129,7 +134,7 @@ export function JobsPage() {
       return STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
     });
     return f;
-  }, [jobs, fVendor, fCat, fStatus, fLoc]);
+  }, [jobs, fVendor, fCat, fStatus, fLoc, fBuyer, fSearch]);
 
   const openVehicle = (vehicleId: string) => {
     const v = vehicles.find((x: any) => x.id === vehicleId);
@@ -179,15 +184,18 @@ export function JobsPage() {
           <option value="PHX">PHX</option>
           <option value="Dallas">Dallas</option>
         </select>
+        <select style={S.sel} value={fBuyer} onChange={(e: any) => setFBuyer(e.target.value)}>
+          {buyers.map(b => <option key={b} value={b}>{b === 'All' ? 'All Buyers' : b}</option>)}
+        </select>
         <input
           style={{ ...S.sel, minWidth: 180, flex: 1 }}
           placeholder="Search vendor, vehicle, VIN..."
           value={fSearch}
           onChange={(e: any) => setFSearch(e.target.value)}
         />
-        {(fVendor !== 'All' || fCat !== 'All' || fStatus !== 'All' || fLoc !== 'All' || fSearch) &&
+        {(fVendor !== 'All' || fCat !== 'All' || fStatus !== 'All' || fLoc !== 'All' || fBuyer !== 'All' || fSearch) &&
           <button style={{ ...S.sel, color: '#F87171', borderColor: '#7F1D1D', cursor: 'pointer' }}
-            onClick={() => setJobsFilters({ vendor: 'All', cat: 'All', status: 'Active', loc: 'All', search: '' })}>
+            onClick={() => setJobsFilters({ vendor: 'All', cat: 'All', status: 'Active', loc: 'All', buyer: 'All', search: '' })}>
             ✕ Clear
           </button>}
         <span style={{ fontSize: 12, color: '#6B7280', alignSelf: 'center', marginLeft: 4 }}>

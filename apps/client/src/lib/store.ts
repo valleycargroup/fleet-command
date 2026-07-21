@@ -135,7 +135,7 @@ export const useStore = create<any>((set, get) => ({
   deliveredCount: 0,
   deliveredLoaded: false,
   returnTab: null as string|null,
-  jobsFilters: { vendor: 'All', cat: 'All', status: 'Active', loc: 'All', search: '' } as { vendor: string; cat: string; status: string; loc: string; search: string },
+  jobsFilters: { vendor: 'All', cat: 'All', status: 'Active', loc: 'All', buyer: 'All', search: '' } as { vendor: string; cat: string; status: string; loc: string; buyer: string; search: string },
 
   setTab: (tab: string) => set({ tab, selV: null, returnTab: null }),
   setSelV: (selV: any) => set({ selV }),
