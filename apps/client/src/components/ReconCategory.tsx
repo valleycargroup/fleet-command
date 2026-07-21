@@ -357,10 +357,12 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
   const newFindings=vfList.filter((x: any)=>!x.prevSubmitted);
   const allNewReady=newFindings.length>0&&newFindings.every((x: any)=>x.desc&&x.price>0);
   const newTotal=newFindings.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
-  const allPrevTotal=vfList.filter((x: any)=>x.prevSubmitted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
-  const overallTotal=lt+(vn.bidAdjustment||0)+allPrevTotal+newTotal;
+  const prevFindingsTotal=vfList.filter((x: any)=>x.prevSubmitted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
+  const bidAmt=lt+(vn.bidAdjustment||0);
+  const findingsAmt=prevFindingsTotal+newTotal;
+  const overallTotal=bidAmt+findingsAmt;
   if(newFindings.length===0||vn.findingsSubmitted)return null;
-  return <button style={{...S.btn,width:"100%",background:"#92400E",color:"#FDE68A",padding:10,fontSize:14,marginTop:8,fontWeight:700,border:"2px solid #F59E0B",opacity:allNewReady?1:0.4}} disabled={!allNewReady}
+  return <button style={{...S.btn,width:"100%",background:"#92400E",color:"#FDE68A",padding:"10px 12px",marginTop:8,fontWeight:700,border:"2px solid #F59E0B",opacity:allNewReady?1:0.4,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} disabled={!allNewReady}
     onClick={()=>{
       if(!allNewReady){notify&&notify("⚠️ New findings need description and price");return;}
       const markedFindings=vfList.map((x: any)=>({...x,prevSubmitted:true}));
@@ -368,7 +370,10 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
       if(typeof fireEmail==="function"&&vehicle){const origItems=(vn.lineItems||[]).filter((x: any)=>x.accepted);const origTotal=origItems.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);fireEmail("buyer_bid_submitted",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label+" — FINDINGS",categoryKey:cat.key,lineItems:[...origItems.map((x: any)=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...newFindings.map((x: any)=>({desc:"🔍 "+x.desc,price:x.price,costType:"ws"}))],totalBid:origTotal+newTotal});}
       notify&&notify(`🔍 ${newFindings.length} finding${newFindings.length!==1?"s":""} submitted — $${newTotal.toLocaleString()} pending review`);
       setExp(false);
-    }}>🔍 Submit {newFindings.length} New Finding{newFindings.length!==1?"s":""} (+${newTotal.toLocaleString()}) · Total ${overallTotal.toLocaleString()}</button>;
+    }}>
+    <span style={{fontSize:14}}>🔍 Submit {newFindings.length} New Finding{newFindings.length!==1?"s":""} (+${newTotal.toLocaleString()})</span>
+    <span style={{fontSize:11,opacity:0.85,fontWeight:400}}>Bid ${bidAmt.toLocaleString()} + Findings ${findingsAmt.toLocaleString()} = ${overallTotal.toLocaleString()}</span>
+  </button>;
 })()}
 {vn.findingsSubmitted&&<div style={{fontSize:12,color:"#F59E0B",marginTop:4}}>🔍 Findings submitted {fmtDate(vn.findingsSubmittedDate)}</div>}
 {(()=>{const declinedItems=(vn.lineItems||[]).filter((x: any)=>x.declined);const activeItems=(vn.lineItems||[]).filter((x: any)=>x.accepted&&!x.declined);if(declinedItems.length===0)return null;const alreadySent=vn.cancellationSent;if(alreadySent)return <div style={{fontSize:12,color:"#FCA5A5",marginTop:6}}>❌ Cancellation notice sent {fmtDate(vn.cancellationSentDate)} — {declinedItems.length} item{declinedItems.length>1?"s":""} canceled</div>;return <button style={{...S.btn,width:"100%",background:"#7F1D1D",color:"#FCA5A5",padding:10,fontSize:14,marginTop:8,border:"2px solid #EF4444"}} onClick={(e: any)=>{e.target.disabled=true;onUpdVendor(vn.id,{cancellationSent:true,cancellationSentDate:new Date().toISOString().split("T")[0]});if(typeof fireEmail==="function"&&vehicle){fireEmail("vendor_work_canceled",{vendor:{name:vn.name},vehicle:vData(vehicle),lineItems:[...activeItems.map((x: any)=>({desc:"✅ ACTIVE: "+x.desc,price:x.price,costType:x.costType||"ws"})),...declinedItems.map((x: any)=>({desc:"❌ CANCELED: "+x.desc,price:0,costType:x.costType||"ws"}))],totalRemaining:activeItems.reduce((s: any,x: any)=>s+(Number(x.price)||0),0)});}notify&&notify("❌ Cancellation notice sent to "+vn.name);}}>📩 Send Cancellation Notice to {vn.name} — {declinedItems.length} item{declinedItems.length>1?"s":""} canceled</button>;})()}
