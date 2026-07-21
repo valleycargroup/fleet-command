@@ -166,40 +166,49 @@ export function JobsPage() {
         <div style={{ textAlign: 'center', color: '#4B5563', padding: 40 }}>No jobs match the current filters</div>
       )}
       {filtered.map((j, i) => (
-        <div key={i} style={{ ...S.row, borderColor: j.hasPendingFindings ? '#92400E' : '#1E1E32' }}
+        <div key={i} style={{
+          display: 'grid',
+          gridTemplateColumns: '28px 1fr 70px 110px 160px 100px 65px 110px',
+          alignItems: 'center',
+          gap: 8,
+          padding: '9px 12px',
+          borderRadius: 8,
+          marginBottom: 4,
+          background: '#0D0D1A',
+          border: `1px solid ${j.hasPendingFindings ? '#92400E' : '#1E1E32'}`,
+          cursor: 'pointer',
+        }}
           onClick={() => openVehicle(j.vehicleId)}
           onMouseEnter={(e: any) => e.currentTarget.style.background = '#12122A'}
           onMouseLeave={(e: any) => e.currentTarget.style.background = '#0D0D1A'}>
 
           {/* Category icon */}
-          <span style={{ fontSize: 20, flexShrink: 0 }}>{j.catIcon}</span>
+          <span style={{ fontSize: 18 }}>{j.catIcon}</span>
 
           {/* Vehicle */}
-          <div style={{ flex: 2, minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {j.vehicleLabel}
             </div>
-            <div style={{ fontSize: 11, color: '#6B7280' }}>{j.vin8} · {j.buyer || '—'}</div>
+            <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vin8} · {j.buyer || '—'}</div>
           </div>
 
           {/* Location */}
-          <span style={{ fontSize: 12, color: '#9CA3AF', flexShrink: 0 }}>📍 {j.location}</span>
+          <span style={{ fontSize: 12, color: '#9CA3AF' }}>📍 {j.location}</span>
 
           {/* Category */}
-          <span style={{ fontSize: 12, color: '#93C5FD', flexShrink: 0, whiteSpace: 'nowrap' }}>{j.catLabel}</span>
+          <span style={{ fontSize: 12, color: '#93C5FD', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.catLabel}</span>
 
           {/* Vendor */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vendor}</div>
-          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vendor}</span>
 
           {/* Pending findings flag */}
-          {j.hasPendingFindings && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', flexShrink: 0 }}>🔍 Findings</span>
-          )}
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>
+            {j.hasPendingFindings ? '🔍 Findings' : ''}
+          </span>
 
           {/* Bid */}
-          <span style={{ fontSize: 13, fontWeight: 700, color: j.bid > 0 ? '#FBBF24' : '#4B5563', flexShrink: 0, minWidth: 60, textAlign: 'right' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: j.bid > 0 ? '#FBBF24' : '#4B5563', textAlign: 'right' }}>
             {j.bid > 0 ? `$${j.bid.toLocaleString()}` : '—'}
           </span>
 
