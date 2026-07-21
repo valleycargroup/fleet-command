@@ -37,7 +37,7 @@ jobs:
             - name: Setup SSH
               run: |
                   mkdir -p ~/.ssh
-                  printf "%s" "${{ secrets.DEV_EC2_SSH_PRIVATE_KEY_FLEET }}" > ~/.ssh/id_rsa
+                  echo "${{ secrets.DEV_EC2_SSH_PRIVATE_KEY_FLEET }}" > ~/.ssh/id_rsa
                   chmod 600 ~/.ssh/id_rsa
                   ssh-keyscan -H "${{ secrets.DEV_EC2_SSH_HOST_FLEET }}" >> ~/.ssh/known_hosts
 
