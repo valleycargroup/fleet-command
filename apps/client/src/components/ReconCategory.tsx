@@ -317,7 +317,11 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
 <span style={{fontSize:18,fontWeight:700,color:"#F97316"}}>🔍 Findings</span>
 <button style={{...S.btn,fontSize:14,padding:"8px 16px",background:"#92400E",color:"#FDE68A"}} onClick={()=>{const existing=(vn.vendorFindings||[]).map((f: any)=>vn.findingsSubmitted?{...f,prevSubmitted:true}:f);onUpdVendor(vn.id,{vendorFindings:[...existing,{id:`vf${Date.now()}`,desc:"",price:0,notes:"",approved:false}],findingsSubmitted:false,findingsDecisionSent:false});}}>+ Add</button></div>
-{(vn.vendorFindings||[]).map((vf: any,vfi: any)=><div key={vf.id} style={{padding:6,marginBottom:4,borderRadius:6,background:vf.approved?"#0D3B1E":"#3B2F10",border:`1px solid ${vf.approved?"#166534":"#78590A"}`}}>
+{(vn.vendorFindings||[]).map((vf: any,vfi: any)=>{
+const isPending=vf.prevSubmitted&&!vf.approved&&!vf.declined;
+const rowBg=vf.approved?"#0A2E18":vf.declined?"#1A0808":isPending?"#1E1800":"#1A1A2E";
+const rowBorder=vf.approved?"2px solid #22C55E":vf.declined?"1px solid #7F1D1D":isPending?"2px solid #F59E0B":"1px solid #2A2A3E";
+return <div key={vf.id} style={{padding:6,marginBottom:4,borderRadius:6,background:rowBg,border:rowBorder,boxShadow:isPending?"0 0 6px rgba(245,158,11,0.25)":vf.approved?"0 0 6px rgba(34,197,94,0.2)":"none"}}>
 {vf.declined?<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",opacity:0.5}}><span style={{color:"#FCA5A5",fontSize:14,fontWeight:600,textDecoration:"line-through"}}>{vf.desc}</span><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:"#6B7280",fontWeight:700,fontSize:15}}>${vf.price||0}</span><span style={{...S.badge,background:"#7F1D1D",color:"#FCA5A5",fontSize:11}}>❌ DECLINED</span><button style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:"#1A1A2E",color:"#6B7280",border:"none",cursor:"pointer"}} onClick={()=>{const f2=[...(vn.vendorFindings||[])];f2[vfi]={...f2[vfi],declined:false};onUpdVendor(vn.id,{vendorFindings:f2});}}>Undo</button></div></div>
 :vf.approved?<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{color:"#E5E7EB",fontSize:14,fontWeight:600}}>{vf.desc}</span><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:"#FBBF24",fontWeight:700,fontSize:15}}>${vf.price||0}</span><span style={{...S.badge,background:vf.findingCostType==="retail"?"#164E63":"#1E3A5F",color:vf.findingCostType==="retail"?"#67E8F9":"#93C5FD",fontSize:10}}>{vf.findingCostType==="retail"?"🏪 Retail":"W/S"}</span><span style={{...S.badge,background:"#166534",color:"#34D399",fontSize:11}}>✅</span><button style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:"#7F1D1D",color:"#FCA5A5",border:"none",cursor:"pointer"}} onClick={()=>{const f2=[...(vn.vendorFindings||[])];f2[vfi]={...f2[vfi],approved:false};onUpdVendor(vn.id,{vendorFindings:f2});}}>Undo</button></div></div>
 :<div><div style={{display:"flex",gap:4,marginBottom:4}}>
@@ -340,7 +344,7 @@ return <div key={i} style={{padding:14,marginBottom:8,borderRadius:8,background:
 </div>:null}
 </div>}
 {(!vf.desc||!vf.price)&&<div style={{fontSize:11,color:"#6B7280"}}>Enter description and cost first</div>}
-</div>}</div>)}</div>
+</div>}</div>;}})}</div>
 <div style={{padding:10,background:"#1A1A2E",borderRadius:8,marginBottom:8}}>
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
 <span style={{fontSize:13,fontWeight:700,color:"#60A5FA"}}>📷 Vendor Photos ({(vn.vendorPhotos||[]).length})</span>
@@ -357,7 +361,7 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
   const newFindings=vfList.filter((x: any)=>!x.prevSubmitted);
   const allNewReady=newFindings.length>0&&newFindings.every((x: any)=>x.desc&&x.price>0);
   const newTotal=newFindings.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
-  const prevFindingsTotal=vfList.filter((x: any)=>x.prevSubmitted&&x.approved&&!x.declined).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
+  const prevFindingsTotal=vfList.filter((x: any)=>x.prevSubmitted&&!x.declined).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
   const bidAmt=lt+(vn.bidAdjustment||0);
   const findingsAmt=prevFindingsTotal+newTotal;
   const overallTotal=bidAmt+findingsAmt;
