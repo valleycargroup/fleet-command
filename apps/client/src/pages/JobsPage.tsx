@@ -191,7 +191,6 @@ export function JobsPage() {
             </div>
           )}
           <div key={i} style={{
-        <div key={i} style={{
           display: 'grid',
           gridTemplateColumns: '28px 1fr 70px 110px 160px 100px 65px 110px',
           alignItems: 'center',
