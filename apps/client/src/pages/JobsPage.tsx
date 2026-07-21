@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { VCAT } from '../lib/constants';
 import { useStore } from '../lib/store';
 
-function SearchSelect({ value, onChange, options, allLabel }: { value: string; onChange: (v: string) => void; options: string[]; allLabel: string }) {
+function SearchSelect({ value, onChange, options, allLabel, labels }: { value: string; onChange: (v: string) => void; options: string[]; allLabel: string; labels?: Record<string, string> }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -14,8 +14,9 @@ function SearchSelect({ value, onChange, options, allLabel }: { value: string; o
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const filtered = options.filter(o => o === 'All' || o.toLowerCase().includes(q.toLowerCase()));
-  const label = value === 'All' ? allLabel : value;
+  const getLabel = (o: string) => o === 'All' ? allLabel : (labels?.[o] ?? o);
+  const filtered = options.filter(o => o === 'All' || getLabel(o).toLowerCase().includes(q.toLowerCase()));
+  const label = getLabel(value);
   const isActive = value !== 'All';
 
   return (
@@ -35,7 +36,7 @@ function SearchSelect({ value, onChange, options, allLabel }: { value: string; o
                 style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: o === value ? '#FDE68A' : '#E5E7EB', background: o === value ? '#1E1E3A' : 'transparent' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#1A1A2E')}
                 onMouseLeave={e => (e.currentTarget.style.background = o === value ? '#1E1E3A' : 'transparent')}>
-                {o === 'All' ? allLabel : o}
+                {getLabel(o)}
               </div>
             ))}
             {filtered.length === 0 && <div style={{ padding: '8px 12px', fontSize: 12, color: '#4B5563' }}>No matches</div>}
@@ -233,10 +234,10 @@ export function JobsPage() {
         return (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <SearchSelect value={fVendor} onChange={setFVendor} options={vendors} allLabel="All Vendors" />
-            <select style={act(fCat !== 'All')} value={fCat} onChange={(e: any) => setFCat(e.target.value)}>
-              <option value="All">All Categories</option>
-              {VCAT.map(c => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
-            </select>
+            <SearchSelect value={fCat} onChange={setFCat}
+              options={['All', ...VCAT.map(c => c.key)]}
+              allLabel="All Categories"
+              labels={Object.fromEntries(VCAT.map(c => [c.key, `${c.icon} ${c.label}`]))} />
             <select style={act(fStatus !== 'All')} value={fStatus} onChange={(e: any) => setFStatus(e.target.value)}>
               <option value="All">All Statuses</option>
               <option value="Active">Active (open)</option>
