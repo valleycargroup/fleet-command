@@ -5,7 +5,7 @@ import { useStore } from '../lib/store';
 type Job = {
   vehicleId: string;
   vehicleLabel: string;
-  vin8: string;
+  fullVin: string;
   location: string;
   buyer: string;
   catKey: string;
@@ -87,7 +87,6 @@ export function JobsPage() {
           jobs.push({
             vehicleId: v.id,
             vehicleLabel: `${v.year} ${v.make} ${v.model}`,
-            vin8: v.vin8 || '',
             location: v.location || 'PHX',
             buyer: v.buyingBroker || '',
             catKey: cat.key,
@@ -96,7 +95,8 @@ export function JobsPage() {
             vendor: vn.name,
             status: jobStatus(vn, task.status),
             bid,
-            hasPendingFindings,
+            fullVin: v.fullVin || '',
+          hasPendingFindings,
           });
         });
       });
@@ -118,7 +118,7 @@ export function JobsPage() {
       if (fCat    !== 'All' && j.catKey !== fCat) return false;
       if (fStatus !== 'All' && !(fStatus === 'Active' ? ACTIVE_STATUSES.has(j.status) : j.status === fStatus)) return false;
       if (fLoc    !== 'All' && j.location !== fLoc) return false;
-      if (q && ![j.vendor, j.vehicleLabel, j.vin8, j.buyer, j.catLabel, j.status].some(s => s.toLowerCase().includes(q))) return false;
+      if (q && ![j.vendor, j.vehicleLabel, j.fullVin, j.buyer, j.catLabel, j.status].some(s => s.toLowerCase().includes(q))) return false;
       return true;
     });
     // Sort by VCAT order first, then status within each category
@@ -236,7 +236,7 @@ export function JobsPage() {
             {/* Vehicle */}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vehicleLabel}</div>
-              <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vin8} · {j.buyer || '—'}</div>
+              <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.fullVin} · {j.buyer || '—'}</div>
             </div>
 
             {/* Location */}
