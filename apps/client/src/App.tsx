@@ -127,6 +127,16 @@ function App() {
     }
   }, [apiReady, vehicles.length, pendingDeepLink]);
 
+  // Keep ?v=<id> in sync with selected vehicle so refresh restores it
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (selV) url.searchParams.set('v', String(selV.id));
+      else url.searchParams.delete('v');
+      window.history.replaceState({}, document.title, url.pathname + url.search);
+    } catch(e) {}
+  }, [selV?.id]);
+
   // Header stats
   const stats = useMemo(() => ({
     active: vehicles.filter((v: any) => v.status !== "delivered").length,
