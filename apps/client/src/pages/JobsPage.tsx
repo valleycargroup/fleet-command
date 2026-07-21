@@ -26,14 +26,14 @@ function SearchSelect({ value, onChange, options, allLabel, labels }: { value: s
         {label} ▾
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 4, background: '#12122A', border: '1px solid #2A2A3E', borderRadius: 8, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 4, background: '#12122A', border: '1px solid #2A2A3E', borderRadius: 8, minWidth: 220, width: 'max-content', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
           <input autoFocus value={q} onChange={e => setQ(e.target.value)}
             placeholder="Search..."
             style={{ width: '100%', boxSizing: 'border-box', background: '#0D0D1A', border: 'none', borderBottom: '1px solid #2A2A3E', color: '#E5E7EB', padding: '8px 10px', fontSize: 13, borderRadius: '8px 8px 0 0', outline: 'none' }} />
           <div style={{ maxHeight: 220, overflowY: 'auto' }}>
             {filtered.map(o => (
               <div key={o} onClick={() => { onChange(o); setOpen(false); }}
-                style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: o === value ? '#FDE68A' : '#E5E7EB', background: o === value ? '#1E1E3A' : 'transparent' }}
+                style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', color: o === value ? '#FDE68A' : '#E5E7EB', background: o === value ? '#1E1E3A' : 'transparent' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#1A1A2E')}
                 onMouseLeave={e => (e.currentTarget.style.background = o === value ? '#1E1E3A' : 'transparent')}>
                 {getLabel(o)}
