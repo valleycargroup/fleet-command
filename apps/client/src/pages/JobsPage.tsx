@@ -48,9 +48,10 @@ const S: any = {
 
 export function JobsPage() {
   const vehicles = useStore((s: any) => s.vehicles);
-  const setSelV     = useStore((s: any) => s.setSelV);
-  const setTab      = useStore((s: any) => s.setTab);
-  const setReturnTab = useStore((s: any) => s.setReturnTab);
+  const setSelV       = useStore((s: any) => s.setSelV);
+  const setTab        = useStore((s: any) => s.setTab);
+  const setReturnTab  = useStore((s: any) => s.setReturnTab);
+  const setDeepLinkCat = useStore((s: any) => s.setDeepLinkCat);
 
   const jobsFilters    = useStore((s: any) => s.jobsFilters);
   const setJobsFilters = useStore((s: any) => s.setJobsFilters);
@@ -137,9 +138,9 @@ export function JobsPage() {
     return f;
   }, [jobs, fVendor, fCat, fStatus, fLoc, fBuyer, fSearch]);
 
-  const openVehicle = (vehicleId: string) => {
+  const openVehicle = (vehicleId: string, catKey: string) => {
     const v = vehicles.find((x: any) => x.id === vehicleId);
-    if (v) { setTab('active'); setReturnTab('jobs'); setSelV(v); }
+    if (v) { setTab('active'); setReturnTab('jobs'); setDeepLinkCat(catKey); setSelV(v); }
   };
 
   const activeCount   = (statCounts['Awaiting Approval'] || 0) + (statCounts['In Progress'] || 0) + (statCounts['Bid Requested'] || 0) + (statCounts['Assigned'] || 0);
@@ -249,7 +250,7 @@ export function JobsPage() {
             border: `1px solid ${j.hasPendingFindings ? '#92400E' : '#1E1E32'}`,
             cursor: 'pointer',
           }}
-            onClick={() => openVehicle(j.vehicleId)}
+            onClick={() => openVehicle(j.vehicleId, j.catKey)}
             onMouseEnter={(e: any) => e.currentTarget.style.background = '#12122A'}
             onMouseLeave={(e: any) => e.currentTarget.style.background = '#0D0D1A'}>
 
