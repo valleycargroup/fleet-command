@@ -48,6 +48,7 @@ const S: any = {
 
 export function JobsPage() {
   const vehicles = useStore((s: any) => s.vehicles);
+  const allUsers  = useStore((s: any) => s.allUsers);
   const setSelV       = useStore((s: any) => s.setSelV);
   const setTab        = useStore((s: any) => s.setTab);
   const setReturnTab  = useStore((s: any) => s.setReturnTab);
@@ -72,7 +73,15 @@ export function JobsPage() {
   const toggleCat = (key: string) =>
     setCollapsed(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
 
-  const { jobs, vendors, buyers, statCounts } = useMemo(() => {
+  const buyers = useMemo(() => {
+    const names = (allUsers || [])
+      .filter((u: any) => u.isBuyer || u.is_buyer || (u.role || '').toLowerCase() === 'buyer' || (u.role || '').toLowerCase() === 'admin')
+      .map((u: any) => ((u.firstName || u.first_name || '') + ' ' + (u.lastName || u.last_name || '')).trim())
+      .filter(Boolean);
+    return ['All', ...Array.from(new Set(names)).sort()];
+  }, [allUsers]);
+
+  const { jobs, vendors, statCounts } = useMemo(() => {
     const jobs: Job[] = [];
     const vendorSet = new Set<string>();
 
@@ -111,9 +120,7 @@ export function JobsPage() {
     const statCounts: Record<string, number> = {};
     jobs.forEach(j => { statCounts[j.status] = (statCounts[j.status] || 0) + 1; });
 
-    const buyerSet = new Set<string>();
-    jobs.forEach(j => { if (j.buyer) buyerSet.add(j.buyer); });
-    return { jobs, vendors: ['All', ...Array.from(vendorSet).sort()], buyers: ['All', ...Array.from(buyerSet).sort()], statCounts };
+    return { jobs, vendors: ['All', ...Array.from(vendorSet).sort()], statCounts };
   }, [vehicles]);
 
   const ACTIVE_STATUSES = new Set(['Awaiting Approval','In Progress','Bid Requested','Assigned','Accepted']);
