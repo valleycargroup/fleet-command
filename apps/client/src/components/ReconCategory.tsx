@@ -344,7 +344,7 @@ return <div key={vf.id} style={{padding:6,marginBottom:4,borderRadius:6,backgrou
 </div>:null}
 </div>}
 {(!vf.desc||!vf.price)&&<div style={{fontSize:11,color:"#6B7280"}}>Enter description and cost first</div>}
-</div>}</div>;}})}</div>
+</div>}</div>;})}</div>
 <div style={{padding:10,background:"#1A1A2E",borderRadius:8,marginBottom:8}}>
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
 <span style={{fontSize:13,fontWeight:700,color:"#60A5FA"}}>📷 Vendor Photos ({(vn.vendorPhotos||[]).length})</span>
