@@ -132,6 +132,8 @@ export const useStore = create<any>((set, get) => ({
   deepLinkCat: null as string|null,
   deepLinkCr: false as boolean,
   pendingDeepLink: (()=>{try{const p=new URLSearchParams(window.location.search);const vid=p.get("vehicle");const vcat=p.get("cat");return vid?{vid,vcat}:null;}catch(e){return null;}})(),
+  deliveredCount: 0,
+  deliveredLoaded: false,
 
   setTab: (tab: string) => set({ tab, selV: null }),
   setSelV: (selV: any) => set({ selV }),
@@ -232,7 +234,7 @@ export const useStore = create<any>((set, get) => ({
     set({ loading: true });
     try {
       const [vRes,vnRes,uRes,dlRes,stRes]=await Promise.all([
-        api('/api/vehicles'),
+        api('/api/vehicles?excludeDelivered=true'),
         api('/api/vendors'),
         api('/api/users').catch(()=>({users:[]})),
         api('/api/dealers').catch(()=>({dealers:[]})),
@@ -243,7 +245,7 @@ export const useStore = create<any>((set, get) => ({
       const mappedUsers = _mapUsers(uRes.users||[]);
       const currentSelV=get().selV;
       const freshSelV=currentSelV?mapped.find((v: any)=>v._dbId===currentSelV._dbId)||currentSelV:null;
-      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, dealers:dlRes.dealers||[], siteSettings:stRes.data||{}, apiReady:true, selV:freshSelV });
+      set({ vehicles:mapped, vendors:vnMap, regVendors:regVList, users:mappedUsers, allUsers:mappedUsers, dealers:dlRes.dealers||[], siteSettings:stRes.data||{}, apiReady:true, selV:freshSelV, deliveredCount:vRes.deliveredCount||0, deliveredLoaded:false });
     } catch(e) {
       const msg = (e as any)?.message || String(e);
       const serverDown = msg.includes('<!doctype') || msg.includes('not valid JSON') || msg.includes('Failed to fetch');
@@ -253,6 +255,18 @@ export const useStore = create<any>((set, get) => ({
       try{const sv=localStorage.getItem("fc_vendors");if(sv)set({vendors:JSON.parse(sv)});}catch(e2){}
     }
     set({ loading: false });
+  },
+
+  // ============ DELIVERED LAZY LOAD ============
+  loadDelivered: async () => {
+    if (get().deliveredLoaded) return;
+    const { api, mapVehicle } = get();
+    try {
+      const data = await api('/api/vehicles?deliveredOnly=true');
+      const delivered = (data.vehicles||[]).map((v: any) => mapVehicle(v));
+      const active = get().vehicles.filter((v: any) => v.status !== 'delivered');
+      set({ vehicles: [...active, ...delivered], deliveredLoaded: true, deliveredCount: delivered.length });
+    } catch(e) { console.error('[loadDelivered]', e); }
   },
 
   // ============ TARGETED REFRESH (used by WebSocket events) ============

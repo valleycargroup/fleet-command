@@ -14,26 +14,50 @@ router.get('/', async (req: Request, res: Response) => {
     const user = await requireAuth(req, res);
     if (!user) return;
 
+    const excludeDelivered = req.query.excludeDelivered === 'true';
+    const deliveredOnly    = req.query.deliveredOnly    === 'true';
+    const statusFilter     = excludeDelivered ? " AND status != 'delivered'" : deliveredOnly ? " AND status = 'delivered'" : '';
+
     const isPrivileged = user.is_buyer || ['admin','tech support','tech_support','techsupport','ap'].includes((user.role||'').toLowerCase().replace(/\s/g,''));
     const sellerOnly = !isPrivileged && user.is_seller;
 
     const vehicles = sellerOnly
       ? (await db.raw(
           `SELECT * FROM vehicles
-           WHERE seller = ? OR seller = ?
+           WHERE (seller = ? OR seller = ?)${statusFilter}
            ORDER BY CASE WHEN status='sold' THEN 0 WHEN kicked=TRUE THEN 1 ELSE 2 END,
                     updated_at DESC`,
           [user.email, `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`]
         )).rows
       : (await db.raw(
           `SELECT * FROM vehicles
+           WHERE 1=1${statusFilter}
            ORDER BY CASE WHEN status='sold' THEN 0 WHEN kicked=TRUE THEN 1 ELSE 2 END,
                     updated_at DESC`
         )).rows;
 
-    res.json({ vehicles });
+    let deliveredCount: number | undefined;
+    if (excludeDelivered) {
+      const row = (await db.raw(`SELECT COUNT(*) AS n FROM vehicles WHERE status = 'delivered'`)).rows[0];
+      deliveredCount = Number(row?.n || 0);
+    }
+
+    res.json({ vehicles, ...(deliveredCount !== undefined ? { deliveredCount } : {}) });
   } catch (e: any) {
     console.error(e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/vehicles/:id  (used as deep-link fallback for delivered/archived vehicles)
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+    const row = (await db.raw(`SELECT * FROM vehicles WHERE id = ?`, [req.params.id])).rows[0];
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json({ vehicle: row });
+  } catch (e: any) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

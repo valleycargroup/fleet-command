@@ -40,10 +40,12 @@ function App() {
   const pendingDeepLink = useStore(s => s.pendingDeepLink);
   const setPendingDeepLink = useStore(s => s.setPendingDeepLink);
   const vehicles = useStore(s => s.vehicles);
+  const deliveredCount = useStore(s => s.deliveredCount);
+  const deliveredLoaded = useStore(s => s.deliveredLoaded);
   const apiReady = useStore(s => s.apiReady);
   const loading = useStore(s => s.loading);
   const csvUploading = useStore(s => s.csvUploading);
-  const { loadData, handleLogout, handleCSVUpload, showConfirm } = useStore(s => s);
+  const { loadData, handleLogout, handleCSVUpload, showConfirm, loadDelivered } = useStore(s => s);
   const csvRef = useRef(null as any);
   const [showImportCrm, setShowImportCrm] = useState(false);
 
@@ -97,17 +99,19 @@ function App() {
     const interval = setInterval(async () => {
       try {
         const { mapVehicle, api } = useStore.getState();
-        const data = await api('/api/vehicles');
+        const data = await api('/api/vehicles?excludeDelivered=true');
         const deletedIds = (window as any)._deletedDbIds || [];
         const fresh = (data.vehicles||[]).map((v: any)=>mapVehicle(v)).filter((v: any)=>!deletedIds.includes(v._dbId));
         useStore.setState((prev: any) => {
-          if (prev.vehicles.length !== fresh.length) return { vehicles: fresh };
+          const prevActive = prev.vehicles.filter((v: any) => v.status !== 'delivered');
+          const prevDelivered = prev.vehicles.filter((v: any) => v.status === 'delivered');
+          if (prevActive.length !== fresh.length) return { vehicles: [...fresh, ...prevDelivered], deliveredCount: data.deliveredCount ?? prev.deliveredCount };
           let changed = false;
           for (let i = 0; i < fresh.length; i++) {
-            const prev_ = prev.vehicles.find((p: any)=>p._dbId===fresh[i]._dbId);
-            if (!prev_ || JSON.stringify(prev_._raw) !== JSON.stringify(fresh[i]._raw)) { changed = true; break; }
+            const p = prevActive.find((x: any)=>x._dbId===fresh[i]._dbId);
+            if (!p || JSON.stringify(p._raw) !== JSON.stringify(fresh[i]._raw)) { changed = true; break; }
           }
-          return changed ? { vehicles: fresh } : prev;
+          return changed ? { vehicles: [...fresh, ...prevDelivered], deliveredCount: data.deliveredCount ?? prev.deliveredCount } : prev;
         });
       } catch(e) {}
     }, 30000);
@@ -124,6 +128,21 @@ function App() {
       if (pendingDeepLink.vcat) setDeepLinkCat(pendingDeepLink.vcat);
       try { const url = new URL(window.location.href); url.searchParams.delete("vehicle"); url.searchParams.delete("cat"); window.history.replaceState({}, document.title, url.pathname); } catch(e) {}
       setPendingDeepLink(null);
+    } else {
+      // Vehicle not in active list — may be delivered; fetch by raw DB id
+      const rawId = String(pendingDeepLink.vid).replace('db_', '');
+      const { api, mapVehicle } = useStore.getState();
+      api(`/api/vehicles/${rawId}`).then((data: any) => {
+        if (data?.vehicle) {
+          const mapped = mapVehicle(data.vehicle);
+          useStore.setState((prev: any) => ({ vehicles: [...prev.vehicles, mapped] }));
+          setTab("delivered");
+          setSelV(mapped);
+          if (pendingDeepLink.vcat) setDeepLinkCat(pendingDeepLink.vcat);
+        }
+      }).catch(()=>{});
+      try { const url = new URL(window.location.href); url.searchParams.delete("vehicle"); url.searchParams.delete("cat"); window.history.replaceState({}, document.title, url.pathname); } catch(e) {}
+      setPendingDeepLink(null);
     }
   }, [apiReady, vehicles.length, pendingDeepLink]);
 
@@ -137,11 +156,11 @@ function App() {
     } catch(e) {}
   }, [selV?.id]);
 
-  // Header stats
+  // Header stats — delivered count comes from server to avoid requiring lazy load for the badge
   const stats = useMemo(() => ({
     active: vehicles.filter((v: any) => v.status !== "delivered").length,
-    delivered: vehicles.filter((v: any) => v.status === "delivered").length,
-  }), [vehicles]);
+    delivered: deliveredLoaded ? vehicles.filter((v: any) => v.status === "delivered").length : deliveredCount,
+  }), [vehicles, deliveredCount, deliveredLoaded]);
 
   if (!currentUser) return <LandingPage/>;
 
@@ -186,7 +205,7 @@ function App() {
     <div style={{...S.bar,flexWrap:isMobile?"wrap":"nowrap"}}>
       <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none",paddingBottom:2,flex:isMobile?"1 1 100%":"none"}}>
         <button style={tab==="active"?S.tOn:S.tOff} onClick={()=>setTab("active")}>Inventory</button>
-        {!isVendor&&<button style={tab==="delivered"?S.tOn:S.tOff} onClick={()=>setTab("delivered")}>Delivered {stats.delivered>0&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:10,background:"#166534",color:"#34D399",marginLeft:4}}>{stats.delivered}</span>}</button>}
+        {!isVendor&&<button style={tab==="delivered"?S.tOn:S.tOff} onClick={()=>{setTab("delivered");loadDelivered();}}>Delivered {stats.delivered>0&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:10,background:"#166534",color:"#34D399",marginLeft:4}}>{stats.delivered}</span>}</button>}
         {!isVendor&&<button style={tab==="vendors"?S.tOn:S.tOff} onClick={()=>setTab("vendors")}>Vendors</button>}
         {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ {!isMobile&&"Register"}</button>}
         {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 {!isMobile&&"Reports"}</button>}
