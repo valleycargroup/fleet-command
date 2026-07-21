@@ -357,7 +357,7 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
   const newFindings=vfList.filter((x: any)=>!x.prevSubmitted);
   const allNewReady=newFindings.length>0&&newFindings.every((x: any)=>x.desc&&x.price>0);
   const newTotal=newFindings.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
-  const prevFindingsTotal=vfList.filter((x: any)=>x.prevSubmitted).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
+  const prevFindingsTotal=vfList.filter((x: any)=>x.prevSubmitted&&x.approved&&!x.declined).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
   const bidAmt=lt+(vn.bidAdjustment||0);
   const findingsAmt=prevFindingsTotal+newTotal;
   const overallTotal=bidAmt+findingsAmt;
