@@ -369,7 +369,6 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
       onUpdVendor(vn.id,{findingsSubmitted:true,findingsSubmittedDate:new Date().toISOString().split("T")[0],vendorFindings:markedFindings});
       if(typeof fireEmail==="function"&&vehicle){const origItems=(vn.lineItems||[]).filter((x: any)=>x.accepted);const origTotal=origItems.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);fireEmail("buyer_bid_submitted",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label+" — FINDINGS",categoryKey:cat.key,lineItems:[...origItems.map((x: any)=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...vfList.map((x: any)=>({desc:"🔍 "+x.desc,price:x.price,costType:"ws"}))],totalBid:origTotal+findingsTotal});}
       notify&&notify(`🔍 ${vfList.length} finding${vfList.length!==1?"s":""} submitted — $${findingsTotal.toLocaleString()} pending review`);
-      setExp(false);
     }}>
     🔍 Submit {vfList.length} Finding{vfList.length!==1?"s":""} — ${findingsTotal.toLocaleString()} <span style={{fontSize:11,opacity:0.75,fontWeight:400}}>(findings total)</span>
   </button>;
