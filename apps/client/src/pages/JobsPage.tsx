@@ -181,13 +181,12 @@ export function JobsPage() {
         const showHeader = i === 0 || filtered[i - 1].catKey !== j.catKey;
         return (<>
           {showHeader && (
-            <div key={`hdr-${j.catKey}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 6px', marginTop: i > 0 ? 8 : 0 }}>
+            <div key={`hdr-${j.catKey}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', marginTop: i > 0 ? 14 : 0, marginBottom: 4, background: '#12122A', borderRadius: 8, borderLeft: '3px solid #3B82F6' }}>
               <span style={{ fontSize: 18 }}>{j.catIcon}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#E5E7EB' }}>{j.catLabel}</span>
-              <span style={{ fontSize: 11, color: '#4B5563' }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#E5E7EB', letterSpacing: 0.3 }}>{j.catLabel}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', background: '#1E3A5F', padding: '2px 8px', borderRadius: 10 }}>
                 {filtered.filter(x => x.catKey === j.catKey).length} job{filtered.filter(x => x.catKey === j.catKey).length !== 1 ? 's' : ''}
               </span>
-              <div style={{ flex: 1, height: 1, background: '#1E1E32' }} />
             </div>
           )}
           <div key={i} style={{
