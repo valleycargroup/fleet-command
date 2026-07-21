@@ -51,10 +51,22 @@ export function JobsPage() {
   const setTab      = useStore((s: any) => s.setTab);
   const setReturnTab = useStore((s: any) => s.setReturnTab);
 
-  const [fVendor, setFVendor] = useState('All');
-  const [fCat,    setFCat]    = useState('All');
-  const [fStatus, setFStatus] = useState('Active');
-  const [fLoc,    setFLoc]    = useState('All');
+  const jobsFilters    = useStore((s: any) => s.jobsFilters);
+  const setJobsFilters = useStore((s: any) => s.setJobsFilters);
+  const fVendor = jobsFilters.vendor;
+  const fCat    = jobsFilters.cat;
+  const fStatus = jobsFilters.status;
+  const fLoc    = jobsFilters.loc;
+  const fSearch = jobsFilters.search || '';
+  const setFVendor = (vendor: string) => setJobsFilters({ ...jobsFilters, vendor });
+  const setFCat    = (cat: string)    => setJobsFilters({ ...jobsFilters, cat });
+  const setFStatus = (status: string) => setJobsFilters({ ...jobsFilters, status });
+  const setFLoc    = (loc: string)    => setJobsFilters({ ...jobsFilters, loc });
+  const setFSearch = (search: string) => setJobsFilters({ ...jobsFilters, search });
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCat = (key: string) =>
+    setCollapsed(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
 
   const { jobs, vendors, statCounts } = useMemo(() => {
     const jobs: Job[] = [];
@@ -100,12 +112,15 @@ export function JobsPage() {
 
   const ACTIVE_STATUSES = new Set(['In Progress','Bid Submitted','Bid Requested','Assigned','Accepted']);
   const filtered = useMemo(() => {
-    const f = jobs.filter(j =>
-      (fVendor === 'All' || j.vendor === fVendor) &&
-      (fCat    === 'All' || j.catKey === fCat) &&
-      (fStatus === 'All' || (fStatus === 'Active' ? ACTIVE_STATUSES.has(j.status) : j.status === fStatus)) &&
-      (fLoc    === 'All' || j.location === fLoc)
-    );
+    const q = fSearch.toLowerCase();
+    const f = jobs.filter(j => {
+      if (fVendor !== 'All' && j.vendor !== fVendor) return false;
+      if (fCat    !== 'All' && j.catKey !== fCat) return false;
+      if (fStatus !== 'All' && !(fStatus === 'Active' ? ACTIVE_STATUSES.has(j.status) : j.status === fStatus)) return false;
+      if (fLoc    !== 'All' && j.location !== fLoc) return false;
+      if (q && ![j.vendor, j.vehicleLabel, j.vin8, j.buyer, j.catLabel, j.status].some(s => s.toLowerCase().includes(q))) return false;
+      return true;
+    });
     // Sort by VCAT order first, then status within each category
     const catOrder = VCAT.reduce((m, c, i) => { m[c.key] = i; return m; }, {} as Record<string,number>);
     f.sort((a, b) => {
@@ -146,7 +161,7 @@ export function JobsPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <select style={S.sel} value={fVendor} onChange={(e: any) => setFVendor(e.target.value)}>
           {vendors.map(v => <option key={v} value={v}>{v === 'All' ? 'All Vendors' : v}</option>)}
         </select>
@@ -164,9 +179,15 @@ export function JobsPage() {
           <option value="PHX">PHX</option>
           <option value="Dallas">Dallas</option>
         </select>
-        {(fVendor !== 'All' || fCat !== 'All' || fStatus !== 'All' || fLoc !== 'All') &&
+        <input
+          style={{ ...S.sel, minWidth: 180, flex: 1 }}
+          placeholder="Search vendor, vehicle, VIN..."
+          value={fSearch}
+          onChange={(e: any) => setFSearch(e.target.value)}
+        />
+        {(fVendor !== 'All' || fCat !== 'All' || fStatus !== 'All' || fLoc !== 'All' || fSearch) &&
           <button style={{ ...S.sel, color: '#F87171', borderColor: '#7F1D1D', cursor: 'pointer' }}
-            onClick={() => { setFVendor('All'); setFCat('All'); setFStatus('All'); setFLoc('All'); }}>
+            onClick={() => setJobsFilters({ vendor: 'All', cat: 'All', status: 'Active', loc: 'All', search: '' })}>
             ✕ Clear
           </button>}
         <span style={{ fontSize: 12, color: '#6B7280', alignSelf: 'center', marginLeft: 4 }}>
@@ -182,63 +203,58 @@ export function JobsPage() {
         const showHeader = i === 0 || filtered[i - 1].catKey !== j.catKey;
         return (<>
           {showHeader && (
-            <div key={`hdr-${j.catKey}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', marginTop: i > 0 ? 14 : 0, marginBottom: 4, background: '#12122A', borderRadius: 8, borderLeft: '3px solid #3B82F6' }}>
+            <div key={`hdr-${j.catKey}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', marginTop: i > 0 ? 14 : 0, marginBottom: 4, background: '#12122A', borderRadius: 8, borderLeft: '3px solid #3B82F6', cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => toggleCat(j.catKey)}>
               <span style={{ fontSize: 18 }}>{j.catIcon}</span>
               <span style={{ fontSize: 14, fontWeight: 800, color: '#E5E7EB', letterSpacing: 0.3 }}>{j.catLabel}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', background: '#1E3A5F', padding: '2px 8px', borderRadius: 10 }}>
                 {filtered.filter(x => x.catKey === j.catKey).length} job{filtered.filter(x => x.catKey === j.catKey).length !== 1 ? 's' : ''}
               </span>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#4B5563' }}>{collapsed.has(j.catKey) ? '▶' : '▼'}</span>
             </div>
           )}
-          <div key={i} style={{
-          display: 'grid',
-          gridTemplateColumns: '28px 1fr 70px 110px 160px 100px 65px 110px',
-          alignItems: 'center',
-          gap: 8,
-          padding: '9px 12px',
-          borderRadius: 8,
-          marginBottom: 4,
-          background: '#0D0D1A',
-          border: `1px solid ${j.hasPendingFindings ? '#92400E' : '#1E1E32'}`,
-          cursor: 'pointer',
-        }}
-          onClick={() => openVehicle(j.vehicleId)}
-          onMouseEnter={(e: any) => e.currentTarget.style.background = '#12122A'}
-          onMouseLeave={(e: any) => e.currentTarget.style.background = '#0D0D1A'}>
+          {!collapsed.has(j.catKey) && <div key={i} style={{
+            display: 'grid',
+            gridTemplateColumns: '180px 1fr 70px 100px 65px 110px',
+            alignItems: 'center',
+            gap: 8,
+            padding: '9px 12px',
+            borderRadius: 8,
+            marginBottom: 4,
+            background: '#0D0D1A',
+            border: `1px solid ${j.hasPendingFindings ? '#92400E' : '#1E1E32'}`,
+            cursor: 'pointer',
+          }}
+            onClick={() => openVehicle(j.vehicleId)}
+            onMouseEnter={(e: any) => e.currentTarget.style.background = '#12122A'}
+            onMouseLeave={(e: any) => e.currentTarget.style.background = '#0D0D1A'}>
 
-          {/* Category icon */}
-          <span style={{ fontSize: 18 }}>{j.catIcon}</span>
+            {/* Vendor — first and prominent */}
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vendor}</span>
 
-          {/* Vehicle */}
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {j.vehicleLabel}
+            {/* Vehicle */}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vehicleLabel}</div>
+              <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vin8} · {j.buyer || '—'}</div>
             </div>
-            <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vin8} · {j.buyer || '—'}</div>
-          </div>
 
-          {/* Location */}
-          <span style={{ fontSize: 12, color: '#9CA3AF' }}>📍 {j.location}</span>
+            {/* Location */}
+            <span style={{ fontSize: 12, color: '#9CA3AF' }}>📍 {j.location}</span>
 
-          {/* Category */}
-          <span style={{ fontSize: 12, color: '#93C5FD', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.catLabel}</span>
+            {/* Pending findings flag */}
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>
+              {j.hasPendingFindings ? '🔍 Findings' : ''}
+            </span>
 
-          {/* Vendor */}
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vendor}</span>
+            {/* Bid */}
+            <span style={{ fontSize: 13, fontWeight: 700, color: j.bid > 0 ? '#FBBF24' : '#4B5563', textAlign: 'right' }}>
+              {j.bid > 0 ? `$${j.bid.toLocaleString()}` : '—'}
+            </span>
 
-          {/* Pending findings flag */}
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>
-            {j.hasPendingFindings ? '🔍 Findings' : ''}
-          </span>
-
-          {/* Bid */}
-          <span style={{ fontSize: 13, fontWeight: 700, color: j.bid > 0 ? '#FBBF24' : '#4B5563', textAlign: 'right' }}>
-            {j.bid > 0 ? `$${j.bid.toLocaleString()}` : '—'}
-          </span>
-
-          {/* Status badge */}
-          <span style={S.badge(j.status)}>{j.status}</span>
-        </div>
+            {/* Status badge */}
+            <span style={S.badge(j.status)}>{j.status}</span>
+          </div>}
         </>);
       })}
     </div>

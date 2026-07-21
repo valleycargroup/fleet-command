@@ -135,10 +135,12 @@ export const useStore = create<any>((set, get) => ({
   deliveredCount: 0,
   deliveredLoaded: false,
   returnTab: null as string|null,
+  jobsFilters: { vendor: 'All', cat: 'All', status: 'Active', loc: 'All', search: '' } as { vendor: string; cat: string; status: string; loc: string; search: string },
 
   setTab: (tab: string) => set({ tab, selV: null, returnTab: null }),
   setSelV: (selV: any) => set({ selV }),
   setReturnTab: (returnTab: string|null) => set({ returnTab }),
+  setJobsFilters: (jobsFilters: { vendor: string; cat: string; status: string; loc: string }) => set({ jobsFilters }),
   setFLoc: (fLoc: string) => set({ fLoc }),
   setSearch: (search: string) => set({ search }),
   setShowAdd: (showAdd: boolean) => set({ showAdd }),

@@ -240,10 +240,7 @@ function App() {
       :tab==="vendors"?<VendorsPage/>
       :(tab==="active"||tab==="delivered")?<div style={{height:"calc(100vh - 120px)",overflow:"auto"}}>
         {selV
-          ? <>{returnTab&&<div style={{padding:"6px 12px",background:"#0D0D1A",borderBottom:"1px solid #1E1E32"}}>
-              <button style={{background:"none",border:"none",color:"#3B82F6",cursor:"pointer",fontSize:13,fontWeight:600,padding:0}} onClick={()=>{setTab(returnTab);setReturnTab(null);}}>← Back to {returnTab==="jobs"?"Jobs":returnTab}</button>
-            </div>}
-            <VehicleDetail key={selV.id}/></>
+          ? <VehicleDetail key={selV.id}/>
           : <>
               {tab==="delivered"&&<div style={{padding:"8px 12px",background:"#0D3B1E",borderBottom:"1px solid #166534",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Delivered Vehicles</span></div>}
               <VehicleTable/>
