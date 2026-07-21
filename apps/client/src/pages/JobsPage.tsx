@@ -17,25 +17,26 @@ type Job = {
   hasPendingFindings: boolean;
 };
 
-function jobStatus(vn: any, taskStatus: string): string {
+function jobStatus(vn: any, taskStatus: string, hasPendingFindings: boolean): string {
   if (vn.canceled) return 'Canceled';
   if (taskStatus === 'complete') return 'Complete';
+  if (hasPendingFindings) return 'Awaiting Approval';
   if (vn.bidLocked && vn.etaDone) return 'In Progress';
   if (vn.bidLocked) return 'Accepted';
-  if (vn.bidSubmitted) return 'Bid Submitted';
+  if (vn.bidSubmitted) return 'Awaiting Approval';
   if (vn.selected) return 'Bid Requested';
   return 'Assigned';
 }
 
-const STATUS_ORDER = ['In Progress','Bid Submitted','Bid Requested','Assigned','Accepted','Complete','Canceled'];
+const STATUS_ORDER = ['Awaiting Approval','In Progress','Bid Requested','Assigned','Accepted','Complete','Canceled'];
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  'Complete':      { bg: '#0A2E18', color: '#34D399' },
-  'In Progress':   { bg: '#1E3A5F', color: '#93C5FD' },
-  'Accepted':      { bg: '#1E3A5F', color: '#60A5FA' },
-  'Bid Submitted': { bg: '#1E1800', color: '#F59E0B' },
-  'Bid Requested': { bg: '#1A1A2E', color: '#9CA3AF' },
-  'Assigned':      { bg: '#1A1A2E', color: '#6B7280' },
-  'Canceled':      { bg: '#1A0808', color: '#F87171' },
+  'Complete':          { bg: '#0A2E18', color: '#34D399' },
+  'In Progress':       { bg: '#1E3A5F', color: '#93C5FD' },
+  'Accepted':          { bg: '#1E3A5F', color: '#60A5FA' },
+  'Awaiting Approval': { bg: '#2D1500', color: '#FB923C' },
+  'Bid Requested':     { bg: '#1A1A2E', color: '#9CA3AF' },
+  'Assigned':          { bg: '#1A1A2E', color: '#6B7280' },
+  'Canceled':          { bg: '#1A0808', color: '#F87171' },
 };
 
 const S: any = {
@@ -95,10 +96,10 @@ export function JobsPage() {
             catLabel: cat.label,
             catIcon: cat.icon,
             vendor: vn.name,
-            status: jobStatus(vn, task.status),
+            status: jobStatus(vn, task.status, hasPendingFindings),
             bid,
             fullVin: v.fullVin || '',
-          hasPendingFindings,
+            hasPendingFindings,
           });
         });
       });
@@ -114,7 +115,7 @@ export function JobsPage() {
     return { jobs, vendors: ['All', ...Array.from(vendorSet).sort()], buyers: ['All', ...Array.from(buyerSet).sort()], statCounts };
   }, [vehicles]);
 
-  const ACTIVE_STATUSES = new Set(['In Progress','Bid Submitted','Bid Requested','Assigned','Accepted']);
+  const ACTIVE_STATUSES = new Set(['Awaiting Approval','In Progress','Bid Requested','Assigned','Accepted']);
   const filtered = useMemo(() => {
     const q = fSearch.toLowerCase();
     const f = jobs.filter(j => {
@@ -141,7 +142,7 @@ export function JobsPage() {
     if (v) { setTab('active'); setReturnTab('jobs'); setSelV(v); }
   };
 
-  const activeCount   = (statCounts['In Progress'] || 0) + (statCounts['Bid Submitted'] || 0) + (statCounts['Bid Requested'] || 0) + (statCounts['Assigned'] || 0);
+  const activeCount   = (statCounts['Awaiting Approval'] || 0) + (statCounts['In Progress'] || 0) + (statCounts['Bid Requested'] || 0) + (statCounts['Assigned'] || 0);
   const acceptedCount = statCounts['Accepted'] || 0;
   const completeCount = statCounts['Complete'] || 0;
   const canceledCount = statCounts['Canceled'] || 0;
