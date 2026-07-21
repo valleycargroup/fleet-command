@@ -47,8 +47,9 @@ const S: any = {
 
 export function JobsPage() {
   const vehicles = useStore((s: any) => s.vehicles);
-  const setSelV  = useStore((s: any) => s.setSelV);
-  const setTab   = useStore((s: any) => s.setTab);
+  const setSelV     = useStore((s: any) => s.setSelV);
+  const setTab      = useStore((s: any) => s.setTab);
+  const setReturnTab = useStore((s: any) => s.setReturnTab);
 
   const [fVendor, setFVendor] = useState('All');
   const [fCat,    setFCat]    = useState('All');
@@ -117,7 +118,7 @@ export function JobsPage() {
 
   const openVehicle = (vehicleId: string) => {
     const v = vehicles.find((x: any) => x.id === vehicleId);
-    if (v) { setTab('active'); setSelV(v); }
+    if (v) { setTab('active'); setReturnTab('jobs'); setSelV(v); }
   };
 
   const activeCount   = (statCounts['In Progress'] || 0) + (statCounts['Bid Submitted'] || 0) + (statCounts['Bid Requested'] || 0) + (statCounts['Assigned'] || 0);

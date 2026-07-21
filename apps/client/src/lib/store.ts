@@ -134,9 +134,11 @@ export const useStore = create<any>((set, get) => ({
   pendingDeepLink: (()=>{try{const p=new URLSearchParams(window.location.search);const vid=p.get("vehicle");const vcat=p.get("cat");return vid?{vid,vcat}:null;}catch(e){return null;}})(),
   deliveredCount: 0,
   deliveredLoaded: false,
+  returnTab: null as string|null,
 
-  setTab: (tab: string) => set({ tab, selV: null }),
+  setTab: (tab: string) => set({ tab, selV: null, returnTab: null }),
   setSelV: (selV: any) => set({ selV }),
+  setReturnTab: (returnTab: string|null) => set({ returnTab }),
   setFLoc: (fLoc: string) => set({ fLoc }),
   setSearch: (search: string) => set({ search }),
   setShowAdd: (showAdd: boolean) => set({ showAdd }),

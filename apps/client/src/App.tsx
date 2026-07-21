@@ -46,7 +46,8 @@ function App() {
   const apiReady = useStore(s => s.apiReady);
   const loading = useStore(s => s.loading);
   const csvUploading = useStore(s => s.csvUploading);
-  const { loadData, handleLogout, handleCSVUpload, showConfirm, loadDelivered } = useStore(s => s);
+  const returnTab = useStore(s => s.returnTab);
+  const { loadData, handleLogout, handleCSVUpload, showConfirm, loadDelivered, setReturnTab } = useStore(s => s);
   const csvRef = useRef(null as any);
   const [showImportCrm, setShowImportCrm] = useState(false);
 
@@ -239,7 +240,10 @@ function App() {
       :tab==="vendors"?<VendorsPage/>
       :(tab==="active"||tab==="delivered")?<div style={{height:"calc(100vh - 120px)",overflow:"auto"}}>
         {selV
-          ? <VehicleDetail key={selV.id}/>
+          ? <>{returnTab&&<div style={{padding:"6px 12px",background:"#0D0D1A",borderBottom:"1px solid #1E1E32"}}>
+              <button style={{background:"none",border:"none",color:"#3B82F6",cursor:"pointer",fontSize:13,fontWeight:600,padding:0}} onClick={()=>{setTab(returnTab);setReturnTab(null);}}>← Back to {returnTab==="jobs"?"Jobs":returnTab}</button>
+            </div>}
+            <VehicleDetail key={selV.id}/></>
           : <>
               {tab==="delivered"&&<div style={{padding:"8px 12px",background:"#0D3B1E",borderBottom:"1px solid #166534",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,color:"#34D399",fontWeight:700}}>✅ Delivered Vehicles</span></div>}
               <VehicleTable/>
