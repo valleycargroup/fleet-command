@@ -358,25 +358,22 @@ if(typeof fireEmail==="function"&&vehicle){const items=(vn.lineItems||[]).map((x
 {vn.bidLocked&&<div style={{marginTop:6}}><div style={{...S.badge,background:"#78590A",color:"#FDE68A",padding:"6px 12px",display:"inline-block"}}>🔒 BID ${(lt+(vn.bidAdjustment||0)).toLocaleString()}</div>
 {(()=>{
   const vfList=vn.vendorFindings||[];
-  const newFindings=vfList.filter((x: any)=>!x.prevSubmitted);
-  const allNewReady=newFindings.length>0&&newFindings.every((x: any)=>x.desc&&x.price>0);
-  const newTotal=newFindings.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
-  const prevFindingsTotal=vfList.filter((x: any)=>x.prevSubmitted&&!x.declined).reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
+  const allReady=vfList.length>0&&vfList.every((x: any)=>x.desc&&x.price>0);
+  const findingsTotal=vfList.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);
   const bidAmt=lt+(vn.bidAdjustment||0);
-  const findingsAmt=prevFindingsTotal+newTotal;
-  const overallTotal=bidAmt+findingsAmt;
-  if(newFindings.length===0||vn.findingsSubmitted)return null;
-  return <button style={{...S.btn,width:"100%",background:"#92400E",color:"#FDE68A",padding:"10px 12px",marginTop:8,fontWeight:700,border:"2px solid #F59E0B",opacity:allNewReady?1:0.4,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} disabled={!allNewReady}
+  const overallTotal=bidAmt+findingsTotal;
+  if(vfList.length===0||vn.findingsSubmitted)return null;
+  return <button style={{...S.btn,width:"100%",background:"#92400E",color:"#FDE68A",padding:"10px 12px",marginTop:8,fontWeight:700,border:"2px solid #F59E0B",opacity:allReady?1:0.4,display:"flex",flexDirection:"column",alignItems:"center",gap:2}} disabled={!allReady}
     onClick={()=>{
-      if(!allNewReady){notify&&notify("⚠️ New findings need description and price");return;}
+      if(!allReady){notify&&notify("⚠️ All findings need a description and price");return;}
       const markedFindings=vfList.map((x: any)=>({...x,prevSubmitted:true}));
       onUpdVendor(vn.id,{findingsSubmitted:true,findingsSubmittedDate:new Date().toISOString().split("T")[0],vendorFindings:markedFindings});
-      if(typeof fireEmail==="function"&&vehicle){const origItems=(vn.lineItems||[]).filter((x: any)=>x.accepted);const origTotal=origItems.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);fireEmail("buyer_bid_submitted",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label+" — FINDINGS",categoryKey:cat.key,lineItems:[...origItems.map((x: any)=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...newFindings.map((x: any)=>({desc:"🔍 "+x.desc,price:x.price,costType:"ws"}))],totalBid:origTotal+newTotal});}
-      notify&&notify(`🔍 ${newFindings.length} finding${newFindings.length!==1?"s":""} submitted — $${newTotal.toLocaleString()} pending review`);
+      if(typeof fireEmail==="function"&&vehicle){const origItems=(vn.lineItems||[]).filter((x: any)=>x.accepted);const origTotal=origItems.reduce((s: any,x: any)=>s+(Number(x.price)||0),0);fireEmail("buyer_bid_submitted",{buyer:vehicle.buyingBroker||"Buyer",vendor:{name:vn.name},vehicle:vData(vehicle),category:cat.label+" — FINDINGS",categoryKey:cat.key,lineItems:[...origItems.map((x: any)=>({desc:x.desc,price:x.price,costType:x.costType||"ws"})),...vfList.map((x: any)=>({desc:"🔍 "+x.desc,price:x.price,costType:"ws"}))],totalBid:origTotal+findingsTotal});}
+      notify&&notify(`🔍 ${vfList.length} finding${vfList.length!==1?"s":""} submitted — $${findingsTotal.toLocaleString()} pending review`);
       setExp(false);
     }}>
-    <span style={{fontSize:14}}>🔍 Submit {newFindings.length} New Finding{newFindings.length!==1?"s":""} (+${newTotal.toLocaleString()})</span>
-    <span style={{fontSize:11,opacity:0.85,fontWeight:400}}>Bid ${bidAmt.toLocaleString()} + Findings ${findingsAmt.toLocaleString()} = ${overallTotal.toLocaleString()}</span>
+    <span style={{fontSize:14}}>🔍 Submit {vfList.length} Finding{vfList.length!==1?"s":""} — ${findingsTotal.toLocaleString()}</span>
+    <span style={{fontSize:11,opacity:0.85,fontWeight:400}}>Bid ${bidAmt.toLocaleString()} + Findings ${findingsTotal.toLocaleString()} = ${overallTotal.toLocaleString()}</span>
   </button>;
 })()}
 {vn.findingsSubmitted&&<div style={{fontSize:12,color:"#F59E0B",marginTop:4}}>🔍 Findings submitted {fmtDate(vn.findingsSubmittedDate)}</div>}
