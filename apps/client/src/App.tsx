@@ -205,16 +205,19 @@ function App() {
       </div>
     </header>
     <div style={{...S.bar,flexWrap:isMobile?"wrap":"nowrap"}}>
-      <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none",paddingBottom:2,flex:isMobile?"1 1 100%":"none"}}>
-        <button style={tab==="active"?S.tOn:S.tOff} onClick={()=>setTab("active")}>Inventory</button>
-        {!isVendor&&<button style={tab==="delivered"?S.tOn:S.tOff} onClick={()=>{setTab("delivered");loadDelivered();}}>Delivered {stats.delivered>0&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:10,background:"#166534",color:"#34D399",marginLeft:4}}>{stats.delivered}</span>}</button>}
-        {!isVendor&&<button style={tab==="vendors"?S.tOn:S.tOff} onClick={()=>setTab("vendors")}>Vendors</button>}
-        {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ {!isMobile&&"Register"}</button>}
-        {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 {!isMobile&&"Reports"}</button>}
-        {isAdmin&&<button style={tab==="jobs"?S.tOn:S.tOff} onClick={()=>setTab("jobs")}>🔧 {!isMobile&&"Jobs"}</button>}
-        {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 {!isMobile&&"Payment Queue"}</button>}
-        {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 {!isMobile&&"Dealers"}</button>}
-        {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 {!isMobile&&"Email Log"}</button>}
+      <div style={{position:"relative",flex:isMobile?"1 1 100%":"none",minWidth:0}}>
+        <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none",paddingBottom:2}}>
+          <button style={tab==="active"?S.tOn:S.tOff} onClick={()=>setTab("active")}>Inventory</button>
+          {!isVendor&&<button style={tab==="delivered"?S.tOn:S.tOff} onClick={()=>{setTab("delivered");loadDelivered();}}>Delivered {stats.delivered>0&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:10,background:"#166534",color:"#34D399",marginLeft:4}}>{stats.delivered}</span>}</button>}
+          {!isVendor&&<button style={tab==="vendors"?S.tOn:S.tOff} onClick={()=>setTab("vendors")}>Vendors</button>}
+          {isAdmin&&<button style={tab==="register"?S.tOn:S.tOff} onClick={()=>setTab("register")}>⚙️ {isMobile?"Reg":"Register"}</button>}
+          {isAdmin&&<button style={tab==="reports"?S.tOn:S.tOff} onClick={()=>setTab("reports")}>📊 Reports</button>}
+          {isAdmin&&<button style={tab==="jobs"?S.tOn:S.tOff} onClick={()=>setTab("jobs")}>🔧 Jobs</button>}
+          {(isAdmin||isAP)&&<button style={tab==="payments"?S.tOn:S.tOff} onClick={()=>setTab("payments")}>💸 {isMobile?"Pay":"Payment Queue"}</button>}
+          {isAdmin&&<button style={tab==="dealers"?S.tOn:S.tOff} onClick={()=>setTab("dealers")}>🏢 Dealers</button>}
+          {(isAdmin||isTechSupport)&&<button style={tab==="emaillog"?S.tOn:S.tOff} onClick={()=>setTab("emaillog")}>📧 {isMobile?"Emails":"Email Log"}</button>}
+        </div>
+        {isMobile&&<div style={{position:"absolute",top:0,right:0,bottom:0,width:32,background:"linear-gradient(to right, transparent, #0A0A1A)",pointerEvents:"none"}}/>}
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flex:isMobile?"1 1 100%":"none"}}>
         <div style={{position:"relative",flex:isMobile?"1 1 100%":"none"}}>

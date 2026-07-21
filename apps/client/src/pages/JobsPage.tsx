@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { VCAT } from '../lib/constants';
 import { useStore } from '../lib/store';
+import { useIsMobile } from '../lib/useIsMobile';
 
 function SearchSelect({ value, onChange, options, allLabel, labels }: { value: string; onChange: (v: string) => void; options: string[]; allLabel: string; labels?: Record<string, string> }) {
   const [open, setOpen] = useState(false);
@@ -92,6 +93,7 @@ const S: any = {
 };
 
 export function JobsPage() {
+  const isMobile   = useIsMobile();
   const vehicles = useStore((s: any) => s.vehicles);
   const allUsers  = useStore((s: any) => s.allUsers);
   const setSelV       = useStore((s: any) => s.setSelV);
@@ -220,7 +222,7 @@ export function JobsPage() {
               onMouseEnter={(e: any) => e.currentTarget.style.background = '#1A1A2E'}
               onMouseLeave={(e: any) => e.currentTarget.style.background = active ? '#12122A' : '#0D0D1A'}
               style={{ ...S.stat, cursor: 'pointer', background: active ? '#12122A' : '#0D0D1A', ...(active ? { border: `1px solid ${color}` } : {}), borderBottom: `3px solid ${color}`, transition: 'background 0.15s' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
+              <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color }}>{value}</div>
               <div style={{ fontSize: 10, color: active ? color : '#6B7280', textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
             </div>
           );
@@ -287,45 +289,65 @@ export function JobsPage() {
             </div>
           )}
           {!collapsed.has(j.catKey) && <div key={i} style={{
-            display: 'grid',
-            gridTemplateColumns: '180px 1fr 70px 100px 65px 110px',
-            alignItems: 'center',
-            gap: 8,
             padding: '9px 12px',
             borderRadius: 8,
             marginBottom: 4,
             background: '#0D0D1A',
             border: `1px solid ${j.hasPendingFindings ? '#92400E' : '#1E1E32'}`,
             cursor: 'pointer',
+            ...(isMobile ? {} : {
+              display: 'grid',
+              gridTemplateColumns: '180px 1fr 70px 100px 65px 110px',
+              alignItems: 'center',
+              gap: 8,
+            }),
           }}
             onClick={() => openVehicle(j.vehicleId, j.catKey)}
             onMouseEnter={(e: any) => e.currentTarget.style.background = '#12122A'}
             onMouseLeave={(e: any) => e.currentTarget.style.background = '#0D0D1A'}>
 
-            {/* Vendor — first and prominent */}
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vendor}</span>
+            {isMobile ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#E5E7EB' }}>{j.vendor}</span>
+                  <span style={S.badge(j.status)}>{j.status}</span>
+                </div>
+                <div style={{ fontSize: 13, color: '#CBD5E1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.vehicleLabel}</div>
+                <div style={{ fontSize: 11, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>{j.fullVin} · {j.buyer || '—'}</div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 12 }}>
+                  <span style={{ color: '#9CA3AF' }}>📍 {j.location}</span>
+                  {j.hasPendingFindings && <span style={{ fontWeight: 700, color: '#F59E0B' }}>🔍 Findings</span>}
+                  {j.bid > 0 && <span style={{ fontWeight: 700, color: '#FBBF24', marginLeft: 'auto' }}>${j.bid.toLocaleString()}</span>}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Vendor — first and prominent */}
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#E5E7EB', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vendor}</span>
 
-            {/* Vehicle */}
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vehicleLabel}</div>
-              <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.fullVin} · {j.buyer || '—'}</div>
-            </div>
+                {/* Vehicle */}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.vehicleLabel}</div>
+                  <div style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.fullVin} · {j.buyer || '—'}</div>
+                </div>
 
-            {/* Location */}
-            <span style={{ fontSize: 12, color: '#9CA3AF' }}>📍 {j.location}</span>
+                {/* Location */}
+                <span style={{ fontSize: 12, color: '#9CA3AF' }}>📍 {j.location}</span>
 
-            {/* Pending findings flag */}
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>
-              {j.hasPendingFindings ? '🔍 Findings' : ''}
-            </span>
+                {/* Pending findings flag */}
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>
+                  {j.hasPendingFindings ? '🔍 Findings' : ''}
+                </span>
 
-            {/* Bid */}
-            <span style={{ fontSize: 13, fontWeight: 700, color: j.bid > 0 ? '#FBBF24' : '#4B5563', textAlign: 'right' }}>
-              {j.bid > 0 ? `$${j.bid.toLocaleString()}` : '—'}
-            </span>
+                {/* Bid */}
+                <span style={{ fontSize: 13, fontWeight: 700, color: j.bid > 0 ? '#FBBF24' : '#4B5563', textAlign: 'right' }}>
+                  {j.bid > 0 ? `$${j.bid.toLocaleString()}` : '—'}
+                </span>
 
-            {/* Status badge */}
-            <span style={S.badge(j.status)}>{j.status}</span>
+                {/* Status badge */}
+                <span style={S.badge(j.status)}>{j.status}</span>
+              </>
+            )}
           </div>}
         </>);
       })}
