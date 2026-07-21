@@ -164,7 +164,9 @@ export function JobsPage() {
           return (
             <div key={label}
               onClick={() => setFStatus(active ? 'All' : filter)}
-              style={{ ...S.stat, cursor: 'pointer', outline: active ? `2px solid ${color}` : 'none', outlineOffset: 2 }}>
+              onMouseEnter={(e: any) => e.currentTarget.style.background = '#1A1A2E'}
+              onMouseLeave={(e: any) => e.currentTarget.style.background = active ? '#12122A' : '#0D0D1A'}
+              style={{ ...S.stat, cursor: 'pointer', background: active ? '#12122A' : '#0D0D1A', borderColor: active ? color : '#1E1E32', borderBottomWidth: 3, borderBottomColor: color, transition: 'background 0.15s' }}>
               <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
               <div style={{ fontSize: 10, color: active ? color : '#6B7280', textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
             </div>
