@@ -225,6 +225,18 @@ router.post('/send', async (req: Request, res: Response) => {
 
     let recipients = await resolveRecipients(type, d, to ?? null);
 
+    // Strip non-routable / test email addresses before sending
+    const FAKE_TLDS = ['.local', '.test', '.internal', '.example', '.invalid', '.localhost'];
+    const filtered = recipients.filter(r => {
+      const domain = (r.split('@')[1] || '').toLowerCase();
+      return domain.includes('.') && !FAKE_TLDS.some(tld => domain.endsWith(tld));
+    });
+    if (filtered.length < recipients.length) {
+      const skipped = recipients.filter(r => !filtered.includes(r));
+      console.log('[email-send] skipping non-routable addresses:', skipped.join(', '));
+      recipients = filtered;
+    }
+
     // CC all admins based on per-category settings
     try {
       const ccRow = await db.raw(`SELECT value FROM site_settings WHERE key = 'cc_admins_categories' LIMIT 1`);
