@@ -1,6 +1,50 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { VCAT } from '../lib/constants';
 import { useStore } from '../lib/store';
+
+function SearchSelect({ value, onChange, options, allLabel }: { value: string; onChange: (v: string) => void; options: string[]; allLabel: string }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const filtered = options.filter(o => o === 'All' || o.toLowerCase().includes(q.toLowerCase()));
+  const label = value === 'All' ? allLabel : value;
+  const isActive = value !== 'All';
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => { setOpen(o => !o); setQ(''); }}
+        style={{ background: '#12122A', border: `1px solid ${isActive ? '#F59E0B' : '#2A2A3E'}`, color: isActive ? '#FDE68A' : '#E5E7EB', borderRadius: 6, padding: '6px 10px', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        {label} ▾
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 4, background: '#12122A', border: '1px solid #2A2A3E', borderRadius: 8, minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+          <input autoFocus value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Search..."
+            style={{ width: '100%', boxSizing: 'border-box', background: '#0D0D1A', border: 'none', borderBottom: '1px solid #2A2A3E', color: '#E5E7EB', padding: '8px 10px', fontSize: 13, borderRadius: '8px 8px 0 0', outline: 'none' }} />
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {filtered.map(o => (
+              <div key={o} onClick={() => { onChange(o); setOpen(false); }}
+                style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: o === value ? '#FDE68A' : '#E5E7EB', background: o === value ? '#1E1E3A' : 'transparent' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#1A1A2E')}
+                onMouseLeave={e => (e.currentTarget.style.background = o === value ? '#1E1E3A' : 'transparent')}>
+                {o === 'All' ? allLabel : o}
+              </div>
+            ))}
+            {filtered.length === 0 && <div style={{ padding: '8px 12px', fontSize: 12, color: '#4B5563' }}>No matches</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Job = {
   vehicleId: string;
@@ -188,9 +232,7 @@ export function JobsPage() {
         const act = (active: boolean) => active ? { ...S.sel, borderColor: '#F59E0B', color: '#FDE68A' } : S.sel;
         return (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select style={act(fVendor !== 'All')} value={fVendor} onChange={(e: any) => setFVendor(e.target.value)}>
-              {vendors.map(v => <option key={v} value={v}>{v === 'All' ? 'All Vendors' : v}</option>)}
-            </select>
+            <SearchSelect value={fVendor} onChange={setFVendor} options={vendors} allLabel="All Vendors" />
             <select style={act(fCat !== 'All')} value={fCat} onChange={(e: any) => setFCat(e.target.value)}>
               <option value="All">All Categories</option>
               {VCAT.map(c => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
@@ -205,9 +247,7 @@ export function JobsPage() {
               <option value="PHX">PHX</option>
               <option value="Dallas">Dallas</option>
             </select>
-            <select style={act(fBuyer !== 'All')} value={fBuyer} onChange={(e: any) => setFBuyer(e.target.value)}>
-              {buyers.map(b => <option key={b} value={b}>{b === 'All' ? 'All Buyers' : b}</option>)}
-            </select>
+            <SearchSelect value={fBuyer} onChange={setFBuyer} options={buyers} allLabel="All Buyers" />
             <input
               style={{ ...act(!!fSearch), minWidth: 180, flex: 1 }}
               placeholder="Search vendor, vehicle, VIN..."
